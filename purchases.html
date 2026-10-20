@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#202321">
+  <title>Calc3D · Compras e inventario de prueba</title>
+  <link rel="stylesheet" href="./src/purchases.css">
+  <script type="module" src="./src/purchases-app.mjs"></script>
+</head>
+<body class="purchases">
+  <header class="purchase-top"><a href="./index.html">← Volver a la calculadora</a><span>calc<strong>3D</strong> / TALLER</span></header>
+  <main class="purchase-shell">
+    <div class="purchase-intro"><div><p class="overline">ADQUISICIONES / CHILE</p><h1>Compras e inventario <em>de prueba.</em></h1><p>Registra bobinas adquiridas, consulta el historial y revisa cada bobina por separado.</p></div><p class="intro-aside">Una compra existe solo al presionar <strong>Guardar compra de prueba</strong>. Editar o agregar líneas no guarda nada.</p></div>
+    <p class="purchase-notice" role="note">Demo guardada solo en este navegador. No es una base de datos de producción, respaldo ni sistema con autenticación. Inventario adquirido de prueba: todavía no descuenta impresiones/consumos; el peso mostrado es inicial, no existencias reales.</p>
+    <div class="purchase-grid">
+      <form id="purchase-form" novalidate aria-labelledby="entry-heading">
+        <div class="section-title"><span>01 / ENTRADA</span><h2 id="entry-heading">Nueva compra</h2></div>
+        <div class="purchase-fields">
+          <label>Fecha de compra<input name="date" type="date" required></label>
+          <label>Lugar o proveedor<input name="name" type="text" required autocomplete="organization"></label>
+          <label>Dirección (opcional)<input name="address" type="text" autocomplete="street-address"></label>
+          <label>Teléfono (opcional)<input name="phone" type="tel" autocomplete="tel"></label>
+        </div>
+        <div class="section-title line-title"><span>02 / INSUMOS</span><h2>Bobinas compradas</h2></div>
+        <p class="muted">Cantidad = número de bobinas de esta línea. Precio en CLP y peso neto en gramos son <strong>por bobina</strong>. Límite técnico: 1000 bobinas por compra.</p>
+        <div id="purchase-lines"></div>
+        <button id="add-line" type="button" class="secondary">Agregar otra línea</button>
+        <label class="notes-label">Notas (opcional)<textarea name="notes" rows="3"></textarea></label>
+        <p id="purchase-error" class="error" role="alert" tabindex="-1" hidden></p>
+        <div id="purchase-preview" role="status" aria-live="polite"></div>
+        <button id="purchase-save" class="primary" type="submit">Guardar compra de prueba</button>
+        <p id="purchase-feedback" role="status" aria-live="polite"></p>
+      </form>
+      <aside class="saved" aria-label="Registros de prueba">
+        <section aria-labelledby="history-heading"><div class="section-title"><span>03 / HISTORIAL</span><h2 id="history-heading">Compras guardadas</h2></div><p id="storage-error" class="error" role="alert" hidden></p><div id="purchase-history"></div></section>
+        <section aria-labelledby="inventory-heading"><div class="section-title"><span>04 / INVENTARIO</span><h2 id="inventory-heading">Bobinas adquiridas</h2></div><p class="muted">Peso inicial de compra; no es saldo después de impresiones.</p><div id="purchase-inventory"></div></section>
+      </aside>
+    </div>
+  </main>
+  <template id="line-template"><fieldset class="purchase-line"><legend></legend><div class="purchase-fields"><label>Material<input name="material" type="text" required></label><label>Marca<input name="brand" type="text" required></label><label>Color<input name="color" type="text" required></label><label>Cantidad · bobinas<input name="quantity" type="number" inputmode="numeric" min="1" step="1" required></label><label>Peso neto por bobina · g<input name="netWeightGrams" type="number" inputmode="decimal" min="0" step="any" required></label><label>Precio por bobina · CLP<input name="purchasePrice" type="number" inputmode="numeric" min="0" step="1" required></label></div><button class="secondary remove-line" type="button">Quitar línea</button></fieldset></template>
+</body>
+</html>
