@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#202321">
+  <title>Calc3D · Calculadora de impresión 3D</title>
+  <link rel="stylesheet" href="./src/styles.css">
+  <script type="module" src="./src/app.mjs"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="#inicio">calc<span>3D</span></a><span>Estudio de costos · Chile</span></header>
+  <main id="inicio" class="shell">
+    <div class="intro"><p class="eyebrow">TALLER / ESTIMACIÓN</p><h1>Calcula con claridad.<br><em>Decide qué guardar.</em></h1><p>Simula el costo de una impresión y, si es una venta, su precio. Nada se registra hasta que presiones Guardar.</p></div>
+    <p class="notice" role="note">Prototipo: datos de prueba guardados solo en este navegador; sin base de datos ni usuarios reales. No registra compras ni descuenta inventario.</p>
+    <div class="workspace">
+      <form id="quote-form" novalidate>
+        <section aria-labelledby="work-heading"><div class="section-head"><span>01 / Trabajo</span><h2 id="work-heading">Punto de partida</h2></div>
+          <div class="fields"><label class="wide" for="title">Nombre del trabajo<input id="title" name="title" type="text" maxlength="120" required value="Soporte de escritorio · ejemplo"></label>
+          <label for="purpose">Propósito<select id="purpose" name="purpose"><option value="sale">Venta</option><option value="internal">Uso interno / personal</option></select></label>
+          <p class="hint wide">El trabajo familiar o de regalo requiere definir su política de cobro; todavía no está disponible.</p></div>
+        </section>
+        <section aria-labelledby="material-heading"><div class="section-head"><span>02 / Material</span><h2 id="material-heading">Bobina y consumo</h2></div>
+          <div class="fields"><label class="wide" for="spoolId">Bobina ficticia de ejemplo<select id="spoolId" name="spoolId"></select></label>
+          <label for="purchasePrice">Precio de compra · CLP<input id="purchasePrice" name="purchasePrice" type="number" inputmode="decimal" min="0" step="any" required></label>
+          <label for="netWeightGrams">Peso neto · g<input id="netWeightGrams" name="netWeightGrams" type="number" inputmode="decimal" min="0.001" step="any" required></label>
+          <label class="wide" for="grams">Gramos consumidos · g<input id="grams" name="grams" type="number" inputmode="decimal" min="0" step="any" required value="74"><small>Incluye soportes, purga y desperdicio estimado.</small></label></div>
+        </section>
+        <section aria-labelledby="machine-heading"><div class="section-head"><span>03 / Producción</span><h2 id="machine-heading">Tiempo y energía</h2></div>
+          <div class="fields"><label for="hours">Horas<input id="hours" name="hours" type="number" inputmode="numeric" min="0" step="1" required value="3"></label>
+          <label for="minutes">Minutos · 0–59<input id="minutes" name="minutes" type="number" inputmode="numeric" min="0" max="59" step="1" required value="25"></label>
+          <label for="watts">Potencia estimada · W<input id="watts" name="watts" type="number" inputmode="decimal" min="0" step="any" required value="145"></label>
+          <label for="electricityPricePerKwh">Tarifa eléctrica · CLP/kWh<input id="electricityPricePerKwh" name="electricityPricePerKwh" type="number" inputmode="decimal" min="0" step="any" required value="215"></label></div>
+          <details><summary>Agregar otros costos de producción</summary><div class="fields detail-fields">
+            <label for="depreciationPerHour">Depreciación · CLP/h<input id="depreciationPerHour" name="depreciationPerHour" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
+            <label for="maintenancePerHour">Mantención · CLP/h<input id="maintenancePerHour" name="maintenancePerHour" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
+            <label for="laborMinutes">Tiempo de trabajo · min<input id="laborMinutes" name="laborMinutes" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
+            <label for="laborRatePerHour">Tarifa de trabajo · CLP/h<input id="laborRatePerHour" name="laborRatePerHour" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
+            <label class="wide" for="extraProductionCost">Otros costos de producción · CLP<input id="extraProductionCost" name="extraProductionCost" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
+          </div></details>
+        </section>
+        <fieldset id="commercial"><legend>04 / Precio de venta</legend><p class="hint">Ganancia sobre costo (markup), no margen. Descuento y recargo porcentuales se calculan por separado sobre el precio base.</p>
+          <div class="fields"><label class="wide" for="markupPercent">Ganancia sobre costo · %<input id="markupPercent" name="markupPercent" type="number" inputmode="decimal" min="0" step="any" value="35"></label>
+          <label for="discountType">Descuento · tipo<select id="discountType" name="discountType"><option value="percent">Porcentaje (%)</option><option value="amount">Monto (CLP)</option></select></label>
+          <label for="discountValue">Descuento · valor<input id="discountValue" name="discountValue" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
+          <label for="surchargeType">Recargo · tipo<select id="surchargeType" name="surchargeType"><option value="percent">Porcentaje (%)</option><option value="amount">Monto (CLP)</option></select></label>
+          <label for="surchargeValue">Recargo · valor<input id="surchargeValue" name="surchargeValue" type="number" inputmode="decimal" min="0" step="any" value="0"></label></div>
+        </fieldset>
+        <p id="internal-note" class="hint" hidden>Uso interno: sin precio de venta, ganancia ni ajustes comerciales. Los valores comerciales se reinician al cambiar de propósito.</p>
+        <p id="form-error" class="error" role="alert" hidden></p>
+        <button id="save" class="primary" type="submit">Guardar cálculo de prueba</button><p id="feedback" role="status" aria-live="polite"></p>
+      </form>
+      <aside class="result" aria-labelledby="result-heading"><div class="result-head"><span>ESTIMACIÓN EN VIVO</span><h2 id="result-heading">Resumen del cálculo</h2></div>
+        <div id="result-content" aria-live="polite"></div><p class="hint">Valores estimados en CLP. No incluye IVA ni representa venta realizada o consumo real.</p>
+      </aside>
+    </div>
+    <section class="history" aria-labelledby="history-heading"><div class="section-head"><span>REGISTROS LOCALES</span><h2 id="history-heading">Cálculos de prueba guardados</h2></div><p id="history-error" class="error" role="alert" hidden></p><div id="history-list"></div></section>
+  </main>
+</body>
+</html>

@@ -1,6 +1,8 @@
-# Calc3D — calculadora de costos
+# Calc3D — prototipo de calculadora 3D
 
-Pruebas del motor: `node --test tests/costs.test.mjs`. Sin dependencias externas para el cálculo.
+Ejecuta `npm start` y abre http://127.0.0.1:5173. Detén el servidor local con Ctrl+C. Pruebas: `npm test`. No abras index.html con file://; los módulos requieren HTTP.
+
+La interfaz en español usa CLP y muestra bobinas **ficticias** con precios de ejemplo editables, costos estimados y precio de venta separado. Incluye venta y uso interno/personal; el uso interno conserva gasto sin ingreso ni ganancia y reinicia/desactiva los ajustes comerciales. Trabajo familiar/regalo y cobro parcial quedan pendientes de decisión. Precio de venta: «Ganancia sobre costo (%)» es markup, no margen. Descuento y recargo pueden coexistir como monto CLP o porcentaje independiente sobre el precio base; una venta por debajo del costo se rechaza. El cálculo cambia al editar sin guardar. El botón «Guardar cálculo de prueba» registra una copia explícita con fecha ISO e identificador y «Abrir copia» carga los campos sin alterar el original. El historial usa `localStorage` exclusivamente en este navegador: no es base de datos, backup, autenticación ni autorización. Si el almacenamiento es ilegible no se sobrescribe y si falla la escritura no se confirma el guardado. Nada descuenta inventario, registra una impresión real o constituye venta realizada. No hay imágenes, informes ni cuentas de usuario. IVA y política de cobro familiar siguen sin definirse.
 
 ## Contrato del módulo de cálculo
 
