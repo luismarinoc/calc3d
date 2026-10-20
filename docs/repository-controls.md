@@ -1,8 +1,8 @@
 # Controles locales de PR y releases
 
-**Preparado, no activado.** El repositorio público `luismarinoc/calc3d` todavía no tiene rama predeterminada ni código subido. Estos archivos no configuran las protecciones remotas por sí solos. No se autoriza publicar código, crear PR, modificar protecciones ni generar releases durante esta preparación.
+**Activado y verificado.** El repositorio público [luismarinoc/calc3d](https://github.com/luismarinoc/calc3d) tiene `main` como rama predeterminada. La carga inicial autorizada publicó `48c5782feea01353a2a2ccfcff923ad065a839f3`; su [CI](https://github.com/luismarinoc/calc3d/actions/runs/39512874793) pasó y omitió la release. La protección se comprobó mediante lecturas independientes de GitHub. No se publicó ninguna release ni se probó todavía la publicación de una futura PR de versión.
 
-## Ruta de versión (después de autorizar la activación)
+## Ruta de versión
 
 1. Sobre una rama del mismo repositorio, parte de `main` y ejecuta `npm version --no-git-tag-version patch` (o ajusta manualmente a una versión estable mayor `X.Y.Z`). Incluye juntos `package.json` y `package-lock.json`. No crees un tag local.
 2. Abre una PR a `main` con título **exacto** `chore(release): vX.Y.Z`, donde `X.Y.Z` coincide con `package.json.version`. Espera los checks `Node tests` y `Browser tests`. Se recomienda **squash merge** para que el SHA de merge sea el único commit revisado asociado a la PR.
@@ -10,18 +10,18 @@
 
 No publica en npm ni despliega la aplicación. El paquete permanece `private: true`. `GITHUB_TOKEN` solo se proporciona al paso de release: los checks de PR usan permisos de lectura, y no hay `pull_request_target`. No uses secretos de producción para CI. Si una PR normal modifica `package.json.version`, el job rechaza la publicación y falla: reserva los cambios de versión para la PR convencional.
 
-## Activación remota pendiente
+## Protecciones activas
 
-Tras autorización explícita separada para subir código, crear `main` y configurar la protección, establece en la regla de `main`:
+Tras la autorización explícita de la carga inicial se aplicaron y verificaron estas reglas de `main`:
 
 | Control | Valor propuesto |
 | --- | --- |
-| PR antes de integrar | Obligatoria; aplica también a administradores si se decide exigir la misma regla a todos |
+| PR antes de integrar | Obligatoria, también para administradores |
 | Checks obligatorios | `Node tests`, `Browser tests`, al día con la rama base (strict) |
 | Revisiones externas obligatorias | 0 para mantenimiento individual: GitHub no permite aprobar la propia PR |
 | Force push / eliminación | Deshabilitados |
 
-La protección de rama vía API REST usa `required_status_checks: { strict: true, contexts: ["Node tests", "Browser tests"] }`, `required_pull_request_reviews: { required_approving_review_count: 0 }`, `enforce_admins` según política elegida, `restrictions: null`, `allow_force_pushes: false` y `allow_deletions: false`; confirmar los campos contra el estado real antes de mutar. La rama y los nombres de checks no existen todavía en remoto. El primer push es **bootstrap**, no una PR de versión y no genera release. Una vez activado, verificar checks remotos y protección con evidencia real antes de afirmar que el control está activo.
+La protección de rama vía API REST usa `required_status_checks: { strict: true, contexts: ["Node tests", "Browser tests"] }`, `required_pull_request_reviews: { required_approving_review_count: 0 }`, `enforce_admins: true`, `restrictions: null`, `allow_force_pushes: false` y `allow_deletions: false`; estos valores fueron leídos de GitHub tras la activación. El primer push fue **bootstrap**, no una PR de versión, y no generó release. No se intentó un push prohibido para probar el bloqueo. Los cambios posteriores, incluida esta actualización documental, deben seguir la ruta de PR; no se autoriza por ello un push directo, un merge ni una publicación manual.
 
 ## Fallos cerrados
 

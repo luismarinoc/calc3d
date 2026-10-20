@@ -1,6 +1,6 @@
 # Calc3D — prototipo de calculadora 3D
 
-Para las PR, checks y releases automáticos de versiones, consulta [controles del repositorio](docs/repository-controls.md). La configuración local está preparada pero todavía no activada en GitHub.
+Para las PR, checks y releases automáticos de versiones, consulta [controles del repositorio](docs/repository-controls.md). Los controles están activos en [GitHub](https://github.com/luismarinoc/calc3d): `main` requiere PR y checks exitosos, también para administradores. El [CI de la carga inicial](https://github.com/luismarinoc/calc3d/actions/runs/39512874793) pasó sin publicar una release; la publicación de una futura PR de versión aún no se ha ejercitado.
 
 En la raíz del proyecto, ejecuta `npm start` y abre http://127.0.0.1:5173. El servidor estándar Python se limita a tu equipo: deténlo con Ctrl+C. Pruebas: `npm test` (27 pruebas Node, sin navegador). Para pruebas de navegador, instala las dependencias de desarrollo con `npm install` y los navegadores locales con `PLAYWRIGHT_BROWSERS_PATH=.cache/ms-playwright npx playwright install chromium webkit`; luego ejecuta `npm run test:e2e`. Playwright levanta y detiene su propio servidor local en 127.0.0.1:5173 (el puerto debe estar libre); genera capturas inicial y final de cada proyecto en `test-results/`, excluido de Git. Los proyectos emulan escritorio Chromium, teléfono WebKit y iPad WebKit en vertical/horizontal; no equivalen a pruebas en un dispositivo iOS físico ni en Safari real. No abras `index.html` con `file://`: los módulos ES necesitan HTTP local.
 
