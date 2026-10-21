@@ -5,7 +5,15 @@ const records = (page) => page.evaluate((storageKey) => JSON.parse(localStorage.
 const row = (page, label) => page.locator('#result-content .result-row').filter({ has: page.getByText(label, { exact: true }) });
 
 async function knownCost(page) {
-  await page.locator('#calculationMode').selectOption('legacy');
+  await page.evaluate(async () => {
+    const { evaluate, demoSpools } = await import('/src/ui/quote.mjs');
+    const { createDemoHistory } = await import('/src/data/demo.mjs');
+    const history = createDemoHistory({ getItem: (key) => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) });
+    const quote = evaluate({ title: 'Cotización anterior', spoolId: 'demo-petg', purpose: 'sale', purchasePrice: '10000', netWeightGrams: '1000', grams: '1000', hours: '0', minutes: '0', watts: '0', electricityPricePerKwh: '200', depreciationPerHour: '0', maintenancePerHour: '0', laborMinutes: '0', laborRatePerHour: '0', extraProductionCost: '0', markupPercent: '50', discountType: 'percent', discountValue: '0', surchargeType: 'percent', surchargeValue: '0' }, demoSpools);
+    if (quote.error || !history.save(quote).ok) throw Error(quote.error || 'Legacy fixture save failed');
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Abrir copia' }).first().click();
   for (const [id, value] of Object.entries({
     purchasePrice: '10000', netWeightGrams: '1000', grams: '1000', hours: '0', minutes: '0',
     watts: '0', electricityPricePerKwh: '200', markupPercent: '50',
@@ -29,7 +37,7 @@ test('live demo, explicit saved snapshot, adjustments and keyboard/touch layout'
   await expect(row(page, 'Recargo')).toContainText(/750/);
   await expect(row(page, 'Precio final estimado')).toContainText(/12[.\s\u00a0]?750/);
   await expect(row(page, 'Ganancia estimada')).toContainText(/2[.\s\u00a0]?750/);
-  expect(await records(page)).toHaveLength(0);
+  expect(await records(page)).toHaveLength(1);
   for (const id of ['title', 'purpose', 'grams', 'minutes', 'discountValue', 'save']) {
     const control = page.locator(`#${id}`);
     await expect(control).toBeVisible();
@@ -46,22 +54,22 @@ test('live demo, explicit saved snapshot, adjustments and keyboard/touch layout'
   await expect(page.locator('#purpose')).toBeFocused();
   await page.locator('#save').click();
   await expect(page.getByRole('status')).toContainText('guardado solo en este navegador');
-  await expect(page.locator('.history-item')).toHaveCount(1);
+  await expect(page.locator('.history-item')).toHaveCount(2);
   expect(await page.locator('.history-item img').count()).toBe(0);
-  await expect(page.locator('.history-item strong')).toHaveText('<img src=x onerror=alert(1)> Presupuesto');
-  await expect(page.locator('.history-item p')).toContainText(/Venta · costo .*10[.\s\u00a0]?000.*precio .*12[.\s\u00a0]?750/);
+  await expect(page.locator('.history-item strong').first()).toHaveText('<img src=x onerror=alert(1)> Presupuesto');
+  await expect(page.locator('.history-item p').first()).toContainText(/Venta · costo .*10[.\s\u00a0]?000.*precio .*12[.\s\u00a0]?750/);
   const saved = (await records(page))[0];
   expect(saved.savedAt).not.toBeNaN();
   expect(Number.isNaN(Date.parse(saved.savedAt))).toBe(false);
   await page.screenshot({ path: testInfo.outputPath('result.png'), fullPage: true });
   await page.locator('#grams').fill('500');
-  expect(await records(page)).toEqual([saved]);
+  expect((await records(page))[0]).toEqual(saved);
   await page.reload();
-  await expect(page.locator('.history-item')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Abrir copia' }).click();
+  await expect(page.locator('.history-item')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Abrir copia' }).first().click();
   await expect(page.locator('#grams')).toHaveValue('1000');
   await page.locator('#grams').fill('900');
-  expect(await records(page)).toEqual([saved]);
+  expect((await records(page))[0]).toEqual(saved);
   expect(errors).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
@@ -113,16 +121,16 @@ test('internal purpose saves expense without revenue and reset prevents stale ad
   expect(saved.input.purpose).toBe('internal');
   expect(saved.result.finalPrice).toBe(0);
   expect(saved.result.internalCost).toBe(10000);
-  await expect(page.locator('.history-item p')).toContainText('Uso interno');
-  await expect(page.locator('.history-item p')).not.toContainText('precio');
+  await expect(page.locator('.history-item p').first()).toContainText('Uso interno');
+  await expect(page.locator('.history-item p').first()).not.toContainText('precio');
   await page.locator('#purpose').selectOption('sale');
   await expect(page.locator('#commercial')).not.toHaveAttribute('disabled');
   await expect(page.locator('#discountValue')).toBeEnabled();
   await expect(row(page, 'Precio final estimado')).toContainText(/10[.\s\u00a0]?000/);
-  await page.getByRole('button', { name: 'Abrir copia' }).click();
+  await page.getByRole('button', { name: 'Abrir copia' }).first().click();
   await expect(page.locator('#purpose')).toHaveValue('internal');
   await expect(row(page, 'Gasto interno estimado')).toBeVisible();
-  expect(await records(page)).toEqual([saved]);
+  expect((await records(page))[0]).toEqual(saved);
 });
 
 test('corrupt and unavailable storage never report a successful save', async ({ page }) => {

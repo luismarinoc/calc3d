@@ -10,17 +10,17 @@ async function example(page) {
   }
 }
 
-test('reference exact displayed amounts, presets, custom, internal, saved isolation and legacy copy', async ({ page }) => {
+test('reference exact displayed amounts, presets, custom, internal and saved isolation', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
-  await expect(page.locator('#calculationMode')).toHaveValue('reference');
+  await expect(page.locator('#calculationMode')).toBeHidden();
   await example(page);
   for (const [label, expected] of Object.entries({ Material: '6.468,00', Electricidad: '328,90', Desgaste: '560,19', Imprevistos: '367,85', Mantención: '0,00', Trabajo: '0,00', 'Otros costos': '0,00', 'Costo total': '7.724,94', 'Precio base': '15.449,88', Descuento: '0,00', Recargo: '0,00', 'Precio final estimado': '15.449,88', 'Ganancia estimada': '7.724,94' })) {
     expect(await amount(page, label), label).toBe(expected);
   }
   expect(await bytes(page)).toBeNull();
-  for (const id of ['calculationMode', 'replacementCost', 'replacementLifetimeHours', 'errorPercent', 'multiplierPreset']) {
+  for (const id of ['replacementCost', 'replacementLifetimeHours', 'errorPercent', 'multiplierPreset']) {
     const control = page.locator(`#${id}`);
     await expect(control).toBeVisible();
     const box = await control.boundingBox();
@@ -53,7 +53,7 @@ test('reference exact displayed amounts, presets, custom, internal, saved isolat
   expect(await bytes(page)).toBe(snapshot);
   await page.reload();
   await page.getByRole('button', { name: 'Abrir copia' }).click();
-  await expect(page.locator('#calculationMode')).toHaveValue('reference');
+  await expect(page.locator('#calculationMode')).toBeHidden();
   expect(await amount(page, 'Precio final estimado')).toBe('15.449,88');
   await page.locator('#purpose').selectOption('internal');
   await expect(page.locator('#commercial')).toHaveAttribute('disabled', '');
@@ -62,18 +62,5 @@ test('reference exact displayed amounts, presets, custom, internal, saved isolat
   expect(await amount(page, 'Gasto interno estimado')).toBe('7.724,94');
   await expect(row(page, 'Precio final estimado')).toHaveCount(0);
   expect(await bytes(page)).toBe(snapshot);
-  await page.locator('#calculationMode').selectOption('legacy');
-  expect(await amount(page, 'Costo total')).toBe('6.797');
-  await page.locator('#purpose').selectOption('sale');
-  await page.locator('#save').click();
-  const records = JSON.parse(await bytes(page));
-  delete records[0].form.calculationMode; // Pre-reference saved form copy.
-  await page.evaluate(([key, serialized]) => localStorage.setItem(key, serialized), [quoteKey, JSON.stringify(records)]);
-  const legacySnapshot = await bytes(page);
-  await page.reload();
-  await page.getByRole('button', { name: 'Abrir copia' }).first().click();
-  await expect(page.locator('#calculationMode')).toHaveValue('legacy');
-  expect(await amount(page, 'Costo total')).toBe('6.797');
-  expect(await bytes(page)).toBe(legacySnapshot);
   expect(errors).toEqual([]);
 });

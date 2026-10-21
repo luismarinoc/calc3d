@@ -15,8 +15,13 @@
     <p class="notice" role="note">Prototipo: datos de prueba guardados solo en este navegador; sin base de datos ni usuarios reales. No registra compras ni descuenta inventario.</p>
     <div class="workspace">
       <form id="quote-form" novalidate>
+        <input id="calculationMode" name="calculationMode" type="hidden" value="reference">
+        <div id="legacy-notice" class="historical-notice" role="note" hidden>
+          <p>Esta copia usa el cálculo histórico en CLP enteros. Editarla no cambia el registro guardado.</p>
+          <button id="start-current" type="button">Iniciar cálculo actual</button>
+        </div>
         <section aria-labelledby="work-heading"><div class="section-head"><span>01 / Trabajo</span><h2 id="work-heading">Punto de partida</h2></div>
-          <div class="fields"><label class="wide" for="calculationMode">Cálculo<select id="calculationMode" name="calculationMode"><option value="reference">Referencia · centavos</option><option value="legacy">Anterior · CLP entero</option></select></label><label class="wide" for="title">Nombre del trabajo<input id="title" name="title" type="text" maxlength="120" required value="Soporte de escritorio · ejemplo"></label>
+          <div class="fields"><label class="wide" for="title">Nombre del trabajo<input id="title" name="title" type="text" maxlength="120" required value="Soporte de escritorio · ejemplo"></label>
           <label for="purpose">Propósito<select id="purpose" name="purpose"><option value="sale">Venta</option><option value="internal">Uso interno / personal</option></select></label>
           <p class="hint wide">El trabajo familiar o de regalo requiere definir su política de cobro; todavía no está disponible.</p></div>
         </section>

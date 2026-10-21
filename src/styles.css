@@ -34,6 +34,9 @@ h1 { font-size: clamp(2.15rem, 4.3vw, 3.6rem); line-height: 1.13; letter-spacing
 h1 em { font-style: normal; color: var(--accent); }
 .intro > p:last-child, .hint, small { color: var(--muted); }
 .notice { border-left: 3px solid var(--accent); background: #30342f; padding: 1rem 1.25rem; line-height: 1.55; margin-bottom: 2.4rem; }
+.historical-notice { background: #30342f; border: 1px solid var(--accent); border-radius: 6px; padding: 1rem 1.25rem; margin-bottom: 2rem; }
+.historical-notice p { margin: 0 0 .75rem; }
+.historical-notice button { background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; min-height: 44px; padding: .5rem .9rem; }
 .workspace { display: grid; grid-template-columns: minmax(0, 1.32fr) minmax(310px, .85fr); gap: clamp(2rem, 5vw, 5rem); align-items: start; }
 form, aside { min-width: 0; }
 form section, fieldset { padding: 0 0 2rem; margin: 0 0 2rem; border: 0; border-bottom: 1px solid var(--line); }

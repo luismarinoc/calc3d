@@ -143,6 +143,7 @@ function renderHistory() {
         spoolSelect.value = savedSpoolId;
       }
       form.elements.namedItem('calculationMode').value = saved.form?.calculationMode === 'reference' ? 'reference' : 'legacy';
+      document.querySelector('#legacy-notice').hidden = saved.form?.calculationMode === 'reference';
       describeSpool();
       toggleMode();
       togglePurpose(false);
@@ -177,7 +178,7 @@ form.addEventListener('input', () => { document.querySelector('#feedback').textC
 form.addEventListener('change', (event) => {
   if (event.target === spoolSelect) setSpool();
   if (event.target.name === 'purpose') togglePurpose();
-  if (['calculationMode', 'multiplierPreset'].includes(event.target.name)) toggleMode();
+  if (event.target.name === 'multiplierPreset') toggleMode();
   render();
 });
 form.addEventListener('submit', (event) => {
@@ -189,7 +190,26 @@ form.addEventListener('submit', (event) => {
   feedback.textContent = outcome.ok ? 'Cálculo de prueba guardado solo en este navegador.' : outcome.error;
   if (outcome.ok) renderHistory();
 });
-setSpool();
-toggleMode();
-togglePurpose(false);
+document.querySelector('#start-current').addEventListener('click', () => {
+  form.reset();
+  form.elements.namedItem('calculationMode').value = 'reference';
+  document.querySelector('#legacy-notice').hidden = true;
+  document.querySelector('#feedback').textContent = '';
+  setSpool();
+  toggleMode();
+  togglePurpose(false);
+  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+function initializeDraft() {
+  // Browser form restoration must not silently turn an ordinary reload into a historical calculation.
+  form.elements.namedItem('calculationMode').value = 'reference';
+  document.querySelector('#legacy-notice').hidden = true;
+  setSpool();
+  toggleMode();
+  togglePurpose(false);
+}
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) initializeDraft();
+});
+initializeDraft();
 renderHistory();

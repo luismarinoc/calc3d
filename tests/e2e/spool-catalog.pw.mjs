@@ -58,8 +58,9 @@ test('public purchase to calculator, quote snapshot and reload without inventory
 });
 
 test('corrupt purchases leave demo editable and stored bytes untouched', async ({ page }) => {
-  await page.addInitScript((k) => localStorage.setItem(k, '{bad'), purchaseKey);
   await page.goto('/');
+  await page.evaluate((k) => localStorage.setItem(k, '{bad'), purchaseKey);
+  await page.reload();
   await expect(page.locator('#purchase-catalog-error')).toContainText('no se pueden leer');
   await expect(page.locator('#spoolId option')).toHaveCount(2);
   await expect(page.locator('#purchasePrice')).toBeEditable();
