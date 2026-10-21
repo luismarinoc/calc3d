@@ -13,6 +13,7 @@ async function knownCost(page) {
     if (quote.error || !history.save(quote).ok) throw Error(quote.error || 'Legacy fixture save failed');
   });
   await page.reload();
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await page.getByRole('button', { name: 'Abrir copia' }).first().click();
   for (const [id, value] of Object.entries({
     purchasePrice: '10000', netWeightGrams: '1000', grams: '1000', hours: '0', minutes: '0',
@@ -27,7 +28,9 @@ test('live demo, explicit saved snapshot, adjustments and keyboard/touch layout'
   await page.goto('/');
   await expect(page.getByRole('note')).toContainText('datos de prueba guardados solo en este navegador');
   await expect(row(page, 'Costo total')).toBeVisible();
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(page.locator('#history-list')).toContainText('Todavía no guardaste cálculos');
+  await page.getByRole('tab', { name: 'Calculadora' }).click();
   await page.screenshot({ path: testInfo.outputPath('initial.png'), fullPage: true });
   await knownCost(page);
   await page.locator('#title').fill('<img src=x onerror=alert(1)> Presupuesto');
@@ -53,7 +56,8 @@ test('live demo, explicit saved snapshot, adjustments and keyboard/touch layout'
   await page.keyboard.press('Tab');
   await expect(page.locator('#purpose')).toBeFocused();
   await page.locator('#save').click();
-  await expect(page.getByRole('status')).toContainText('guardado solo en este navegador');
+  await expect(page.locator('#feedback')).toContainText('guardado solo en este navegador');
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(page.locator('.history-item')).toHaveCount(2);
   expect(await page.locator('.history-item img').count()).toBe(0);
   await expect(page.locator('.history-item strong').first()).toHaveText('<img src=x onerror=alert(1)> Presupuesto');
@@ -62,9 +66,11 @@ test('live demo, explicit saved snapshot, adjustments and keyboard/touch layout'
   expect(saved.savedAt).not.toBeNaN();
   expect(Number.isNaN(Date.parse(saved.savedAt))).toBe(false);
   await page.screenshot({ path: testInfo.outputPath('result.png'), fullPage: true });
+  await page.getByRole('tab', { name: 'Calculadora' }).click();
   await page.locator('#grams').fill('500');
   expect((await records(page))[0]).toEqual(saved);
   await page.reload();
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(page.locator('.history-item')).toHaveCount(2);
   await page.getByRole('button', { name: 'Abrir copia' }).first().click();
   await expect(page.locator('#grams')).toHaveValue('1000');
@@ -121,12 +127,15 @@ test('internal purpose saves expense without revenue and reset prevents stale ad
   expect(saved.input.purpose).toBe('internal');
   expect(saved.result.finalPrice).toBe(0);
   expect(saved.result.internalCost).toBe(10000);
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(page.locator('.history-item p').first()).toContainText('Uso interno');
   await expect(page.locator('.history-item p').first()).not.toContainText('precio');
+  await page.getByRole('tab', { name: 'Calculadora' }).click();
   await page.locator('#purpose').selectOption('sale');
   await expect(page.locator('#commercial')).not.toHaveAttribute('disabled');
   await expect(page.locator('#discountValue')).toBeEnabled();
   await expect(row(page, 'Precio final estimado')).toContainText(/10[.\s\u00a0]?000/);
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await page.getByRole('button', { name: 'Abrir copia' }).first().click();
   await expect(page.locator('#purpose')).toHaveValue('internal');
   await expect(row(page, 'Gasto interno estimado')).toBeVisible();
@@ -136,10 +145,12 @@ test('internal purpose saves expense without revenue and reset prevents stale ad
 test('corrupt and unavailable storage never report a successful save', async ({ page }) => {
   await page.addInitScript((storageKey) => localStorage.setItem(storageKey, '{bad'), key);
   await page.goto('/');
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(page.locator('#history-error')).toHaveText('El historial de prueba no se puede leer; no se modificaron sus datos.');
   await expect(page.locator('#save')).toBeDisabled();
   expect(await page.evaluate((storageKey) => localStorage.getItem(storageKey), key)).toBe('{bad');
   await page.reload();
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(page.locator('#history-error')).toBeVisible();
   expect(await page.evaluate((storageKey) => localStorage.getItem(storageKey), key)).toBe('{bad');
 });
@@ -150,7 +161,8 @@ test('denied writes do not create false history or success feedback', async ({ p
   });
   await page.goto('/');
   await page.locator('#save').click();
-  await expect(page.getByRole('status')).toHaveText('No se pudo guardar en este navegador; el cálculo no quedó registrado.');
+  await expect(page.locator('#feedback')).toHaveText('No se pudo guardar en este navegador; el cálculo no quedó registrado.');
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(page.locator('.history-item')).toHaveCount(0);
   expect(await page.evaluate((storageKey) => localStorage.getItem(storageKey), key)).toBeNull();
 });

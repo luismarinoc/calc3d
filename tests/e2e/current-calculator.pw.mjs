@@ -18,6 +18,7 @@ async function seedLegacy(page, fields = {}) {
     if (result.error || !history.save(result).ok) throw Error(result.error || 'Legacy fixture save failed');
   }, fields);
   await page.reload();
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await page.getByRole('button', { name: 'Abrir copia' }).first().click();
 }
 

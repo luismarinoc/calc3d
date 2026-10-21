@@ -52,6 +52,7 @@ test('reference exact displayed amounts, presets, custom, internal and saved iso
   await page.locator('#grams').fill('50');
   expect(await bytes(page)).toBe(snapshot);
   await page.reload();
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await page.getByRole('button', { name: 'Abrir copia' }).click();
   await expect(page.locator('#calculationMode')).toBeHidden();
   expect(await amount(page, 'Precio final estimado')).toBe('15.449,88');

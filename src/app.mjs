@@ -22,6 +22,26 @@ const catalogError = document.querySelector('#purchase-catalog-error');
 catalogError.hidden = !purchases.error;
 if (purchases.error) catalogError.firstChild.textContent = `${purchases.error} `;
 let current;
+const tabs = [document.querySelector('#calculator-tab'), document.querySelector('#history-tab')];
+const panels = [document.querySelector('#calculator-panel'), document.querySelector('#history-panel')];
+function showView(index, focus = false) {
+  tabs.forEach((tab, position) => {
+    const selected = position === index;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    panels[position].hidden = !selected;
+  });
+  if (focus) tabs[index].focus();
+}
+tabs.forEach((tab, index) => {
+  tab.addEventListener('click', () => showView(index));
+  tab.addEventListener('keydown', (event) => {
+    const next = { ArrowRight: (index + 1) % tabs.length, ArrowLeft: (index + tabs.length - 1) % tabs.length, Home: 0, End: tabs.length - 1 }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    showView(next, true);
+  });
+});
 
 for (const spool of catalog) {
   const option = document.createElement('option');
@@ -149,7 +169,7 @@ function renderHistory() {
       togglePurpose(false);
       render();
       document.querySelector('#feedback').textContent = 'Copia abierta: editar no altera el registro guardado. Para guardar, crea otro cálculo de prueba.';
-      form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      showView(0, true);
     });
     item.append(description, open);
     list.append(item);
@@ -198,7 +218,7 @@ document.querySelector('#start-current').addEventListener('click', () => {
   setSpool();
   toggleMode();
   togglePurpose(false);
-  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  showView(0, true);
 });
 function initializeDraft() {
   // Browser form restoration must not silently turn an ordinary reload into a historical calculation.

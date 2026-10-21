@@ -40,6 +40,7 @@ test('public purchase to calculator, quote snapshot and reload without inventory
   expect(await bytes(page, quoteKey)).toBe(savedBytes);
   expect(await bytes(page, purchaseKey)).toBe(original);
   await page.reload();
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await page.getByRole('button', { name: 'Abrir copia' }).click();
   await expect(page.locator('#spoolId')).toHaveValue(selectedId);
   await expect(page.locator('#grams')).toHaveValue('1600');
@@ -67,6 +68,7 @@ test('corrupt purchases leave demo editable and stored bytes untouched', async (
   await page.locator('#purchasePrice').fill('10000');
   await expect(material(page)).toBeVisible();
   await page.locator('#save').click();
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(page.locator('.history-item')).toHaveCount(1);
   expect(await bytes(page, purchaseKey)).toBe('{bad');
   await page.getByRole('button', { name: 'Abrir copia' }).click();
@@ -96,7 +98,9 @@ test('unavailable localStorage getter cannot crash calculator initialization', a
   });
   await page.goto('/');
   await expect(page.locator('#purchase-catalog-error')).toContainText('no se pueden leer');
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(page.locator('#history-error')).toContainText('no se puede leer');
+  await page.getByRole('tab', { name: 'Calculadora' }).click();
   await expect(material(page)).toBeVisible();
   await expect(page.locator('#purchasePrice')).toBeEditable();
   expect(errors).toEqual([]);
@@ -111,6 +115,7 @@ test('unknown purchased spool in saved quote cannot fall back to a demo', async 
   await page.evaluate(([k, value]) => localStorage.setItem(k, value), [quoteKey, JSON.stringify(before)]);
   const snapshot = await bytes(page, quoteKey);
   await page.reload();
+  await page.getByRole('tab', { name: 'Historial' }).click();
   await page.getByRole('button', { name: 'Abrir copia' }).click();
   await expect(page.locator('#spoolId')).toHaveValue('purchase:missing');
   await expect(page.locator('#save')).toBeDisabled();
