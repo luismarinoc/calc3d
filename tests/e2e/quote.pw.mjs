@@ -5,6 +5,7 @@ const records = (page) => page.evaluate((storageKey) => JSON.parse(localStorage.
 const row = (page, label) => page.locator('#result-content .result-row').filter({ has: page.getByText(label, { exact: true }) });
 
 async function knownCost(page) {
+  await page.locator('#calculationMode').selectOption('legacy');
   for (const [id, value] of Object.entries({
     purchasePrice: '10000', netWeightGrams: '1000', grams: '1000', hours: '0', minutes: '0',
     watts: '0', electricityPricePerKwh: '200', markupPercent: '50',

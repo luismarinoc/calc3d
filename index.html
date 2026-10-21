@@ -16,7 +16,7 @@
     <div class="workspace">
       <form id="quote-form" novalidate>
         <section aria-labelledby="work-heading"><div class="section-head"><span>01 / Trabajo</span><h2 id="work-heading">Punto de partida</h2></div>
-          <div class="fields"><label class="wide" for="title">Nombre del trabajo<input id="title" name="title" type="text" maxlength="120" required value="Soporte de escritorio · ejemplo"></label>
+          <div class="fields"><label class="wide" for="calculationMode">Cálculo<select id="calculationMode" name="calculationMode"><option value="reference">Referencia · centavos</option><option value="legacy">Anterior · CLP entero</option></select></label><label class="wide" for="title">Nombre del trabajo<input id="title" name="title" type="text" maxlength="120" required value="Soporte de escritorio · ejemplo"></label>
           <label for="purpose">Propósito<select id="purpose" name="purpose"><option value="sale">Venta</option><option value="internal">Uso interno / personal</option></select></label>
           <p class="hint wide">El trabajo familiar o de regalo requiere definir su política de cobro; todavía no está disponible.</p></div>
         </section>
@@ -33,16 +33,21 @@
           <label for="minutes">Minutos · 0–59<input id="minutes" name="minutes" type="number" inputmode="numeric" min="0" max="59" step="1" required value="25"></label>
           <label for="watts">Potencia estimada · W<input id="watts" name="watts" type="number" inputmode="decimal" min="0" step="any" required value="145"></label>
           <label for="electricityPricePerKwh">Tarifa eléctrica · CLP/kWh<input id="electricityPricePerKwh" name="electricityPricePerKwh" type="number" inputmode="decimal" min="0" step="any" required value="215"></label></div>
+          <div id="reference-expenses" class="fields reference-fields"><label for="replacementCost">Costo de reposición · CLP<input id="replacementCost" name="replacementCost" type="number" inputmode="decimal" min="0" step="any" value="220000"></label>
+            <label for="replacementLifetimeHours">Vida útil de reposición · h<input id="replacementLifetimeHours" name="replacementLifetimeHours" type="number" inputmode="decimal" min="0.001" step="any" value="4320"></label>
+            <label class="wide" for="errorPercent">Imprevistos · % de material, electricidad y desgaste<input id="errorPercent" name="errorPercent" type="number" inputmode="decimal" min="0" step="any" value="5"></label></div>
           <details><summary>Agregar otros costos de producción</summary><div class="fields detail-fields">
-            <label for="depreciationPerHour">Depreciación · CLP/h<input id="depreciationPerHour" name="depreciationPerHour" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
+            <label id="legacy-depreciation" for="depreciationPerHour">Depreciación · CLP/h<input id="depreciationPerHour" name="depreciationPerHour" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
             <label for="maintenancePerHour">Mantención · CLP/h<input id="maintenancePerHour" name="maintenancePerHour" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
             <label for="laborMinutes">Tiempo de trabajo · min<input id="laborMinutes" name="laborMinutes" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
             <label for="laborRatePerHour">Tarifa de trabajo · CLP/h<input id="laborRatePerHour" name="laborRatePerHour" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
             <label class="wide" for="extraProductionCost">Otros costos de producción · CLP<input id="extraProductionCost" name="extraProductionCost" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
           </div></details>
         </section>
-        <fieldset id="commercial"><legend>04 / Precio de venta</legend><p class="hint">Ganancia sobre costo (markup), no margen. Descuento y recargo porcentuales se calculan por separado sobre el precio base.</p>
-          <div class="fields"><label class="wide" for="markupPercent">Ganancia sobre costo · %<input id="markupPercent" name="markupPercent" type="number" inputmode="decimal" min="0" step="any" value="35"></label>
+        <fieldset id="commercial"><legend>04 / Precio de venta</legend><p class="hint">Multiplicador del costo, no margen. En el cálculo anterior se usa ganancia sobre costo (%). Descuento y recargo porcentuales se calculan por separado sobre el precio base.</p>
+          <div class="fields"><label id="reference-multiplier" for="multiplierPreset">Multiplicador de venta<select id="multiplierPreset" name="multiplierPreset"><option value="2">×2</option><option value="2.5">×2.5</option><option value="3">×3</option><option value="3.5">×3.5</option><option value="4">×4</option><option value="5">×5</option><option value="custom">Personalizado</option></select></label>
+          <label id="custom-multiplier" for="customMultiplier" hidden>Multiplicador personalizado<input id="customMultiplier" name="customMultiplier" type="number" inputmode="decimal" min="0.001" step="any" value="2"></label>
+          <label class="wide" id="legacy-markup" for="markupPercent">Ganancia sobre costo · %<input id="markupPercent" name="markupPercent" type="number" inputmode="decimal" min="0" step="any" value="35"></label>
           <label for="discountType">Descuento · tipo<select id="discountType" name="discountType"><option value="percent">Porcentaje (%)</option><option value="amount">Monto (CLP)</option></select></label>
           <label for="discountValue">Descuento · valor<input id="discountValue" name="discountValue" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
           <label for="surchargeType">Recargo · tipo<select id="surchargeType" name="surchargeType"><option value="percent">Porcentaje (%)</option><option value="amount">Monto (CLP)</option></select></label>

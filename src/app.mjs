@@ -7,6 +7,8 @@ const form = document.querySelector('#quote-form');
 const spoolSelect = form.elements.namedItem('spoolId');
 const commercial = document.querySelector('#commercial');
 const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
+const decimalCurrency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const moneyFor = (mode) => mode === 'reference' ? decimalCurrency : currency;
 const history = createDemoHistory({
   getItem: (key) => window.localStorage.getItem(key),
   setItem: (key, value) => window.localStorage.setItem(key, value),
@@ -46,15 +48,19 @@ function setSpool() {
   render();
 }
 function values() {
-  return Object.fromEntries([...new FormData(form).entries()]);
+  const data = Object.fromEntries([...new FormData(form).entries()]);
+  if (data.calculationMode !== 'reference') {
+    for (const name of ['replacementCost', 'replacementLifetimeHours', 'errorPercent', 'multiplierPreset', 'customMultiplier']) delete data[name];
+  }
+  return data;
 }
-function row(parent, label, amount, emphasis = false) {
+function row(parent, label, amount, emphasis = false, format = currency) {
   const line = document.createElement('div');
   line.className = emphasis ? 'result-row emphasis' : 'result-row';
   const name = document.createElement('span');
   name.textContent = label;
   const value = document.createElement('strong');
-  value.textContent = currency.format(amount);
+  value.textContent = format.format(amount);
   line.append(name, value);
   parent.append(line);
 }
@@ -81,17 +87,18 @@ function render() {
     return;
   }
   const result = current.result;
-  const labels = { material: 'Material', electricity: 'Electricidad', depreciation: 'Depreciación', maintenance: 'Mantención', labor: 'Trabajo', extras: 'Otros costos' };
-  for (const [key, value] of Object.entries(result.breakdown)) row(content, labels[key], value);
-  row(content, 'Costo total', result.totalCost, true);
+  const format = moneyFor(current.form.calculationMode);
+  const labels = { material: 'Material', electricity: 'Electricidad', depreciation: 'Depreciación', wear: 'Desgaste', allowance: 'Imprevistos', maintenance: 'Mantención', labor: 'Trabajo', extras: 'Otros costos' };
+  for (const [key, value] of Object.entries(result.breakdown)) row(content, labels[key], value, false, format);
+  row(content, 'Costo total', result.totalCost, true, format);
   if (current.input.purpose === 'internal') {
-    row(content, 'Gasto interno estimado', result.internalCost, true);
+    row(content, 'Gasto interno estimado', result.internalCost, true, format);
   } else {
-    row(content, 'Precio base', result.basePrice);
-    row(content, 'Descuento', -result.discountAmount);
-    row(content, 'Recargo', result.surchargeAmount);
-    row(content, 'Precio final estimado', result.finalPrice, true);
-    row(content, 'Ganancia estimada', result.commercialProfit);
+    row(content, 'Precio base', result.basePrice, false, format);
+    row(content, 'Descuento', result.discountAmount === 0 ? 0 : -result.discountAmount, false, format);
+    row(content, 'Recargo', result.surchargeAmount, false, format);
+    row(content, 'Precio final estimado', result.finalPrice, true, format);
+    row(content, 'Ganancia estimada', result.commercialProfit, false, format);
   }
 }
 function renderHistory() {
@@ -114,7 +121,7 @@ function renderHistory() {
     const title = document.createElement('strong');
     title.textContent = record.title;
     const detail = document.createElement('p');
-    detail.textContent = `${new Date(record.savedAt).toLocaleString('es-CL')} · ${record.input.purpose === 'internal' ? 'Uso interno' : 'Venta'} · costo ${currency.format(record.result.totalCost)}${record.input.purpose === 'sale' ? ` · precio ${currency.format(record.result.finalPrice)}` : ''}`;
+    detail.textContent = `${new Date(record.savedAt).toLocaleString('es-CL')} · ${record.input.purpose === 'internal' ? 'Uso interno' : 'Venta'} · costo ${moneyFor(record.form?.calculationMode).format(record.result.totalCost)}${record.input.purpose === 'sale' ? ` · precio ${moneyFor(record.form?.calculationMode).format(record.result.finalPrice)}` : ''}`;
     description.append(title, detail);
     const open = document.createElement('button');
     open.type = 'button';
@@ -135,8 +142,10 @@ function renderHistory() {
         spoolSelect.append(missing);
         spoolSelect.value = savedSpoolId;
       }
+      form.elements.namedItem('calculationMode').value = saved.form?.calculationMode === 'reference' ? 'reference' : 'legacy';
       describeSpool();
-      togglePurpose(true);
+      toggleMode();
+      togglePurpose(false);
       render();
       document.querySelector('#feedback').textContent = 'Copia abierta: editar no altera el registro guardado. Para guardar, crea otro cálculo de prueba.';
       form.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -144,6 +153,15 @@ function renderHistory() {
     item.append(description, open);
     list.append(item);
   }
+}
+function toggleMode() {
+  const reference = form.elements.namedItem('calculationMode').value === 'reference';
+  document.querySelector('#reference-expenses').hidden = !reference;
+  document.querySelector('#reference-multiplier').hidden = !reference;
+  document.querySelector('#custom-multiplier').hidden = !reference || form.elements.namedItem('multiplierPreset').value !== 'custom';
+  document.querySelector('#legacy-depreciation').hidden = reference;
+  document.querySelector('#legacy-markup').hidden = reference;
+  render();
 }
 function togglePurpose(reset = true) {
   const internal = form.elements.namedItem('purpose').value === 'internal';
@@ -159,6 +177,7 @@ form.addEventListener('input', () => { document.querySelector('#feedback').textC
 form.addEventListener('change', (event) => {
   if (event.target === spoolSelect) setSpool();
   if (event.target.name === 'purpose') togglePurpose();
+  if (['calculationMode', 'multiplierPreset'].includes(event.target.name)) toggleMode();
   render();
 });
 form.addEventListener('submit', (event) => {
@@ -171,5 +190,6 @@ form.addEventListener('submit', (event) => {
   if (outcome.ok) renderHistory();
 });
 setSpool();
+toggleMode();
 togglePurpose(false);
 renderHistory();
