@@ -1,0 +1,12 @@
+.settings-shell { max-width: 960px; display: grid; gap: 20px; }
+.settings-shell .notice { margin: 0; }
+.settings-shell section { border-top: 1px solid var(--line); padding-top: 16px; }
+.settings-shell .section-head { margin-bottom: 12px; }
+.settings-actions { display: grid; grid-template-columns: minmax(220px, 1fr) repeat(3, auto); align-items: end; gap: 12px; }
+.settings-actions button { min-height: 44px; padding: 8px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; color: var(--text); }
+#printer-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.settings-fields { display: contents; }
+#printer-form .primary { grid-column: 1 / -1; max-width: 360px; }
+#settings-feedback { color: var(--accent); min-height: 1.3em; }
+@media (max-width: 760px) { .settings-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); } .settings-actions label { grid-column: 1 / -1; } }
+@media (max-width: 480px) { .settings-actions, #printer-form { grid-template-columns: 1fr; } .settings-actions label, #printer-form .primary { grid-column: 1; } }

@@ -2,7 +2,7 @@ import { evaluate } from './ui/quote.mjs';
 import { createDemoHistory } from './data/demo.mjs';
 import { createPurchaseStore } from './data/purchases.mjs';
 import { buildSpoolCatalog } from './ui/spool-catalog.mjs';
-import { printerProfiles, customPrinter, profileForStoredPower } from './ui/printer-profiles.mjs';
+import { createPrinterSettingsStore } from './data/printer-settings.mjs';
 
 const form = document.querySelector('#quote-form');
 const clientFields = { name: document.querySelector('#client-name'), phone: document.querySelector('#client-phone'), email: document.querySelector('#client-email') };
@@ -18,16 +18,60 @@ function setClient(client = {}) {
 }
 const spoolSelect = form.elements.namedItem('spoolId');
 const printerSelect = form.elements.namedItem('printerProfile');
-const wattsInput = form.elements.namedItem('watts');
-for (const profile of printerProfiles) printerSelect.add(new Option(`${profile.name} · ${profile.watts} W`, profile.id));
-printerSelect.add(new Option('Otro / personalizado', customPrinter));
-function resetPrinter() {
-  printerSelect.value = 'p2s';
-  wattsInput.value = '130';
+const printerStorage = { getItem: (key) => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) };
+let settings = createPrinterSettingsStore(printerStorage);
+let pinnedPrinter = null;
+let historicalCopy = false;
+const fixed = ['watts', 'electricityPricePerKwh', 'replacementCost', 'replacementLifetimeHours'];
+function applyPrinter(printer) {
+  pinnedPrinter = printer;
+  for (const key of fixed) form.elements.namedItem(key).value = String(printer[key]);
+  document.querySelector('#printer-name-current').textContent = printer.name;
+}
+function printerFromForm(saved) {
+  if (!saved?.printerInstanceId) return null;
+  return {
+    id: saved.printerInstanceId, name: saved.printerName, modelId: saved.printerModelId,
+    ...Object.fromEntries(fixed.map((key) => [key, Number(saved[key])])),
+  };
 }
 function restorePrinter(saved = {}) {
-  // The stored wattage is authoritative even when the catalog or selected model has changed.
-  printerSelect.value = profileForStoredPower(saved.printerProfile, saved.watts);
+  historicalCopy = true;
+  const historical = printerFromForm(saved);
+  printerSelect.replaceChildren();
+  refreshPrinters();
+  if (historical) {
+    const option = [...printerSelect.options].find((item) => item.value === historical.id);
+    if (option) option.textContent = `${historical.name} · copia histórica`;
+    else printerSelect.add(new Option(`${historical.name} · copia histórica`, historical.id));
+    printerSelect.value = historical.id;
+    applyPrinter(historical);
+  } else {
+    // A legacy record has no installed-printer identity. Never attribute it to the active instance.
+    printerSelect.add(new Option('Sin perfil instalado · copia histórica', 'historical-unassociated'));
+    printerSelect.value = 'historical-unassociated';
+    pinnedPrinter = null;
+    document.querySelector('#printer-name-current').textContent = 'Sin perfil instalado · copia histórica';
+  }
+}
+function refreshPrinters() {
+  const state = settings.snapshot();
+  printerSelect.replaceChildren();
+  if (!state) { printerSelect.add(new Option('Configuración no disponible', '')); return; }
+  for (const printer of state.printers) printerSelect.add(new Option(printer.name, printer.id));
+}
+function resetPrinter() {
+  historicalCopy = false;
+  settings = createPrinterSettingsStore(printerStorage);
+  refreshPrinters();
+  const state = settings.snapshot();
+  if (state) {
+    printerSelect.value = state.activeId;
+    applyPrinter(state.printers.find((printer) => printer.id === state.activeId));
+  } else {
+    pinnedPrinter = null;
+    document.querySelector('#printer-name-current').textContent = 'Configuración no disponible';
+  }
 }
 const commercial = document.querySelector('#commercial');
 const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
@@ -94,6 +138,11 @@ function values() {
   if (data.calculationMode !== 'reference') {
     for (const name of ['replacementCost', 'replacementLifetimeHours', 'errorPercent', 'multiplierPreset', 'customMultiplier']) delete data[name];
   }
+  if (pinnedPrinter) {
+    data.printerInstanceId = pinnedPrinter.id;
+    data.printerName = pinnedPrinter.name;
+    data.printerModelId = pinnedPrinter.modelId;
+  }
   return data;
 }
 function row(parent, label, amount, presentation = '') {
@@ -116,9 +165,9 @@ function render() {
     input.removeAttribute('aria-invalid');
     input.removeAttribute('aria-describedby');
   }
-  error.hidden = !current.error;
-  error.textContent = current.error || '';
-  save.disabled = !!current.error || !!history.error;
+  error.hidden = !current.error && !settings.error;
+  error.textContent = settings.error || current.error || '';
+  save.disabled = !!current.error || !!history.error || !!settings.error;
   if (current.error) {
     const field = current.field && form.elements.namedItem(current.field);
     if (field) { field.setAttribute('aria-invalid', 'true'); field.setAttribute('aria-describedby', 'form-error'); }
@@ -164,7 +213,7 @@ function renderHistory() {
     const title = document.createElement('strong');
     title.textContent = record.title;
     const detail = document.createElement('p');
-    detail.textContent = `${new Date(record.savedAt).toLocaleString('es-CL')} · ${({ sale: 'Venta', internal: 'Uso interno', gift: 'Regalo' })[record.input.purpose]} · costo ${currency.format(record.result.totalCost)}${record.input.purpose === 'sale' ? ` · precio ${currency.format(record.result.finalPrice)}` : ''}`;
+    detail.textContent = `${new Date(record.savedAt).toLocaleString('es-CL')} · ${record.form?.printerName || 'Sin perfil instalado · histórico'} · ${({ sale: 'Venta', internal: 'Uso interno', gift: 'Regalo' })[record.input.purpose]} · costo ${currency.format(record.result.totalCost)}${record.input.purpose === 'sale' ? ` · precio ${currency.format(record.result.finalPrice)}` : ''}`;
     description.append(title);
     if (record.number || Object.values(record.client || {}).some(Boolean)) {
       const identity = document.createElement('span');
@@ -232,15 +281,15 @@ function togglePurpose(reset = true) {
   render();
 }
 form.addEventListener('input', (event) => {
-  if (event.target === wattsInput) printerSelect.value = customPrinter;
   document.querySelector('#feedback').textContent = '';
   render();
 });
 form.addEventListener('change', (event) => {
   if (event.target === spoolSelect) setSpool();
   if (event.target === printerSelect) {
-    const profile = printerProfiles.find((item) => item.id === printerSelect.value);
-    if (profile) wattsInput.value = String(profile.watts);
+    historicalCopy = false;
+    const printer = settings.snapshot()?.printers.find((item) => item.id === printerSelect.value);
+    if (printer) applyPrinter(printer);
   }
   if (event.target.name === 'purpose') togglePurpose();
   if (event.target.name === 'multiplierPreset') toggleMode();
@@ -250,7 +299,16 @@ form.addEventListener('submit', (event) => {
   event.preventDefault();
   render();
   const feedback = document.querySelector('#feedback');
-  if (current.error) { feedback.textContent = 'Corrige los datos antes de guardar.'; return; }
+  if (current.error || settings.error) { feedback.textContent = settings.error || 'Corrige los datos antes de guardar.'; return; }
+  // Reject a changed configuration rather than claiming an old draft is a current printer.
+  const latest = createPrinterSettingsStore(printerStorage);
+  if (latest.error || !latest.snapshot() || (!historicalCopy &&
+      (JSON.stringify(latest.snapshot()) !== JSON.stringify(settings.snapshot()) ||
+       !settings.snapshot().printers.some((printer) => printer.id === pinnedPrinter?.id &&
+         JSON.stringify(printer) === JSON.stringify(pinnedPrinter))))) {
+    feedback.textContent = latest.error || 'La configuración de impresoras cambió; recarga antes de guardar.';
+    return;
+  }
   const outcome = history.save(current, clientValues());
   feedback.textContent = outcome.ok ? `Cálculo de prueba guardado solo en este navegador. Número ${outcome.record.number}.` : outcome.error;
   for (const input of Object.values(clientFields)) {
@@ -291,7 +349,12 @@ function initializeDraft() {
   togglePurpose(false);
 }
 window.addEventListener('pageshow', (event) => {
-  if (event.persisted) initializeDraft();
+  if (event.persisted) {
+    settings = createPrinterSettingsStore(printerStorage);
+    if (historicalCopy) {
+      restorePrinter(values()); render();
+    } else initializeDraft();
+  }
 });
 initializeDraft();
 renderHistory();

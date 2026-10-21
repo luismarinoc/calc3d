@@ -17,8 +17,7 @@ async function knownCost(page) {
   await page.getByRole('button', { name: 'Abrir copia' }).first().click();
   for (const [id, value] of Object.entries({
     purchasePrice: '10000', netWeightGrams: '1000', grams: '1000', hours: '0', minutes: '0',
-    watts: '0', electricityPricePerKwh: '200', markupPercent: '50',
-    discountValue: '20', surchargeValue: '5',
+    markupPercent: '50', discountValue: '20', surchargeValue: '5',
   })) await page.locator(`#${id}`).fill(value);
 }
 

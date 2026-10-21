@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es-CL">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#202321"><title>Calc3D · Configuración de impresoras</title><link rel="stylesheet" href="./src/styles.css"><link rel="stylesheet" href="./src/settings-styles.css"><script type="module" src="./src/printer-settings-app.mjs"></script></head>
+<body>
+<header class="topbar"><a class="brand" href="./index.html">calc<span>3D</span></a><a href="./index.html">Volver a la calculadora</a><span>Estudio de costos · Chile</span></header>
+<main class="shell settings-shell">
+  <div class="intro"><h1>Configuración de impresoras</h1></div>
+  <p class="notice" role="note">Prototipo local: estas impresoras se guardan solo en este navegador. No hay usuarios, administración ni respaldo todavía.</p>
+  <p id="settings-error" class="error" role="alert" hidden></p>
+  <section aria-labelledby="installed-heading"><div class="section-head"><span>01 / Instaladas</span><h2 id="installed-heading">Elegir impresora para próximos cálculos</h2></div>
+    <p class="hint">Cada impresora tiene identidad propia, aunque comparta modelo. Cambiar la activa no cambia cálculos guardados.</p>
+    <div class="settings-actions"><label for="active-printer">Impresora instalada<select id="active-printer"></select></label><button id="activate-printer" type="button">Usar en nuevos cálculos</button><button id="edit-printer" type="button">Editar seleccionada</button><button id="new-printer" type="button">Agregar impresora</button></div>
+  </section>
+  <section aria-labelledby="configuration-heading"><div class="section-head"><span>02 / Costos fijos</span><h2 id="configuration-heading">Datos de la impresora</h2></div>
+    <form id="printer-form" novalidate><label for="printer-name">Nombre de la impresora<input id="printer-name" name="name" type="text" maxlength="120" required></label>
+      <label for="printer-modelId">Modelo de referencia<select id="printer-modelId" name="modelId"></select></label>
+      <div class="settings-fields"><label for="printer-watts">Potencia estimada · W<input id="printer-watts" name="watts" type="number" inputmode="decimal" min="0" step="any" required></label>
+      <label for="printer-electricityPricePerKwh">Tarifa eléctrica · CLP/kWh<input id="printer-electricityPricePerKwh" name="electricityPricePerKwh" type="number" inputmode="decimal" min="0" step="any" required></label>
+      <label for="printer-replacementCost">Costo de reposición · CLP<input id="printer-replacementCost" name="replacementCost" type="number" inputmode="numeric" min="0" step="1" required></label>
+      <label for="printer-replacementLifetimeHours">Vida útil de reposición · h<input id="printer-replacementLifetimeHours" name="replacementLifetimeHours" type="number" inputmode="decimal" min="0.001" step="any" required></label></div>
+      <button id="save-printer" class="primary" type="submit">Guardar impresora</button>
+    </form>
+    <p id="settings-feedback" role="status" aria-live="polite"></p>
+  </section>
+</main></body></html>

@@ -9,7 +9,7 @@
   <script type="module" src="./src/app.mjs"></script>
 </head>
 <body>
-  <header class="topbar"><a class="brand" href="#inicio">calc<span>3D</span></a><a href="./purchases.html">Compras e inventario de prueba</a><span>Estudio de costos · Chile</span></header>
+  <header class="topbar"><a class="brand" href="#inicio">calc<span>3D</span></a><a href="./purchases.html">Compras e inventario de prueba</a><a href="./settings.html">Configuración · Impresoras</a><span>Estudio de costos · Chile</span></header>
   <main id="inicio" class="shell">
     <div class="intro"><h1>Calculadora de impresión 3D</h1><p>Estimación en vivo. Solo Guardar registra una copia.</p></div>
     <p class="notice" role="note">Prototipo: datos de prueba guardados solo en este navegador; sin base de datos ni usuarios reales. No registra compras ni descuenta inventario.</p>
@@ -36,8 +36,8 @@
           </div></div></div>
           <p class="hint wide work-help" id="work-help">Opcionales vacíos = cero. Regalo no es venta; cobro familiar sin definir.</p></div>
         </section>
-        <section aria-labelledby="material-heading"><div class="section-head"><span>02 / Material</span><h2 id="material-heading">Bobina y consumo</h2></div>
-          <div class="fields"><label class="wide" for="spoolId">Bobina de prueba<select id="spoolId" name="spoolId" aria-describedby="spool-info"></select></label>
+        <section aria-labelledby="material-heading"><div class="fields"><div class="material-start"><div class="section-head"><span>02 / Material</span><h2 id="material-heading">Bobina y consumo</h2></div>
+          <label class="wide" for="spoolId">Bobina de prueba<select id="spoolId" name="spoolId" aria-describedby="spool-info"></select></label></div>
           <p class="hint wide" id="spool-info" aria-live="polite"></p>
           <p class="error wide" id="purchase-catalog-error" role="status" hidden>Las compras de prueba no se pueden leer; no se modificaron sus datos. <a href="./purchases.html">Revisar compras</a></p>
           <div class="row-pair material-pair"><label for="purchasePrice">Precio de compra · CLP<input id="purchasePrice" name="purchasePrice" type="number" inputmode="decimal" min="0" step="any" required></label>
@@ -48,11 +48,10 @@
         <section aria-labelledby="machine-heading"><div class="section-head"><span>03 / Producción</span><h2 id="machine-heading">Tiempo y energía</h2></div>
           <div class="fields"><div class="row-pair time-pair"><label for="hours">Horas<input id="hours" name="hours" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="3"></label>
           <label for="minutes">Minutos · 0–59<input id="minutes" name="minutes" type="number" inputmode="numeric" min="0" max="59" step="1" placeholder="0" value="25"></label></div>
-          <label class="wide" for="printerProfile">Impresora<select id="printerProfile" name="printerProfile" aria-describedby="profile-note"></select></label><small id="profile-note" class="printer-help">Potencias estimadas aportadas por el usuario; no son consumos medidos ni máximos verificados.</small>
-          <div class="row-pair energy-pair"><label for="watts">Potencia estimada · W<input id="watts" name="watts" type="number" inputmode="decimal" min="0" step="any" required value="130"></label>
-          <label for="electricityPricePerKwh">Tarifa eléctrica · CLP/kWh<input id="electricityPricePerKwh" name="electricityPricePerKwh" type="number" inputmode="decimal" min="0" step="any" required value="215"></label></div></div>
-          <div id="reference-expenses" class="fields reference-fields"><div class="row-pair replacement-pair"><label for="replacementCost">Costo de reposición · CLP<input id="replacementCost" name="replacementCost" type="number" inputmode="decimal" min="0" step="any" value="220000"></label>
-            <label for="replacementLifetimeHours">Vida útil de reposición · h<input id="replacementLifetimeHours" name="replacementLifetimeHours" type="number" inputmode="decimal" min="0.001" step="any" value="4320"></label></div>
+          <label class="wide" for="printerProfile">Impresora instalada<select id="printerProfile" name="printerProfile" aria-describedby="profile-note"></select></label><small id="profile-note" class="printer-help">Selecciona otra impresora para esta copia o <a href="./settings.html">configura una impresora</a>.</small>
+          <span id="printer-name-current" hidden></span>
+          <input id="watts" name="watts" type="hidden" value="130"><input id="electricityPricePerKwh" name="electricityPricePerKwh" type="hidden" value="215"></div>
+          <div id="reference-expenses" class="fields reference-fields"><input id="replacementCost" name="replacementCost" type="hidden" value="220000"><input id="replacementLifetimeHours" name="replacementLifetimeHours" type="hidden" value="4320">
             <label class="wide" for="errorPercent">Imprevistos · % de material, electricidad y desgaste<input id="errorPercent" name="errorPercent" type="number" inputmode="decimal" min="0" step="any" value="5"></label></div>
           <!-- Retain historical component values without exposing obsolete draft controls. -->
           <div id="legacy-depreciation" hidden><input id="depreciationPerHour" name="depreciationPerHour" type="hidden" value=""></div>

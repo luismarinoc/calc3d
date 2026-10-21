@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { setPrinterCosts } from './printer-fixtures.mjs';
 
 const quoteKey = 'calc3d.demo.quotes.v1';
 const bytes = (page, key) => page.evaluate((storageKey) => localStorage.getItem(storageKey), key);
@@ -25,16 +26,17 @@ async function seedLegacy(page, fields = {}) {
 test('new and reloaded drafts expose reference example directly', async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.locator('#calculationMode')).toBeHidden();
-  for (const id of ['replacementCost', 'replacementLifetimeHours', 'errorPercent', 'multiplierPreset']) await expect(page.locator(`#${id}`)).toBeVisible();
+  for (const id of ['printerProfile', 'errorPercent', 'multiplierPreset']) await expect(page.locator(`#${id}`)).toBeVisible();
   await expect(page.locator('#multiplierPreset')).toHaveValue('2');
-  for (const [id, value] of Object.entries({ purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0', watts: '130', electricityPricePerKwh: '230' })) await page.locator(`#${id}`).fill(value);
+  await setPrinterCosts(page, { electricityPricePerKwh: 230 });
+  for (const [id, value] of Object.entries({ purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0' })) await page.locator(`#${id}`).fill(value);
   await expect(amount(page, 'Costo total')).toContainText('7.725');
   await expect(amount(page, 'Precio final estimado')).toContainText('15.450');
   await page.screenshot({ path: testInfo.outputPath('current-reference.png'), fullPage: true });
   expect(await bytes(page, quoteKey)).toBeNull();
   await page.reload();
   await expect(page.locator('#calculationMode')).toBeHidden();
-  await expect(page.locator('#replacementLifetimeHours')).toBeVisible();
+  await expect(page.locator('#replacementLifetimeHours')).toBeHidden();
   await expect(page.locator('#multiplierPreset')).toHaveValue('2');
   await expect(page.locator('#legacy-markup')).toBeHidden();
 });
@@ -55,7 +57,7 @@ test('historical copy remains legacy without writes; deliberate current draft an
   expect(await bytes(page, quoteKey)).toBe(original);
   await page.getByRole('button', { name: 'Iniciar cálculo actual' }).click();
   await expect(page.locator('#legacy-notice')).toBeHidden();
-  await expect(page.locator('#replacementLifetimeHours')).toBeVisible();
+  await expect(page.locator('#replacementLifetimeHours')).toBeHidden();
   await expect(page.locator('#multiplierPreset')).toHaveValue('2');
   await expect(page.locator('#legacy-markup')).toBeHidden();
   await expect(page.locator('#calculationMode')).toBeHidden();

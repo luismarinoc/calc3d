@@ -2,11 +2,9 @@ import { test, expect } from '@playwright/test';
 
 const rows = [
   [['title'], ['hours', 'minutes'], ['multiplierPreset']],
-  [['purpose', 'client-toggle'], ['printerProfile'], []],
-  [[], ['watts', 'electricityPricePerKwh'], ['discountType', 'discountValue']],
-  [['spoolId'], ['replacementCost', 'replacementLifetimeHours'], ['surchargeType', 'surchargeValue']],
-  [['purchasePrice', 'netWeightGrams'], ['errorPercent'], []],
-  [['grams'], ['extraProductionCost'], []],
+  [['purpose', 'client-toggle'], ['printerProfile'], ['discountType', 'discountValue']],
+  [['spoolId'], ['errorPercent'], []],
+  [['purchasePrice', 'netWeightGrams'], ['extraProductionCost'], ['surchargeType', 'surchargeValue']],
 ];
 
 async function geometry(page) {
@@ -14,9 +12,16 @@ async function geometry(page) {
   for (const group of rows) {
     const boxes = (await Promise.all(group.flat().map(box)));
     for (const control of boxes) expect(control.height).toBeGreaterThanOrEqual(44);
-    for (const control of boxes.slice(1)) expect(Math.abs(control.y - boxes[0].y), `${group.flat().join(', ')} control tops`).toBeLessThanOrEqual(1);
-    const labels = await Promise.all(group.flat().filter(id => id !== 'client-toggle').map(id => page.locator(`label[for="${id}"]`).boundingBox()));
-    for (const label of labels.slice(1)) expect(Math.abs(label.y - labels[0].y), `${group.flat().join(', ')} caption tops`).toBeLessThanOrEqual(1);
+    for (const [index, control] of boxes.entries()) {
+      if (!index) continue;
+      const first = boxes[0];
+      const delta = group.flat()[index] === 'client-toggle'
+        ? Math.abs(control.y + control.height - first.y - first.height)
+        : Math.abs(control.y - first.y);
+      expect(delta, `${group.flat().join(', ')} control baseline`).toBeLessThanOrEqual(1);
+    }
+    // Wrapped captions and the material heading can start at different heights;
+    // controls still share a baseline and every caption retains its own close gap.
   }
   const [a, b, c] = await Promise.all(['#title', '.time-pair', '#multiplierPreset'].map(selector => page.locator(selector).boundingBox()));
   expect(a.width, 'equal desktop columns').toBeCloseTo(b.width, 0);
@@ -25,6 +30,39 @@ async function geometry(page) {
   expect(c.x).toBeGreaterThan(b.x + b.width);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize().width);
 }
+
+test('Material and bobina remain below Trabajo in the first column at wide widths', async ({ page }, info) => {
+  test.skip(info.project.name !== 'chromium-desktop');
+  const stylesheets = [];
+  page.on('response', (response) => {
+    if (response.url().endsWith('/src/styles.css')) stylesheets.push(response.status());
+  });
+  await page.goto('/');
+  for (const width of [1280, 1440, 1575]) {
+    await page.setViewportSize({ width, height: width === 1280 ? 800 : 900 });
+    const [work, title, purpose, material, spool, bobina, discount] = await Promise.all([
+      '#work-heading', '#title', '#purpose', '#material-heading', '#spoolId', 'label[for="spoolId"]', '#discountType',
+    ].map((selector) => page.locator(selector).boundingBox()));
+    const placement = await page.locator('.material-start').evaluate((element) => ({
+      column: getComputedStyle(element).gridColumnStart,
+      row: getComputedStyle(element).gridRowStart,
+      stylesheet: document.querySelector('link[rel="stylesheet"]').href,
+    }));
+    console.log(`${width}px Material placement`, { work, title, purpose, material, spool, discount, placement, stylesheets });
+    await page.screenshot({ path: info.outputPath(`material-${width}.png`), fullPage: true });
+    expect(Math.abs(material.x - title.x), `${width}px Material in Trabajo column`).toBeLessThanOrEqual(2);
+    expect(Math.abs(spool.x - title.x), `${width}px bobina in Trabajo column`).toBeLessThanOrEqual(2);
+    expect(Math.abs(bobina.x - purpose.x), `${width}px bobina below purpose`).toBeLessThanOrEqual(2);
+    expect(material.y).toBeGreaterThan(work.y + work.height);
+    expect(material.y).toBeGreaterThan(purpose.y + purpose.height);
+    expect(spool.y).toBeGreaterThan(material.y + material.height);
+    expect(spool.x + spool.width).toBeLessThan(discount.x);
+    expect(placement.column).toBe('1');
+    expect(placement.row).toBe('4');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
+  expect(stylesheets).toContain(200);
+});
 
 test('each visible desktop caption hugs its own control', async ({ page }, info) => {
   test.skip(info.project.name !== 'chromium-desktop');

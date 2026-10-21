@@ -49,14 +49,15 @@ fieldset:disabled { opacity: .55; }
 .section-head span, .result-head span, legend { color: var(--accent); font-size: 11px; letter-spacing: .08em; font-weight: 700; text-transform: uppercase; }
 .section-head h2, .result-head h2 { font-size: 16px; letter-spacing: -.015em; margin: 0; font-weight: 650; }
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; align-items: end; }
-.fields .wide { grid-column: 1 / -1; }
+.fields .wide, .material-start { grid-column: 1 / -1; }
+.material-start { display: grid; gap: 6px; }
 .row-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; min-width: 0; }
 .fields > .row-pair { grid-column: 1 / -1; }
 .row-pair label { min-width: 0; }
 @media (min-width: 1051px) {
   /* The three semantic sections participate in one parent grid: row tracks are
      shared rather than independently calculated column heights. */
-  #quote-form { align-items: stretch; grid-auto-rows: min-content; row-gap: 1px; }
+  #quote-form { align-items: stretch; grid-auto-rows: min-content; row-gap: 10px; }
   #quote-form .material-column, #quote-form section, #quote-form fieldset,
   #quote-form .fields, #quote-form #reference-expenses, #quote-form .production-extras {
     display: contents;
@@ -67,28 +68,24 @@ fieldset:disabled { opacity: .55; }
   #quote-form section[aria-labelledby="machine-heading"] > .section-head { grid-column: 2; grid-row: 1; }
   #quote-form #commercial > legend { grid-column: 3; grid-row: 1; align-self: start; padding: 0; line-height: 2.8; }
   #quote-form label[for="title"], #quote-form .purpose-pair,
-  #quote-form section[aria-labelledby="material-heading"] > .section-head,
-  #quote-form label[for="spoolId"], #quote-form .material-pair,
+  #quote-form .material-start, #quote-form .material-pair,
   #quote-form label[for="grams"] { grid-column: 1; }
   #quote-form .time-pair, #quote-form label[for="printerProfile"],
-  #quote-form .energy-pair, #quote-form .replacement-pair,
   #quote-form label[for="errorPercent"], #quote-form label[for="extraProductionCost"] { grid-column: 2; }
   #quote-form #reference-multiplier, #quote-form #legacy-markup,
   #quote-form #custom-multiplier, #quote-form .discount-pair,
   #quote-form .surcharge-pair, #quote-form .commercial-help { grid-column: 3; }
   #quote-form label[for="title"], #quote-form .time-pair,
   #quote-form #reference-multiplier, #quote-form #legacy-markup { grid-row: 2; }
-  #quote-form .purpose-pair, #quote-form label[for="printerProfile"] { grid-row: 3; }
-  #quote-form #custom-multiplier { grid-row: 3; }
-  #quote-form section[aria-labelledby="material-heading"] > .section-head,
-  #quote-form .energy-pair, #quote-form .discount-pair { grid-row: 4; }
-  #quote-form label[for="spoolId"], #quote-form .replacement-pair,
+  #quote-form .purpose-pair, #quote-form label[for="printerProfile"],
+  #quote-form .discount-pair { grid-row: 3; }
+  #quote-form .material-start, #quote-form label[for="errorPercent"],
+  #quote-form #custom-multiplier { grid-row: 4; }
+  #quote-form .material-pair, #quote-form label[for="extraProductionCost"],
   #quote-form .surcharge-pair { grid-row: 5; }
-  #quote-form .material-pair, #quote-form label[for="errorPercent"],
-  #quote-form .commercial-help { grid-row: 6; }
-  #quote-form label[for="grams"], #quote-form label[for="extraProductionCost"] { grid-row: 7; }
-  #quote-form #spool-info, #quote-form #purchase-catalog-error { grid-column: 1; grid-row: 8; margin: 0; }
-  #quote-form #purchase-catalog-error { margin-top: 32px; }
+  #quote-form label[for="grams"] { grid-row: 6; }
+  #quote-form #spool-info { grid-column: 1; grid-row: 7; margin: 0; }
+  #quote-form #purchase-catalog-error { grid-column: 1; grid-row: 8; margin: 0; }
   /* The longer instructions remain linked to their controls for assistive tech.
      On compact desktops they cannot push or overlap shared control rows. */
   #quote-form .work-help, #quote-form .grams-help, #quote-form #profile-note,
@@ -96,9 +93,11 @@ fieldset:disabled { opacity: .55; }
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip-path: inset(50%); white-space: nowrap;
   }
-  #quote-form label { display: grid; grid-template-rows: 32px minmax(44px, auto); align-content: start; align-items: end; gap: 4px; }
-  #quote-form .row-pair label { align-self: start; }
-  #quote-form .purpose-pair .client-details { align-self: start; padding-top: 36px; }
+  #quote-form label { display: flex; flex-direction: column; justify-content: flex-end; align-self: end; gap: 4px; }
+  #quote-form .row-pair { align-items: end; }
+  #quote-form .material-start { display: grid; gap: 6px; align-self: end; }
+  #quote-form .material-start .section-head { margin: 0; }
+  #quote-form .purpose-pair .client-details { align-self: end; }
   #quote-form .purpose-pair .client-fields label { display: flex; }
   #quote-form #internal-note, #quote-form #form-error, #quote-form #save,
   #quote-form #feedback { grid-row: auto; }
@@ -166,7 +165,7 @@ summary { cursor: pointer; color: var(--accent); min-height: 44px; padding: 11px
   .result { grid-row: 1; }
   /* Paired captions can wrap differently on tablets. Stretch both labels and
      keep their controls on the same baseline without moving desktop rows. */
-  .row-pair label { align-self: stretch; justify-content: space-between; }
+  .row-pair label { align-self: stretch; justify-content: flex-end; }
 }
 @media (max-width: 750px) {
   .intro { display: block; }

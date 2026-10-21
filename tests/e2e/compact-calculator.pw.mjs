@@ -2,8 +2,9 @@ import { test, expect } from '@playwright/test';
 
 const key = 'calc3d.demo.quotes.v1';
 const stored = (page) => page.evaluate((k) => localStorage.getItem(k), key);
-const primary = ['title', 'purpose', 'spoolId', 'purchasePrice', 'netWeightGrams', 'grams', 'hours', 'minutes', 'watts', 'electricityPricePerKwh', 'replacementCost', 'replacementLifetimeHours', 'errorPercent', 'multiplierPreset', 'discountType', 'discountValue', 'surchargeType', 'surchargeValue', 'save'];
-const reference = { purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0', watts: '130', electricityPricePerKwh: '230', replacementCost: '220000', replacementLifetimeHours: '4320', errorPercent: '5' };
+import { setPrinterCosts } from './printer-fixtures.mjs';
+const primary = ['title', 'purpose', 'spoolId', 'purchasePrice', 'netWeightGrams', 'grams', 'hours', 'minutes', 'printerProfile', 'errorPercent', 'multiplierPreset', 'discountType', 'discountValue', 'surchargeType', 'surchargeValue', 'save'];
+const reference = { purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0', errorPercent: '5' };
 
 async function bounds(page, ids, withinViewport) {
   const size = page.viewportSize();
@@ -33,15 +34,16 @@ test('desktop complete draft fits with reference results and no automatic persis
     await bounds(page, primary, true);
     const result = await page.locator('#result-content').boundingBox();
     expect(result.y + result.height).toBeLessThanOrEqual(800);
-    await page.screenshot({ path: 'test-results/compact-desktop-1280x800.png' });
+    await page.screenshot({ path: info.outputPath('compact-desktop-1280x800.png') });
   } else {
     await bounds(page, primary, false);
     await bounds(page, ['extraProductionCost'], false);
     await page.locator('#multiplierPreset').selectOption('custom');
     await bounds(page, ['customMultiplier'], false);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize().width);
-    if (info.project.name === 'webkit-phone') await page.screenshot({ path: 'test-results/compact-phone.png', fullPage: true });
+    if (info.project.name === 'webkit-phone') await page.screenshot({ path: info.outputPath('compact-phone.png'), fullPage: true });
   }
+  await setPrinterCosts(page, { electricityPricePerKwh: 230 });
   for (const [id, value] of Object.entries(reference)) await page.locator(`#${id}`).fill(value);
   await page.locator('#multiplierPreset').selectOption('2');
   await expect(page.locator('#result-content')).toContainText('7.725');
@@ -96,13 +98,41 @@ test('fields have breathing room and paired controls align', async ({ page }, in
   expect(spacing.row).toBeGreaterThanOrEqual(10);
   expect(spacing.column).toBeGreaterThanOrEqual(12);
   expect(await page.locator('label[for="hours"]').evaluate(element => parseFloat(getComputedStyle(element).gap))).toBeGreaterThanOrEqual(4);
-  const watts = await page.locator('#watts').boundingBox();
-  const tariff = await page.locator('#electricityPricePerKwh').boundingBox();
-  expect(Math.abs(watts.y - tariff.y)).toBeLessThanOrEqual(1);
+  const grams = await page.locator('#grams').boundingBox();
+  const extras = await page.locator('#extraProductionCost').boundingBox();
+  expect(extras.height).toBeGreaterThanOrEqual(44);
   if (info.project.name === 'chromium-desktop') {
+    expect(grams.y).toBeGreaterThanOrEqual(extras.y + extras.height);
     await page.setViewportSize({ width: 1440, height: 900 });
     expect(await page.locator('#quote-form').evaluate(element => parseFloat(getComputedStyle(element).columnGap))).toBeGreaterThanOrEqual(20);
     await bounds(page, primary, true);
+  } else {
+    const production = await page.locator('section[aria-labelledby="machine-heading"]').boundingBox();
+    const material = await page.locator('#material-heading').boundingBox();
+    expect(extras.y + extras.height).toBeLessThanOrEqual(production.y + production.height);
+    const width = page.viewportSize().width;
+    if (width > 1050) {
+      // Landscape iPad is 1080px: it uses the shared desktop grid, where
+      // sections are display:contents and their bounding boxes are not columns.
+      expect(width).toBe(1080);
+      const spool = await page.locator('#spoolId').boundingBox();
+      const allowance = await page.locator('#errorPercent').boundingBox();
+      expect(spool.x + spool.width).toBeLessThanOrEqual(allowance.x);
+      expect(Math.abs(spool.y + spool.height - allowance.y - allowance.height)).toBeLessThanOrEqual(1);
+      expect(grams.y).toBeGreaterThanOrEqual(extras.y + extras.height);
+    } else if (width <= 600) {
+      // A single-column phone stacks Material before Production; neither section overlaps.
+      expect(grams.y + grams.height).toBeLessThanOrEqual(production.y);
+    } else {
+      const materialSection = await page.locator('section[aria-labelledby="material-heading"]').boundingBox();
+      expect(materialSection.x + materialSection.width).toBeLessThanOrEqual(production.x);
+      expect(grams.y).toBeGreaterThanOrEqual(material.y + material.height);
+    }
+    for (const id of ['extraProductionCost', 'grams']) {
+      await page.locator(`#${id}`).scrollIntoViewIfNeeded();
+      await expect(page.locator(`#${id}`)).toBeInViewport();
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize().width);
   }
 });
 
@@ -112,8 +142,8 @@ test('short desktop height scrolls to all controls rather than clipping', async 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
   await page.locator('#save').scrollIntoViewIfNeeded();
   await expect(page.locator('#save')).toBeInViewport();
-  await page.locator('#replacementLifetimeHours').scrollIntoViewIfNeeded();
-  await expect(page.locator('#replacementLifetimeHours')).toBeInViewport();
+  await page.locator('#printerProfile').scrollIntoViewIfNeeded();
+  await expect(page.locator('#printerProfile')).toBeInViewport();
   await page.locator('#extraProductionCost').scrollIntoViewIfNeeded();
   await expect(page.locator('#extraProductionCost')).toBeInViewport();
 });

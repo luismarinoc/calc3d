@@ -1,11 +1,13 @@
 import { test, expect } from '@playwright/test';
+import { setPrinterCosts } from './printer-fixtures.mjs';
 
 const quoteKey = 'calc3d.demo.quotes.v1';
 const bytes = (page) => page.evaluate((key) => localStorage.getItem(key), quoteKey);
 const row = (page, label) => page.locator('#result-content .result-row').filter({ has: page.getByText(label, { exact: true }) });
 const amount = async (page, label) => (await row(page, label).locator('strong').textContent()).replace(/[^\d.,-]/g, '');
 async function example(page) {
-  for (const [id, value] of Object.entries({ purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0', watts: '130', electricityPricePerKwh: '230', replacementCost: '220000', replacementLifetimeHours: '4320', errorPercent: '5' })) {
+  await setPrinterCosts(page, { watts: 130, electricityPricePerKwh: 230, replacementCost: 220000, replacementLifetimeHours: 4320 });
+  for (const [id, value] of Object.entries({ purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0', errorPercent: '5' })) {
     await page.locator(`#${id}`).fill(value);
   }
 }
@@ -20,7 +22,7 @@ test('reference exact displayed amounts, presets, custom, internal and saved iso
     expect(await amount(page, label), label).toBe(expected);
   }
   expect(await bytes(page)).toBeNull();
-  for (const id of ['replacementCost', 'replacementLifetimeHours', 'errorPercent', 'multiplierPreset']) {
+  for (const id of ['printerProfile', 'errorPercent', 'multiplierPreset']) {
     const control = page.locator(`#${id}`);
     await expect(control).toBeVisible();
     const box = await control.boundingBox();
