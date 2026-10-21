@@ -7,6 +7,8 @@ export const demoSpools = [
   { id: 'demo-pla', label: 'PLA arena · bobina ficticia B', purchasePrice: 18400, netWeightGrams: 1000 },
 ];
 
+const requiredNumbers = new Set(['purchasePrice', 'netWeightGrams', 'grams', 'watts', 'electricityPricePerKwh']);
+
 const fields = {
   purchasePrice: ['Precio de compra', 0], netWeightGrams: ['Peso neto', 0.000001],
   grams: ['Gramos consumidos', 0], hours: ['Horas', 0], minutes: ['Minutos', 0],
@@ -23,32 +25,36 @@ export function evaluate(form, catalog = demoSpools) {
   const title = String(form.title ?? '').trim();
   if (!title) return invalid('Ingresa un nombre para el trabajo.', 'title');
   if (!catalog.some((spool) => spool.id === form.spoolId)) return invalid('Selecciona una bobina de prueba.', 'spoolId');
-  if (!['sale', 'internal'].includes(form.purpose)) return invalid('Selecciona Venta o Uso interno.', 'purpose');
+  if (!['sale', 'internal', 'gift'].includes(form.purpose)) return invalid('Selecciona Venta, Uso interno o Regalo.', 'purpose');
   const reference = form.calculationMode === 'reference';
   if (form.calculationMode !== undefined && !['legacy', 'reference'].includes(form.calculationMode)) return invalid('Selecciona un método de cálculo válido.', 'calculationMode');
   const numbers = {};
   for (const [key, [label, min]] of Object.entries(fields)) {
-    if ((form.purpose === 'internal' || reference) && key === 'markupPercent') continue;
+    if ((form.purpose !== 'sale' || reference) && key === 'markupPercent') continue;
     if (form.purpose === 'internal' && !reference && ['discountValue', 'surchargeValue'].includes(key)) continue;
     const raw = form[key];
-    if (raw === undefined && !['purchasePrice', 'netWeightGrams', 'grams', 'hours', 'minutes', 'watts', 'electricityPricePerKwh'].includes(key)) {
+    if (raw === undefined || String(raw).trim() === '') {
+      if (requiredNumbers.has(key)) return invalid(`Ingresa un valor para ${label}.`, key);
       numbers[key] = 0;
       continue;
     }
-    if (raw === undefined || String(raw).trim() === '') return invalid(`Ingresa un valor para ${label}.`, key);
     const number = Number(raw);
     if (!Number.isFinite(number) || number < min) return invalid(`${label} debe ser un número ${min > 0 ? 'mayor que cero' : 'no negativo'}.`, key);
     numbers[key] = number;
   }
   if (reference) {
-    if (form.purpose === 'internal' && (numbers.discountValue !== 0 || numbers.surchargeValue !== 0)) {
-      return invalid('El trabajo interno no admite descuentos ni recargos.');
+    if (form.purpose !== 'sale' && (numbers.discountValue !== 0 || numbers.surchargeValue !== 0)) {
+      return invalid(form.purpose === 'gift' ? 'El regalo no admite descuentos ni recargos.' : 'El trabajo interno no admite descuentos ni recargos.');
     }
     for (const [key, label, min] of [
       ['replacementCost', 'Costo de reposición', 0], ['replacementLifetimeHours', 'Vida útil de reposición', Number.MIN_VALUE],
       ['errorPercent', 'Imprevistos', 0],
     ]) {
-      if (form[key] === undefined || String(form[key]).trim() === '') return invalid(`Ingresa un valor para ${label}.`, key);
+      if (form[key] === undefined || String(form[key]).trim() === '') {
+        if (min > 0) return invalid(`Ingresa un valor para ${label}.`, key);
+        numbers[key] = 0;
+        continue;
+      }
       numbers[key] = Number(form[key]);
       if (!Number.isFinite(numbers[key]) || numbers[key] < min) return invalid(`${label} debe ser un número ${min > 0 ? 'mayor que cero' : 'no negativo'}.`, key);
     }
@@ -62,6 +68,9 @@ export function evaluate(form, catalog = demoSpools) {
   }
   if (!Number.isSafeInteger(numbers.hours)) return invalid('Las horas deben ser un entero no negativo.', 'hours');
   if (!Number.isInteger(numbers.minutes) || numbers.minutes > 59) return invalid('Los minutos deben estar entre 0 y 59.', 'minutes');
+  if (form.purpose === 'gift' && !reference && (numbers.discountValue !== 0 || numbers.surchargeValue !== 0)) {
+    return invalid('El regalo no admite descuentos ni recargos.');
+  }
   if (form.purpose === 'sale' && !['amount', 'percent'].includes(form.discountType)) return invalid('Selecciona monto o porcentaje para el descuento.', 'discountType');
   if (form.purpose === 'sale' && !['amount', 'percent'].includes(form.surchargeType)) return invalid('Selecciona monto o porcentaje para el recargo.', 'surchargeType');
   const input = {
@@ -82,7 +91,11 @@ export function evaluate(form, catalog = demoSpools) {
     input.surcharge = { type: form.surchargeType, value: numbers.surchargeValue };
   }
   try {
-    return { title, spoolId: form.spoolId, form: { ...form }, input, result: reference ? calculateReferenceQuote(input) : calculateQuote(input), error: null, field: null };
+    // The unchanged integer API knows only sale/internal; a gift uses its internal cost calculation.
+    const result = reference ? calculateReferenceQuote(input) : calculateQuote(form.purpose === 'gift' ? { ...input, purpose: 'internal' } : input);
+    return { title, spoolId: form.spoolId, form: { ...form }, input,
+      result: form.purpose === 'gift' && !reference ? { ...result, internalCost: 0, giftCost: result.totalCost } : result,
+      error: null, field: null };
   } catch (error) {
     return invalid(error.message);
   }

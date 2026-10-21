@@ -113,6 +113,8 @@ function render() {
   row(content, 'Costo total', result.totalCost, true, format);
   if (current.input.purpose === 'internal') {
     row(content, 'Gasto interno estimado', result.internalCost, true, format);
+  } else if (current.input.purpose === 'gift') {
+    row(content, 'Costo de regalo estimado', result.giftCost, true, format);
   } else {
     row(content, 'Precio base', result.basePrice, false, format);
     row(content, 'Descuento', result.discountAmount === 0 ? 0 : -result.discountAmount, false, format);
@@ -141,7 +143,7 @@ function renderHistory() {
     const title = document.createElement('strong');
     title.textContent = record.title;
     const detail = document.createElement('p');
-    detail.textContent = `${new Date(record.savedAt).toLocaleString('es-CL')} · ${record.input.purpose === 'internal' ? 'Uso interno' : 'Venta'} · costo ${moneyFor(record.form?.calculationMode).format(record.result.totalCost)}${record.input.purpose === 'sale' ? ` · precio ${moneyFor(record.form?.calculationMode).format(record.result.finalPrice)}` : ''}`;
+    detail.textContent = `${new Date(record.savedAt).toLocaleString('es-CL')} · ${({ sale: 'Venta', internal: 'Uso interno', gift: 'Regalo' })[record.input.purpose]} · costo ${moneyFor(record.form?.calculationMode).format(record.result.totalCost)}${record.input.purpose === 'sale' ? ` · precio ${moneyFor(record.form?.calculationMode).format(record.result.finalPrice)}` : ''}`;
     description.append(title, detail);
     const open = document.createElement('button');
     open.type = 'button';
@@ -185,13 +187,18 @@ function toggleMode() {
   render();
 }
 function togglePurpose(reset = true) {
-  const internal = form.elements.namedItem('purpose').value === 'internal';
-  if (internal && reset) {
-    for (const name of ['markupPercent', 'discountValue', 'surchargeValue']) form.elements.namedItem(name).value = '0';
+  const purpose = form.elements.namedItem('purpose').value;
+  const nonSale = purpose !== 'sale';
+  if (nonSale && reset) {
+    for (const name of ['markupPercent', 'discountValue', 'surchargeValue']) form.elements.namedItem(name).value = purpose === 'internal' ? '0' : '';
     for (const name of ['discountType', 'surchargeType']) form.elements.namedItem(name).value = 'percent';
   }
-  commercial.disabled = internal;
-  document.querySelector('#internal-note').hidden = !internal;
+  commercial.disabled = nonSale;
+  const note = document.querySelector('#internal-note');
+  note.hidden = !nonSale;
+  note.textContent = purpose === 'gift'
+    ? 'Regalo: conserva el costo sin precio ni ganancia. Los ajustes comerciales se reinician al cambiar de propósito.'
+    : 'Uso interno: sin precio de venta, ganancia ni ajustes comerciales. Los valores comerciales se reinician al cambiar de propósito.';
   render();
 }
 form.addEventListener('input', () => { document.querySelector('#feedback').textContent = ''; render(); });

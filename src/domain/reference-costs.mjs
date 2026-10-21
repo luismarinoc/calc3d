@@ -33,7 +33,7 @@ function adjustment(selected, name, base) {
 /** Retain raw component precision through allowance and multiplier; round only monetary outputs to cents. */
 export function calculateReferenceQuote(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('La cotización debe ser un objeto.');
-  if (!['sale', 'internal'].includes(input.purpose)) throw new TypeError('Propósito inválido: use sale o internal.');
+  if (!['sale', 'internal', 'gift'].includes(input.purpose)) throw new TypeError('Propósito inválido: use sale, internal o gift.');
   if (!input.spool || typeof input.spool !== 'object' || Array.isArray(input.spool)) throw new TypeError('spool debe ser un objeto.');
   const purchasePrice = nonnegative(input.spool.purchasePrice, 'spool.purchasePrice');
   const weight = positive(input.spool.netWeightGrams, 'spool.netWeightGrams');
@@ -57,7 +57,7 @@ export function calculateReferenceQuote(input) {
   const total = Object.values(raw).reduce((sum, part) => sum + part, 0);
   const breakdown = Object.fromEntries(Object.entries(raw).map(([name, amount]) => [name, money(amount)]));
   const totalCost = money(total);
-  if (input.purpose === 'internal') {
+  if (input.purpose !== 'sale') {
     for (const name of ['discount', 'surcharge']) {
       const selected = input[name];
       if (selected === undefined) continue;
@@ -65,10 +65,11 @@ export function calculateReferenceQuote(input) {
         throw new TypeError(`${name}.type debe ser amount o percent.`);
       }
       if (nonnegative(selected.value, `${name}.value`) !== 0) {
-        throw new RangeError('El trabajo interno no admite descuentos ni recargos.');
+        throw new RangeError(input.purpose === 'gift' ? 'El regalo no admite descuentos ni recargos.' : 'El trabajo interno no admite descuentos ni recargos.');
       }
     }
-    return { breakdown, totalCost, internalCost: totalCost, basePrice: 0, discountAmount: 0,
+    return { breakdown, totalCost, internalCost: input.purpose === 'internal' ? totalCost : 0,
+      ...(input.purpose === 'gift' ? { giftCost: totalCost } : {}), basePrice: 0, discountAmount: 0,
       surchargeAmount: 0, finalPrice: 0, commercialProfit: 0 };
   }
   const multiplier = positive(input.multiplier, 'multiplier');
