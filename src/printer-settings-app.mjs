@@ -1,9 +1,12 @@
-import { createPrinterSettingsStore } from './data/printer-settings.mjs';
+import { createRemoteRepositories } from './data/supabase.mjs';
+import { protectPage } from './auth/protected-page.mjs';
 import { demoPrinter } from './domain/printer-settings.mjs';
 import { printerProfiles, customPrinter } from './ui/printer-profiles.mjs';
 
-const storage = { getItem: (key) => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) };
-let store = createPrinterSettingsStore(storage);
+let repository;
+let state = null;
+let pending = false;
+const store = { snapshot: () => state, get error() { return failure.textContent; } };
 let editing = null;
 const select = document.querySelector('#active-printer');
 const form = document.querySelector('#printer-form');
@@ -16,15 +19,15 @@ const numericLabels = {
   watts: 'Potencia estimada', electricityPricePerKwh: 'Tarifa eléctrica',
   replacementCost: 'Costo de reposición', replacementLifetimeHours: 'Vida útil de reposición',
 };
-function showState() {
+function showState(selectedId) {
   const snapshot = store.snapshot();
   failure.hidden = !!snapshot;
   failure.textContent = snapshot ? '' : store.error;
-  for (const control of [select, ...form.elements, ...document.querySelectorAll('.settings-actions button')]) control.disabled = !snapshot;
+  for (const control of [select, ...form.elements, ...document.querySelectorAll('.settings-actions button')]) control.disabled = !snapshot || pending;
   select.replaceChildren();
   if (!snapshot) return;
   for (const printer of snapshot.printers) select.add(new Option(`${printer.name}${printer.id === snapshot.activeId ? ' · activa' : ''}`, printer.id));
-  select.value = snapshot.activeId;
+  select.value = snapshot.printers.some(printer => printer.id === selectedId) ? selectedId : snapshot.activeId;
 }
 function populate(printer) {
   form.elements.namedItem('name').value = printer.name;
@@ -57,18 +60,28 @@ document.querySelector('#edit-printer').addEventListener('click', () => {
   editing = printer.id; populate(printer);
   form.elements.namedItem('name').focus();
 });
-document.querySelector('#activate-printer').addEventListener('click', () => {
-  resetError();
-  const result = store.activatePrinter(select.value);
-  if (!result.ok) { report(result.error); return; }
-  showState(); feedback.textContent = 'Impresora activa para nuevos cálculos.';
+document.querySelector('#activate-printer').addEventListener('click', async () => {
+  if (pending || !state) return;
+  const selectedId = select.value;
+  const source = repository;
+  resetError(); pending = true; showState(selectedId);
+  try {
+    await source.printers.activatePrinter(selectedId);
+    const next = await source.printers.snapshot();
+    if (repository !== source) return;
+    if (next.activeId !== selectedId) throw new Error('No se confirmó la impresora activa. Recarga para reintentar.');
+    state = next; feedback.textContent = 'Impresora activa para nuevos cálculos.';
+  } catch (error) { if (repository === source) report(error.message); }
+  finally { if (repository === source) { pending = false; showState(selectedId); } }
 });
 model.addEventListener('change', () => {
   const profile = printerProfiles.find((item) => item.id === model.value);
   if (profile && !editing) form.elements.namedItem('watts').value = String(profile.watts);
 });
-form.addEventListener('submit', (event) => {
-  event.preventDefault(); resetError();
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (pending || !state) return;
+  resetError();
   const name = form.elements.namedItem('name');
   if (!name.value.trim()) { report('Ingresa un nombre para la impresora.', name); return; }
   const input = { name: name.value, modelId: model.value };
@@ -81,14 +94,32 @@ form.addEventListener('submit', (event) => {
       report(`${label} debe ser ${key === 'replacementLifetimeHours' ? 'mayor que cero' : key === 'replacementCost' ? 'un entero CLP no negativo' : 'no negativo'}.`, field); return;
     }
   }
-  const result = editing ? store.updatePrinter(editing, input) : store.createPrinter(input);
-  if (!result.ok) { report(result.error); return; }
-  editing = result.printer.id;
-  showState(); select.value = editing;
-  feedback.textContent = 'Impresora guardada en este navegador. Usa «Usar en nuevos cálculos» para activarla.';
+  const source = repository;
+  pending = true; showState();
+  try {
+    const result = editing ? await source.printers.updatePrinter(editing, input) : await source.printers.createPrinter(input);
+    const next = await source.printers.snapshot();
+    if (repository !== source) return;
+    state = next; editing = result.printer.id;
+    feedback.textContent = 'Impresora guardada en tu cuenta. Usa «Usar en nuevos cálculos» para activarla.';
+  } catch (error) { if (repository === source) report(error.message); }
+  finally { if (repository === source) { pending = false; showState(editing); } }
 });
 window.addEventListener('pageshow', (event) => {
-  if (event.persisted) { store = createPrinterSettingsStore(storage); editing = null; showState(); }
+  if (event.persisted) window.location.reload();
 });
 showState();
-populate(demoPrinter);
+await protectPage({ onClear: () => {
+  repository = null; state = null; editing = null; pending = false; form.reset(); feedback.textContent = '';
+  failure.textContent = 'Comprobando acceso remoto…'; showState();
+}, onReady: async ({ client, session }, isCurrent) => {
+  const source = createRemoteRepositories(client, session);
+  try {
+    const loaded = await source.printers.load();
+    if (!isCurrent()) return;
+    repository = source; state = loaded; failure.textContent = ''; showState(); populate(demoPrinter);
+  } catch {
+    if (!isCurrent()) return;
+    state = null; failure.textContent = 'No se pudo leer la configuración. Comprueba la conexión y recarga para reintentar.'; showState();
+  }
+} });

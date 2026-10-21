@@ -6,13 +6,13 @@
   <meta name="theme-color" content="#202321">
   <title>Calc3D · Calculadora de impresión 3D</title>
   <link rel="stylesheet" href="./src/styles.css">
+  <link rel="stylesheet" href="./src/auth.css">
   <script type="module" src="./src/app.mjs"></script>
 </head>
 <body>
   <header class="topbar"><a class="brand" href="#inicio">calc<span>3D</span></a><a href="./purchases.html">Compras e inventario de prueba</a><a href="./settings.html">Configuración · Impresoras</a><span>Estudio de costos · Chile</span></header>
   <main id="inicio" class="shell">
     <div class="intro"><h1>Calculadora de impresión 3D</h1><p>Estimación en vivo. Solo Guardar registra una copia.</p></div>
-    <p class="notice" role="note">Prototipo: datos de prueba guardados solo en este navegador; sin base de datos ni usuarios reales. No registra compras ni descuenta inventario.</p>
     <div class="tabs" role="tablist" aria-label="Vistas de la calculadora">
       <button id="calculator-tab" type="button" role="tab" aria-controls="calculator-panel" aria-selected="true" tabindex="0">Calculadora</button>
       <button id="history-tab" type="button" role="tab" aria-controls="history-panel" aria-selected="false" tabindex="-1">Historial</button>
@@ -79,7 +79,7 @@
         <div id="result-content" aria-live="polite"></div><p class="hint">Valores estimados en CLP. No incluye IVA ni representa venta realizada o consumo real.</p>
       </aside>
     </div>
-    <section id="history-panel" role="tabpanel" aria-labelledby="history-tab" class="history" hidden><div class="section-head"><span>REGISTROS LOCALES</span><h2 id="history-heading">Cálculos de prueba guardados</h2></div><p id="history-error" class="error" role="alert" hidden></p><div id="history-list"></div></section>
+    <section id="history-panel" role="tabpanel" aria-labelledby="history-tab" class="history" hidden><div class="section-head"><span>REGISTROS DE TU CUENTA</span><h2 id="history-heading">Cálculos de prueba guardados</h2></div><p id="history-error" class="error" role="alert" hidden></p><div id="history-list"></div></section>
   </main>
 </body>
 </html>

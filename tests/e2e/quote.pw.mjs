@@ -1,17 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { signedInTest as test, expect, remoteQuotes, remoteForPage, seedHistoricalQuote } from './supabase-fixture.mjs';
 
-const key = 'calc3d.demo.quotes.v1';
-const records = (page) => page.evaluate((storageKey) => JSON.parse(localStorage.getItem(storageKey) || '[]'), key);
+const records = remoteQuotes;
 const row = (page, label) => page.locator('#result-content .result-row').filter({ has: page.getByText(label, { exact: true }) });
 
 async function knownCost(page) {
-  await page.evaluate(async () => {
-    const { evaluate, demoSpools } = await import('/src/ui/quote.mjs');
-    const { createDemoHistory } = await import('/src/data/demo.mjs');
-    const history = createDemoHistory({ getItem: (key) => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) });
-    const quote = evaluate({ title: 'Cotización anterior', spoolId: 'demo-petg', purpose: 'sale', purchasePrice: '10000', netWeightGrams: '1000', grams: '1000', hours: '0', minutes: '0', watts: '0', electricityPricePerKwh: '200', depreciationPerHour: '0', maintenancePerHour: '0', laborMinutes: '0', laborRatePerHour: '0', extraProductionCost: '0', markupPercent: '50', discountType: 'percent', discountValue: '0', surchargeType: 'percent', surchargeValue: '0' }, demoSpools);
-    if (quote.error || !history.save(quote).ok) throw Error(quote.error || 'Legacy fixture save failed');
-  });
+  await seedHistoricalQuote(page, remoteForPage(page), { title: 'Cotización anterior', spoolId: 'demo-petg', purpose: 'sale', purchasePrice: '10000', netWeightGrams: '1000', grams: '1000', hours: '0', minutes: '0', watts: '0', electricityPricePerKwh: '200', depreciationPerHour: '0', maintenancePerHour: '0', laborMinutes: '0', laborRatePerHour: '0', extraProductionCost: '0', markupPercent: '50', discountType: 'percent', discountValue: '0', surchargeType: 'percent', surchargeValue: '0' });
   await page.reload();
   await page.getByRole('tab', { name: 'Historial' }).click();
   await page.getByRole('button', { name: 'Abrir copia' }).first().click();
@@ -25,7 +18,7 @@ test('live demo, explicit saved snapshot, adjustments and keyboard/touch layout'
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
-  await expect(page.getByRole('note')).toContainText('datos de prueba guardados solo en este navegador');
+  await expect(page.locator('.intro')).toContainText('Solo Guardar registra una copia');
   await expect(row(page, 'Costo total')).toBeVisible();
   await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(page.locator('#history-list')).toContainText('Todavía no guardaste cálculos');
@@ -55,7 +48,7 @@ test('live demo, explicit saved snapshot, adjustments and keyboard/touch layout'
   await page.keyboard.press('Tab');
   await expect(page.locator('#purpose')).toBeFocused();
   await page.locator('#save').click();
-  await expect(page.locator('#feedback')).toContainText('guardado solo en este navegador');
+  await expect(page.locator('#feedback')).toContainText('guardado en tu cuenta');
   await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(page.locator('.history-item')).toHaveCount(2);
   expect(await page.locator('.history-item img').count()).toBe(0);
@@ -83,6 +76,7 @@ test('invalid input and cost floor clear results without changing storage; equal
   await page.goto('/');
   await knownCost(page);
   await page.locator('#save').click();
+  await expect(page.locator('#feedback')).toContainText('COT-000002');
   const saved = await records(page);
   for (const [id, value, message] of [
     ['grams', '', 'Ingresa un valor para Gramos consumidos.'],
@@ -122,6 +116,7 @@ test('internal purpose saves expense without revenue and reset prevents stale ad
   await expect(row(page, 'Precio final estimado')).toHaveCount(0);
   await expect(row(page, 'Ganancia estimada')).toHaveCount(0);
   await page.locator('#save').click();
+  await expect(page.locator('#feedback')).toContainText('COT-000002');
   const saved = (await records(page))[0];
   expect(saved.input.purpose).toBe('internal');
   expect(saved.result.finalPrice).toBe(0);
@@ -141,27 +136,21 @@ test('internal purpose saves expense without revenue and reset prevents stale ad
   expect((await records(page))[0]).toEqual(saved);
 });
 
-test('corrupt and unavailable storage never report a successful save', async ({ page }) => {
-  await page.addInitScript((storageKey) => localStorage.setItem(storageKey, '{bad'), key);
+test('unavailable remote quote read never reports a successful save', async ({ page, remote }) => {
+  remote.fail = '/rest/v1/calc3d_quotes';
   await page.goto('/');
-  await page.getByRole('tab', { name: 'Historial' }).click();
-  await expect(page.locator('#history-error')).toHaveText('El historial de prueba no se puede leer; no se modificaron sus datos.');
   await expect(page.locator('#save')).toBeDisabled();
-  expect(await page.evaluate((storageKey) => localStorage.getItem(storageKey), key)).toBe('{bad');
-  await page.reload();
-  await page.getByRole('tab', { name: 'Historial' }).click();
-  await expect(page.locator('#history-error')).toBeVisible();
-  expect(await page.evaluate((storageKey) => localStorage.getItem(storageKey), key)).toBe('{bad');
+  await expect(page.locator('#form-error')).toContainText('No se pudieron cargar datos remotos');
+  expect(remote.quotes).toHaveLength(0);
 });
 
-test('denied writes do not create false history or success feedback', async ({ page }) => {
-  await page.addInitScript(() => {
-    Storage.prototype.setItem = () => { throw new Error('quota'); };
-  });
+test('denied writes do not create false history or success feedback', async ({ page, remote }) => {
   await page.goto('/');
+  remote.fail = '/rpc/calc3d_save_quote';
   await page.locator('#save').click();
-  await expect(page.locator('#feedback')).toHaveText('No se pudo guardar en este navegador; el cálculo no quedó registrado.');
+  await expect(page.locator('#feedback')).toContainText('Network denied');
   await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(page.locator('.history-item')).toHaveCount(0);
-  expect(await page.evaluate((storageKey) => localStorage.getItem(storageKey), key)).toBeNull();
+  remote.fail = null;
+  expect(await records(page)).toHaveLength(0);
 });

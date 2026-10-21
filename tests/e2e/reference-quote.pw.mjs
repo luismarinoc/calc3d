@@ -1,8 +1,7 @@
-import { test, expect } from '@playwright/test';
+import { signedInTest as test, expect, remoteQuotes } from './supabase-fixture.mjs';
 import { setPrinterCosts } from './printer-fixtures.mjs';
 
-const quoteKey = 'calc3d.demo.quotes.v1';
-const bytes = (page) => page.evaluate((key) => localStorage.getItem(key), quoteKey);
+const bytes = async page => { const rows = await remoteQuotes(page); return rows.length ? JSON.stringify(rows) : null; };
 const row = (page, label) => page.locator('#result-content .result-row').filter({ has: page.getByText(label, { exact: true }) });
 const amount = async (page, label) => (await row(page, label).locator('strong').textContent()).replace(/[^\d.,-]/g, '');
 async function example(page) {
@@ -49,6 +48,7 @@ test('reference exact displayed amounts, presets, custom, internal and saved iso
   await page.locator('#surchargeValue').fill('0');
   await page.locator('#multiplierPreset').selectOption('2');
   await page.locator('#save').click();
+  await expect(page.locator('#feedback')).toContainText('COT-000001');
   const snapshot = await bytes(page);
   expect(JSON.parse(snapshot)[0].result.finalPrice).toBe(15449.88);
   await page.locator('#grams').fill('50');
@@ -56,6 +56,7 @@ test('reference exact displayed amounts, presets, custom, internal and saved iso
   await page.reload();
   await page.getByRole('tab', { name: 'Historial' }).click();
   await page.getByRole('button', { name: 'Abrir copia' }).click();
+  await expect(page.locator('#feedback')).toContainText('Copia abierta de COT-000001');
   await expect(page.locator('#calculationMode')).toBeHidden();
   expect(await amount(page, 'Precio final estimado')).toBe('15.450');
   await page.locator('#purpose').selectOption('internal');

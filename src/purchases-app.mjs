@@ -1,13 +1,16 @@
-import { createPurchaseStore } from './data/purchases.mjs';
+import { createRemoteRepositories } from './data/supabase.mjs';
+import { protectPage } from './auth/protected-page.mjs';
 import { mapPurchaseForm } from './ui/purchase-form.mjs';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const form = $('#purchase-form');
 const lines = $('#purchase-lines');
-const store = createPurchaseStore({
-  getItem: (key) => window.localStorage.getItem(key),
-  setItem: (key, value) => window.localStorage.setItem(key, value),
-});
+let repository;
+let purchases = [];
+let spools = [];
+let loadError = 'Comprobando acceso remoto…';
+let refreshWarning = '';
+let saving = false;
 const money = (amount) => `${new Intl.NumberFormat('es-CL').format(amount)} CLP`;
 const text = (tag, value, className) => {
   const element = document.createElement(tag);
@@ -63,14 +66,9 @@ function render() {
   const inventory = $('#purchase-inventory');
   history.replaceChildren();
   inventory.replaceChildren();
-  if (store.error) {
-    show($('#storage-error'), `${store.error} Corrige el almacenamiento y recarga esta página.`);
-    $('#purchase-save').disabled = true;
-    return;
-  }
-  show($('#storage-error'), '');
-  const purchases = store.listPurchases();
-  const spools = store.listSpools();
+  show($('#storage-error'), loadError || refreshWarning);
+  $('#purchase-save').disabled = !!loadError || saving;
+  if (loadError) return;
   if (!purchases.length) history.append(text('p', 'Todavía no hay compras guardadas. Completa el formulario y guarda una compra de prueba.', 'empty'));
   for (const purchase of purchases) {
     const item = text('article', '', 'saved-item');
@@ -92,11 +90,12 @@ function render() {
   }
 }
 
-field('date').value = (() => {
+function todayDate() {
   const today = new Date();
   const pad = (number) => String(number).padStart(2, '0');
   return `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
-})();
+}
+field('date').value = todayDate();
 appendLine();
 render();
 preview();
@@ -114,23 +113,54 @@ form.addEventListener('input', () => {
   form.querySelectorAll('[aria-invalid]').forEach((input) => input.removeAttribute('aria-invalid'));
   preview();
 });
-form.addEventListener('submit', (event) => {
+form.addEventListener('submit', async (event) => {
   event.preventDefault();
-  if (store.error) return;
+  if (loadError || saving) return;
   let value;
   try { value = mapPurchaseForm(draft()); }
   catch (error) { focusError(error.message); return; }
-  const result = store.savePurchase(value);
-  if (!result.ok) {
-    focusError(`${result.error} ${/otra pestaña/.test(result.error) ? 'Recarga esta página antes de volver a guardar.' : ''}`.trim());
-    return;
-  }
-  show($('#purchase-error'), '');
-  render();
-  form.reset();
-  field('date').value = (() => { const now = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`; })();
-  lines.replaceChildren();
-  appendLine();
-  preview();
-  show($('#purchase-feedback'), 'Compra de prueba guardada solo en este navegador. Formulario limpio para evitar duplicados; completa otra compra si quieres guardar nuevamente.');
+  const source = repository;
+  saving = true; render();
+  try {
+    const result = await source.purchases.savePurchase(value);
+    if (repository !== source) return;
+    purchases = [result.record, ...purchases];
+    form.reset(); field('date').value = todayDate();
+    lines.replaceChildren(); appendLine(); preview();
+    show($('#purchase-error'), '');
+    show($('#purchase-feedback'), `Compra de prueba ${result.record.id} guardada en tu cuenta. Formulario limpio para evitar duplicados.`);
+    render();
+    try {
+      const [latestPurchases, latestSpools] = await Promise.all([
+        source.purchases.listPurchases(), source.purchases.listSpools(),
+      ]);
+      if (repository !== source) return;
+      purchases = latestPurchases; spools = latestSpools; refreshWarning = ''; render();
+    } catch {
+      if (repository === source) {
+        refreshWarning = 'Compra guardada; no se pudo actualizar el historial o las bobinas. Recarga para reintentar.';
+        show($('#purchase-feedback'), `Compra de prueba ${result.record.id} guardada en tu cuenta; no se pudo actualizar el historial o las bobinas. Recarga para reintentar.`);
+        render();
+      }
+    }
+  } catch (error) {
+    if (repository === source) focusError(`${error.message || 'No se pudo guardar la compra.'} Comprueba la conexión y recarga para reintentar.`);
+  } finally { if (repository === source) { saving = false; render(); } }
 });
+window.addEventListener('pageshow', event => { if (event.persisted) window.location.reload(); });
+await protectPage({ onClear: () => {
+  repository = null; purchases = []; spools = []; loadError = 'Comprobando acceso remoto…'; refreshWarning = ''; saving = false;
+  form.reset(); field('date').value = todayDate();
+  lines.replaceChildren(); appendLine(); show($('#purchase-feedback'), ''); render();
+}, onReady: async ({ client, session }, isCurrent) => {
+  const source = createRemoteRepositories(client, session);
+  try {
+    const [loadedPurchases, loadedSpools] = await Promise.all([source.purchases.listPurchases(), source.purchases.listSpools()]);
+    if (!isCurrent()) return;
+    repository = source; purchases = loadedPurchases; spools = loadedSpools;
+    loadError = ''; render();
+  } catch {
+    if (!isCurrent()) return;
+    loadError = 'No se pudieron leer las compras. Comprueba la conexión y recarga para reintentar.'; render();
+  }
+} });

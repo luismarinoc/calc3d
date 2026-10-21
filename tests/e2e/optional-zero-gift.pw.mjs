@@ -1,8 +1,7 @@
-import { test, expect } from '@playwright/test';
+import { signedInTest as test, expect, remoteQuotes, remoteForPage, seedHistoricalQuote } from './supabase-fixture.mjs';
 import { setPrinterCosts } from './printer-fixtures.mjs';
 
-const key = 'calc3d.demo.quotes.v1';
-const bytes = (page) => page.evaluate((name) => localStorage.getItem(name), key);
+const bytes = async page => { const rows = await remoteQuotes(page); return rows.length ? JSON.stringify(rows) : null; };
 const amount = (page, label) => page.locator('#result-content .result-row').filter({ has: page.getByText(label, { exact: true }) }).locator('strong');
 
 test('optional blanks calculate as zeros; gift save, reload and copy retain cost without revenue', async ({ page }) => {
@@ -27,6 +26,7 @@ test('optional blanks calculate as zeros; gift save, reload and copy retain cost
   expect(await bytes(page)).toBeNull();
   await page.locator('#grams').fill('294');
   await page.locator('#save').click();
+  await expect(page.locator('#feedback')).toContainText('COT-000001');
   const snapshot = await bytes(page);
   const gift = JSON.parse(snapshot)[0];
   expect(gift.input.purpose).toBe('gift');
@@ -48,15 +48,9 @@ test('optional blanks calculate as zeros; gift save, reload and copy retain cost
 
 test('historical sale copy can become a gift without losing its integer production cost or old record', async ({ page }) => {
   await page.goto('/');
-  await page.evaluate(async () => {
-    const { evaluate } = await import('/src/ui/quote.mjs');
-    const { createDemoHistory } = await import('/src/data/demo.mjs');
-    const history = createDemoHistory({ getItem: (key) => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) });
-    const old = evaluate({ title: 'Anterior', spoolId: 'demo-petg', purpose: 'sale', purchasePrice: '22000', netWeightGrams: '1000',
-      grams: '294', hours: '11', minutes: '0', watts: '130', electricityPricePerKwh: '230', markupPercent: '35',
-      discountType: 'percent', discountValue: '0', surchargeType: 'percent', surchargeValue: '0' });
-    if (old.error || !history.save(old).ok) throw Error(old.error || 'No se guardó la copia histórica.');
-  });
+  await seedHistoricalQuote(page, remoteForPage(page), { title: 'Anterior', spoolId: 'demo-petg', purpose: 'sale', purchasePrice: '22000', netWeightGrams: '1000',
+    grams: '294', hours: '11', minutes: '0', watts: '130', electricityPricePerKwh: '230', markupPercent: '35',
+    discountType: 'percent', discountValue: '0', surchargeType: 'percent', surchargeValue: '0' });
   const oldBytes = await bytes(page);
   await page.reload();
   await page.getByRole('tab', { name: 'Historial' }).click();
@@ -67,6 +61,7 @@ test('historical sale copy can become a gift without losing its integer producti
   await expect(amount(page, 'Precio final estimado')).toHaveCount(0);
   expect(await bytes(page)).toBe(oldBytes);
   await page.locator('#save').click();
+  await expect(page.locator('#feedback')).toContainText('COT-000002');
   const records = JSON.parse(await bytes(page));
   expect(records[0].input.purpose).toBe('gift');
   expect(records[0].result.totalCost).toBe(6797);

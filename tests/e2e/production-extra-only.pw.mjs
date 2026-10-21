@@ -1,6 +1,4 @@
-import { test, expect } from '@playwright/test';
-
-const key = 'calc3d.demo.quotes.v1';
+import { signedInTest as test, expect, remoteQuotes, remoteForPage, seedHistoricalQuote } from './supabase-fixture.mjs';
 const row = (page, label) => page.locator('#result-content .result-row').filter({ has: page.getByText(label, { exact: true }) });
 
 test('additional production costs expose only the single CLP amount directly', async ({ page }, info) => {
@@ -18,22 +16,16 @@ test('additional production costs expose only the single CLP amount directly', a
   }
   await page.locator('#extraProductionCost').fill('1000');
   await expect(row(page, 'Otros costos')).toContainText('1.000');
-  expect(await page.evaluate(name => localStorage.getItem(name), key)).toBeNull();
+  expect(await remoteQuotes(page)).toHaveLength(0);
 });
 
 test('historical component costs survive hidden controls and remain unchanged in storage', async ({ page }) => {
   await page.goto('/');
-  await page.evaluate(async () => {
-    const { evaluate } = await import('/src/ui/quote.mjs');
-    const { createDemoHistory } = await import('/src/data/demo.mjs');
-    const history = createDemoHistory(localStorage);
-    const evaluated = evaluate({ title: 'Costos históricos', purpose: 'sale', spoolId: 'demo-petg',
-      purchasePrice: '10000', netWeightGrams: '1000', grams: '10', hours: '2', minutes: '0', watts: '0', electricityPricePerKwh: '0',
-      depreciationPerHour: '10', maintenancePerHour: '20', laborMinutes: '30', laborRatePerHour: '100', extraProductionCost: '5',
-      markupPercent: '100', discountType: 'amount', discountValue: '0', surchargeType: 'amount', surchargeValue: '0' });
-    if (evaluated.error || !history.save(evaluated).ok) throw Error('Unable to create historical cost fixture');
-  });
-  const before = await page.evaluate(name => localStorage.getItem(name), key);
+  await seedHistoricalQuote(page, remoteForPage(page), { title: 'Costos históricos', purpose: 'sale', spoolId: 'demo-petg',
+    purchasePrice: '10000', netWeightGrams: '1000', grams: '10', hours: '2', minutes: '0', watts: '0', electricityPricePerKwh: '0',
+    depreciationPerHour: '10', maintenancePerHour: '20', laborMinutes: '30', laborRatePerHour: '100', extraProductionCost: '5',
+    markupPercent: '100', discountType: 'amount', discountValue: '0', surchargeType: 'amount', surchargeValue: '0' });
+  const before = await remoteQuotes(page);
   await page.reload();
   await page.getByRole('tab', { name: 'Historial' }).click();
   await page.getByRole('button', { name: 'Abrir copia' }).click();
@@ -43,5 +35,5 @@ test('historical component costs survive hidden controls and remain unchanged in
   await expect(row(page, 'Depreciación')).toContainText('20');
   await expect(row(page, 'Mantención')).toContainText('40');
   await expect(row(page, 'Trabajo')).toContainText('50');
-  expect(await page.evaluate(name => localStorage.getItem(name), key)).toBe(before);
+  expect(await remoteQuotes(page)).toEqual(before);
 });

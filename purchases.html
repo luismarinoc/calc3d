@@ -6,13 +6,14 @@
   <meta name="theme-color" content="#202321">
   <title>Calc3D · Compras e inventario de prueba</title>
   <link rel="stylesheet" href="./src/purchases.css">
+  <link rel="stylesheet" href="./src/auth.css">
   <script type="module" src="./src/purchases-app.mjs"></script>
 </head>
 <body class="purchases">
   <header class="purchase-top"><a href="./index.html">← Volver a la calculadora</a><span>calc<strong>3D</strong> / TALLER</span></header>
   <main class="purchase-shell">
     <div class="purchase-intro"><div><p class="overline">ADQUISICIONES / CHILE</p><h1>Compras e inventario <em>de prueba.</em></h1><p>Registra bobinas adquiridas, consulta el historial y revisa cada bobina por separado.</p></div><p class="intro-aside">Una compra existe solo al presionar <strong>Guardar compra de prueba</strong>. Editar o agregar líneas no guarda nada.</p></div>
-    <p class="purchase-notice" role="note">Demo guardada solo en este navegador. No es una base de datos de producción, respaldo ni sistema con autenticación. Inventario adquirido de prueba: todavía no descuenta impresiones/consumos; el peso mostrado es inicial, no existencias reales.</p>
+    <p class="purchase-notice" role="note">Las compras de prueba se guardan en tu cuenta al pulsar Guardar. Inventario adquirido de prueba: todavía no descuenta impresiones/consumos; el peso mostrado es inicial, no existencias reales.</p>
     <div class="purchase-grid">
       <form id="purchase-form" novalidate aria-labelledby="entry-heading">
         <div class="section-title"><span>01 / ENTRADA</span><h2 id="entry-heading">Nueva compra</h2></div>

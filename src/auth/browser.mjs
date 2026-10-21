@@ -25,9 +25,9 @@ export async function requireAccess(options = {}) {
   return result;
 }
 export function onAccessChange(callback) {
-  const { data: { subscription } } = client.auth.onAuthStateChange(() => {
+  const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
     // Supabase holds its auth lock during the callback: never await another SDK call here.
-    setTimeout(callback, 0);
+    setTimeout(() => callback(event, session?.user?.id), 0);
   });
   const focus = () => callback();
   const visible = () => { if (!document.hidden) callback(); };

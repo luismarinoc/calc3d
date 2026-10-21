@@ -1,13 +1,14 @@
-// Configure fixed costs through the same public settings adapter used by the settings page.
+import { expect } from './supabase-fixture.mjs';
+
+/** Configure costs through the public printer settings screen, never browser storage. */
 export async function setPrinterCosts(page, changes) {
-  await page.evaluate(async (changes) => {
-    const { createPrinterSettingsStore } = await import('/src/data/printer-settings.mjs');
-    const store = createPrinterSettingsStore(localStorage);
-    const state = store.snapshot();
-    const printer = state?.printers.find((item) => item.id === state.activeId);
-    if (!printer) throw Error(store.error || 'No hay impresora activa');
-    const result = store.updatePrinter(printer.id, { ...printer, ...changes });
-    if (!result.ok) throw Error(result.error);
-  }, changes);
-  await page.reload();
+  const original = new URL(page.url()).pathname;
+  await page.goto('/settings.html');
+  await expect(page.locator('#edit-printer')).toBeEnabled();
+  await page.locator('#edit-printer').click();
+  for (const [key, value] of Object.entries(changes)) await page.locator(`#printer-${key}`).fill(String(value));
+  await page.locator('#save-printer').click();
+  await expect(page.locator('#settings-feedback')).toContainText('guardada');
+  await page.goto(original);
+  await expect(page.locator('#save')).toBeEnabled();
 }

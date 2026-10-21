@@ -1,23 +1,24 @@
-import { test, expect } from '@playwright/test';
+import { signedInTest as test, expect, remoteQuotes, remotePurchases } from './supabase-fixture.mjs';
 import { setPrinterCosts } from './printer-fixtures.mjs';
 
-const keys = ['calc3d.demo.quotes.v1', 'calc3d.demo.purchases.v1', 'calc3d.demo.prints.v1'];
-const bytes = (page) => page.evaluate((names) => names.map((key) => localStorage.getItem(key)), keys);
+const bytes = async page => [await remoteQuotes(page), await remotePurchases(page)];
 const result = (page, label) => page.locator('#result-content .result-row').filter({ has: page.getByText(label, { exact: true }) });
 
 test('two installed instances of the same model remain separately selectable without writes', async ({ page }, info) => {
   await page.goto('/');
   const before = await bytes(page);
-  const ids = await page.evaluate(async () => {
-    const { createPrinterSettingsStore } = await import('/src/data/printer-settings.mjs');
-    const store = createPrinterSettingsStore(localStorage);
-    const initial = store.snapshot().printers[0];
-    const first = store.createPrinter({ ...initial, name: 'Taller norte' });
-    const second = store.createPrinter({ ...initial, name: 'Taller sur', watts: 177 });
-    if (!first.ok || !second.ok) throw Error(first.error || second.error);
-    return [first.printer.id, second.printer.id];
-  });
-  await page.reload();
+  const ids = [];
+  for (const [name, watts] of [['Taller norte', null], ['Taller sur', '177']]) {
+    await page.goto('/settings.html');
+    await page.locator('#new-printer').click();
+    await page.locator('#printer-name').fill(name);
+    if (watts) await page.locator('#printer-watts').fill(watts);
+    await page.locator('#save-printer').click();
+    await expect(page.locator('#settings-feedback')).toContainText('guardada');
+    const { remotePrinterState } = await import('./supabase-fixture.mjs');
+    ids.push((await remotePrinterState(page)).printers.at(-1).id);
+  }
+  await page.goto('/');
   const printer = page.locator('#printerProfile');
   const unchanged = await bytes(page);
   for (const [id, watts, name] of [[ids[0], '130', 'Taller norte'], [ids[1], '177', 'Taller sur']]) {
@@ -27,15 +28,16 @@ test('two installed instances of the same model remain separately selectable wit
     expect(await bytes(page)).toEqual(unchanged);
   }
   expect(ids[0]).not.toBe(ids[1]);
-  expect(before).toEqual([null, null, null]);
+  expect(before).toEqual([[], []]);
   await page.screenshot({ path: info.outputPath('installed-printers.png') });
 });
 
 test('new saved quote pins instance and params, legacy copy never invents a matching identity', async ({ page }) => {
   await page.goto('/');
   await page.locator('#save').click();
+  await expect(page.locator('#feedback')).toContainText('COT-000001');
   const saved = await bytes(page);
-  const record = JSON.parse(saved[0])[0];
+  const record = saved[0][0];
   expect(record.form.printerInstanceId).toBe('demo-printer-p2s');
   expect(record.form.printerName).toBe('Bambu Lab P2S (de ejemplo)');
   expect(record.form.watts).toBe('130');
@@ -47,7 +49,9 @@ test('new saved quote pins instance and params, legacy copy never invents a matc
   const variant = structuredClone(record);
   for (const key of ['printerInstanceId', 'printerName', 'printerModelId']) delete variant.form[key];
   variant.form.watts = '173';
-  await page.evaluate((value) => localStorage.setItem('calc3d.demo.quotes.v1', JSON.stringify([value])), variant);
+  const { remoteForPage } = await import('./supabase-fixture.mjs');
+  const remote = remoteForPage(page);
+  remote.quotes[0] = { ...remote.quotes[0], form: variant.form };
   await page.reload();
   const previous = await bytes(page);
   await page.getByRole('tab', { name: 'Historial' }).click();

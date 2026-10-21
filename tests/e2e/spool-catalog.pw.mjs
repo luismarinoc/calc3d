@@ -1,21 +1,19 @@
-import { test, expect } from '@playwright/test';
+import { signedInTest as test, expect, remoteQuotes, remotePurchases } from './supabase-fixture.mjs';
 
-const purchaseKey = 'calc3d.demo.purchases.v1';
-const quoteKey = 'calc3d.demo.quotes.v1';
-const bytes = (page, key) => page.evaluate((k) => localStorage.getItem(k), key);
-const material = (page) => page.locator('#result-content .result-row').filter({ has: page.getByText('Material', { exact: true }) });
+const material = page => page.locator('#result-content .result-row').filter({ has: page.getByText('Material', { exact: true }) });
 
 test('public purchase to calculator, quote snapshot and reload without inventory changes', async ({ page }) => {
   const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('pageerror', e => errors.push(e.message));
   await page.goto('/purchases.html');
   await page.locator('[name="date"]').fill('2025-02-28');
   await page.locator('[name="name"]').fill('Proveedor Sur');
   const line = page.locator('.purchase-line').first();
   for (const [name, value] of Object.entries({ material: 'PLA', brand: 'Sur', color: 'Azul', quantity: '1', netWeightGrams: '800', purchasePrice: '18000' })) await line.locator(`[name="${name}"]`).fill(value);
   await page.locator('#purchase-save').click();
-  const original = await bytes(page, purchaseKey);
-  const spool = JSON.parse(original)[0].spools[0];
+  await expect(page.locator('#purchase-feedback')).toContainText('guardada');
+  const original = await remotePurchases(page);
+  const spool = original[0].spools[0];
   await page.goto('/');
   const selectedId = `purchase:${spool.id}`;
   await expect(page.locator(`#spoolId option[value="${selectedId}"]`)).toContainText(/PLA.*Sur.*Azul.*2025-02-28/);
@@ -30,95 +28,66 @@ test('public purchase to calculator, quote snapshot and reload without inventory
   await page.locator('#hours').fill('0');
   await page.locator('#minutes').fill('0');
   await expect(material(page)).toContainText(/36[.\s\u00a0]?000/);
-  expect(await bytes(page, purchaseKey)).toBe(original);
-  expect(await bytes(page, quoteKey)).toBeNull();
+  expect(await remotePurchases(page)).toEqual(original);
+  expect(await remoteQuotes(page)).toHaveLength(0);
   await page.locator('#save').click();
-  const savedBytes = await bytes(page, quoteKey);
-  expect(JSON.parse(savedBytes)).toHaveLength(1);
-  expect(JSON.parse(savedBytes)[0].form.spoolId).toBe(selectedId);
+  await expect(page.locator('#feedback')).toContainText('COT-000001');
+  const saved = await remoteQuotes(page);
+  expect(saved).toHaveLength(1);
+  expect(saved[0].form.spoolId).toBe(selectedId);
   await page.locator('#grams').fill('40');
-  expect(await bytes(page, quoteKey)).toBe(savedBytes);
-  expect(await bytes(page, purchaseKey)).toBe(original);
+  expect(await remoteQuotes(page)).toEqual(saved);
+  expect(await remotePurchases(page)).toEqual(original);
   await page.reload();
   await page.getByRole('tab', { name: 'Historial' }).click();
   await page.getByRole('button', { name: 'Abrir copia' }).click();
   await expect(page.locator('#spoolId')).toHaveValue(selectedId);
   await expect(page.locator('#grams')).toHaveValue('1600');
   await expect(material(page)).toContainText(/36[.\s\u00a0]?000/);
-  expect(await bytes(page, quoteKey)).toBe(savedBytes);
-  expect(await bytes(page, purchaseKey)).toBe(original);
+  expect(await remoteQuotes(page)).toEqual(saved);
+  expect(await remotePurchases(page)).toEqual(original);
   await page.locator('#spoolId').selectOption('demo-petg');
   await expect(page.locator('#purchasePrice')).toBeEditable();
   await expect(page.locator('#netWeightGrams')).toBeEditable();
   await page.locator('#purchasePrice').fill('12345');
   await expect(page.locator('#purchasePrice')).toHaveValue('12345');
-  expect(await bytes(page, quoteKey)).toBe(savedBytes);
-  expect(await bytes(page, purchaseKey)).toBe(original);
+  expect(await remoteQuotes(page)).toEqual(saved);
+  expect(await remotePurchases(page)).toEqual(original);
   expect(errors).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('corrupt purchases leave demo editable and stored bytes untouched', async ({ page }) => {
+test('unavailable purchase read fails closed without overwriting remote records', async ({ page, remote }) => {
+  remote.fail = '/rest/v1/calc3d_spools';
   await page.goto('/');
-  await page.evaluate((k) => localStorage.setItem(k, '{bad'), purchaseKey);
-  await page.reload();
-  await expect(page.locator('#purchase-catalog-error')).toContainText('no se pueden leer');
-  await expect(page.locator('#spoolId option')).toHaveCount(2);
-  await expect(page.locator('#purchasePrice')).toBeEditable();
-  await page.locator('#purchasePrice').fill('10000');
-  await expect(material(page)).toBeVisible();
-  await page.locator('#save').click();
-  await page.getByRole('tab', { name: 'Historial' }).click();
-  await expect(page.locator('.history-item')).toHaveCount(1);
-  expect(await bytes(page, purchaseKey)).toBe('{bad');
-  await page.getByRole('button', { name: 'Abrir copia' }).click();
-  await expect(page.locator('#purchasePrice')).toHaveValue('10000');
+  await expect(page.locator('#purchase-catalog-error')).toContainText('No se pudieron cargar datos remotos');
+  await expect(page.locator('#save')).toBeDisabled();
+  expect(remote.spools).toHaveLength(0);
 });
 
-test('blocked purchase getter still permits demo calculation', async ({ page }) => {
+test('network failure on purchased spools does not produce a fictitious catalog', async ({ page, remote }) => {
   const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  await page.addInitScript((k) => {
-    const get = Storage.prototype.getItem;
-    Storage.prototype.getItem = function (key) { if (key === k) throw Error('blocked'); return get.call(this, key); };
-  }, purchaseKey);
+  page.on('pageerror', e => errors.push(e.message));
+  remote.fail = '/rest/v1/calc3d_spools';
   await page.goto('/');
-  await expect(page.locator('#purchase-catalog-error')).toContainText('no se pueden leer');
-  await expect(page.locator('#purchasePrice')).toBeEditable();
-  await expect(material(page)).toBeVisible();
+  await expect(page.locator('#save')).toBeDisabled();
+  await expect(page.locator('#spoolId option')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
-test('unavailable localStorage getter cannot crash calculator initialization', async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  await page.addInitScript(() => {
-    Object.defineProperty(window, 'localStorage', { configurable: true,
-      get() { throw new DOMException('Storage blocked', 'SecurityError'); } });
-  });
-  await page.goto('/');
-  await expect(page.locator('#purchase-catalog-error')).toContainText('no se pueden leer');
-  await page.getByRole('tab', { name: 'Historial' }).click();
-  await expect(page.locator('#history-error')).toContainText('no se puede leer');
-  await page.getByRole('tab', { name: 'Calculadora' }).click();
-  await expect(material(page)).toBeVisible();
-  await expect(page.locator('#purchasePrice')).toBeEditable();
-  expect(errors).toEqual([]);
-});
-
-test('unknown purchased spool in saved quote cannot fall back to a demo', async ({ page }) => {
+test('unknown purchased spool in saved quote cannot fall back to a demo', async ({ page, remote }) => {
   await page.goto('/');
   await page.locator('#save').click();
-  const before = JSON.parse(await bytes(page, quoteKey));
-  before[0].form.spoolId = 'purchase:missing';
-  before[0].spoolId = 'purchase:missing';
-  await page.evaluate(([k, value]) => localStorage.setItem(k, value), [quoteKey, JSON.stringify(before)]);
-  const snapshot = await bytes(page, quoteKey);
+  await expect(page.locator('#feedback')).toContainText('COT-000001');
+  const before = structuredClone(remote.quotes[0]);
+  before.form.spoolId = 'purchase:missing';
+  before.spool_id = 'purchase:missing';
+  remote.quotes[0] = before; // fake server seed, not browser local history
   await page.reload();
   await page.getByRole('tab', { name: 'Historial' }).click();
   await page.getByRole('button', { name: 'Abrir copia' }).click();
   await expect(page.locator('#spoolId')).toHaveValue('purchase:missing');
   await expect(page.locator('#save')).toBeDisabled();
   await expect(page.locator('#form-error')).toContainText('bobina');
-  expect(await bytes(page, quoteKey)).toBe(snapshot);
+  expect((await remoteQuotes(page))[0].spoolId).toBe('purchase:missing');
 });

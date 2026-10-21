@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { signedInTest as test, expect } from './supabase-fixture.mjs';
 
 const rows = [
   [['title'], ['hours', 'minutes'], ['multiplierPreset']],
@@ -85,6 +85,8 @@ test('each visible desktop caption hugs its own control', async ({ page }, info)
 test('real shared horizontal rows align desktop controls and captions', async ({ page }, info) => {
   test.skip(info.project.name !== 'chromium-desktop');
   await page.goto('/');
+  // Avoid measuring one control before and another after authenticated data mounts.
+  await expect(page.locator('#spoolId option')).toHaveCount(2);
   await geometry(page);
   for (const width of [1280, 1440]) {
     await page.setViewportSize({ width, height: width === 1280 ? 800 : 900 });

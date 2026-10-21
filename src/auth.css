@@ -1,3 +1,4 @@
+@scope (:root:has(.auth-shell)) {
 :root { color-scheme: dark; --bg: #202321; --panel: #292d2a; --line: #454a45; --text: #f2f0e8; --muted: #b9beb8; --accent: #dcb98c; --error: #ffd2c8; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.45; }
@@ -36,3 +37,10 @@ summary { cursor: pointer; color: var(--accent); padding: 12px 0; }
 .member .secondary { flex-shrink: 0; }
 @media (max-width: 560px) { .member { align-items: flex-start; flex-direction: column; } .auth-top nav { gap: 8px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+}
+.access-banner { background: #303531; color: #ffd2c8; padding: 12px 20px; text-align: center; }
+.account-nav { display: inline-flex; align-items: center; gap: 12px; margin-inline-start: auto; font-size: 12px; }
+.account-nav span { overflow: hidden; text-overflow: ellipsis; max-width: 180px; white-space: nowrap; }
+.account-nav a { color: inherit; }
+.account-nav button { background: transparent; color: inherit; border: 1px solid currentColor; border-radius: 4px; padding: 5px 10px; cursor: pointer; }
+@media (max-width: 720px) { .account-nav span { display: none; } }

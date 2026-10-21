@@ -1,7 +1,6 @@
-import { test, expect } from '@playwright/test';
+import { signedInTest as test, expect, remoteQuotes } from './supabase-fixture.mjs';
 
-const key = 'calc3d.demo.quotes.v1';
-const stored = (page) => page.evaluate((k) => localStorage.getItem(k), key);
+const stored = async page => { const rows = await remoteQuotes(page); return rows.length ? JSON.stringify(rows) : null; };
 import { setPrinterCosts } from './printer-fixtures.mjs';
 const primary = ['title', 'purpose', 'spoolId', 'purchasePrice', 'netWeightGrams', 'grams', 'hours', 'minutes', 'printerProfile', 'errorPercent', 'multiplierPreset', 'discountType', 'discountValue', 'surchargeType', 'surchargeValue', 'save'];
 const reference = { purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0', errorPercent: '5' };
@@ -74,7 +73,7 @@ test('tabs use keyboard navigation and save/open-copy never writes on navigation
   await expect(history).toBeFocused();
   await calculator.click();
   await page.locator('#save').click();
-  await expect(page.locator('#feedback')).toContainText('guardado solo en este navegador');
+  await expect(page.locator('#feedback')).toContainText('guardado en tu cuenta');
   const snapshot = await stored(page);
   expect(JSON.parse(snapshot)).toHaveLength(1);
   await history.click();

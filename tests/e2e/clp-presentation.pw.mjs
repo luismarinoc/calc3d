@@ -1,8 +1,7 @@
-import { test, expect } from '@playwright/test';
+import { signedInTest as test, expect, remoteQuotes, remoteForPage, seedHistoricalQuote } from './supabase-fixture.mjs';
 import { setPrinterCosts } from './printer-fixtures.mjs';
 
-const key = 'calc3d.demo.quotes.v1';
-const raw = (page) => page.evaluate((name) => localStorage.getItem(name), key);
+const raw = async page => { const rows = await remoteQuotes(page); return rows.length ? JSON.stringify(rows) : null; };
 const row = (page, label) => page.locator('#result-content .result-row').filter({ has: page.getByText(label, { exact: true }) });
 const example = { purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0', errorPercent: '5' };
 
@@ -39,6 +38,7 @@ test('reference summary presents whole CLP and full-width right-aligned sale wit
   expect(await raw(page)).toBeNull();
   await expect(page.locator('#grams')).toHaveValue('294');
   await page.locator('#save').click();
+  await expect(page.locator('#feedback')).toContainText('COT-000001');
   const snapshot = await raw(page);
   expect(JSON.parse(snapshot)[0].result.totalCost).toBe(7724.94);
   expect(JSON.parse(snapshot)[0].result.finalPrice).toBe(15449.88);
@@ -52,14 +52,7 @@ test('reference summary presents whole CLP and full-width right-aligned sale wit
 
 test('legacy sale and non-sale summaries keep whole CLP, right edges and no invented sale', async ({ page }) => {
   await page.goto('/');
-  // Save via the established history API so the old-mode copy follows the same public UI path.
-  await page.evaluate(async () => {
-    const { evaluate } = await import('/src/ui/quote.mjs');
-    const { createDemoHistory } = await import('/src/data/demo.mjs');
-    const history = createDemoHistory({ getItem: (name) => localStorage.getItem(name), setItem: (name, value) => localStorage.setItem(name, value) });
-    const quote = evaluate({ title: 'Histórica', spoolId: 'demo-petg', purpose: 'sale', purchasePrice: '10000', netWeightGrams: '1000', grams: '1000', hours: '0', minutes: '0', watts: '0', electricityPricePerKwh: '200', markupPercent: '50', discountType: 'percent', discountValue: '0', surchargeType: 'percent', surchargeValue: '0' });
-    if (quote.error || !history.save(quote).ok) throw Error(quote.error || 'No se guardó la copia.');
-  });
+  await seedHistoricalQuote(page, remoteForPage(page), { title: 'Histórica', spoolId: 'demo-petg', purpose: 'sale', purchasePrice: '10000', netWeightGrams: '1000', grams: '1000', hours: '0', minutes: '0', watts: '0', electricityPricePerKwh: '200', markupPercent: '50', discountType: 'percent', discountValue: '0', surchargeType: 'percent', surchargeValue: '0' });
   await page.reload();
   await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(page.locator('.history-item p')).toContainText('costo $10.000 · precio $15.000');

@@ -1,7 +1,6 @@
-import { test, expect } from '@playwright/test';
+import { signedInTest as test, expect, remoteQuotes } from './supabase-fixture.mjs';
 
-const key = 'calc3d.demo.quotes.v1';
-const raw = (page) => page.evaluate((name) => localStorage.getItem(name), key);
+const raw = async page => { const records = await remoteQuotes(page); return records.length ? JSON.stringify(records) : null; };
 
 test('optional customer, numbered confirmation, reload and independent copy render text safely', async ({ page }) => {
   await page.goto('/');
@@ -19,7 +18,7 @@ test('optional customer, numbered confirmation, reload and independent copy rend
   await page.locator('#client-phone').fill('  +56 9 1234-5678  ');
   await page.locator('#client-email').fill(' nombre@ejemplo.cl ');
   await page.locator('#save').click();
-  await expect(page.locator('#feedback')).toHaveText('Cálculo de prueba guardado solo en este navegador. Número COT-000001.');
+  await expect(page.locator('#feedback')).toContainText('Número COT-000001');
   const first = JSON.parse(await raw(page))[0];
   expect(first.number).toBe('COT-000001');
   expect(first.client).toEqual({ name: '<img src=x onerror=alert(1)>', phone: '+56 9 1234-5678', email: 'nombre@ejemplo.cl' });
@@ -42,23 +41,26 @@ test('optional customer, numbered confirmation, reload and independent copy rend
   expect(saved[1]).toEqual(first);
 });
 
-test('opening an unnumbered old copy clears another client without rewriting history', async ({ page }) => {
+test('opening an unnumbered old copy clears another client without rewriting history', async ({ page, remote }) => {
   await page.goto('/');
   await page.locator('#client-toggle').click();
   await page.locator('#client-name').fill('Cliente reciente');
   await page.locator('#save').click();
+  await expect(page.locator('#feedback')).toContainText('COT-000001');
   const seeded = JSON.parse(await raw(page));
   const old = { ...seeded[0], id: 'old-quote' };
   delete old.number;
   delete old.client;
-  await page.evaluate(([name, records]) => localStorage.setItem(name, JSON.stringify(records)), [key, [...seeded, old]]);
+  remote.quotes.push({ ...remote.quotes[0], id: old.id, saved_at: '2025-01-01T00:00:00.000Z', number: null, client: null });
   const unchanged = await raw(page);
   await page.reload();
   await page.getByRole('tab', { name: 'Historial' }).click();
   await page.getByRole('button', { name: 'Abrir copia' }).first().click();
   await expect(page.locator('#client-name')).toHaveValue('Cliente reciente');
   await page.getByRole('tab', { name: 'Historial' }).click();
-  await page.getByRole('button', { name: 'Abrir copia' }).last().click();
+  await expect(page.locator('.history-item').last()).not.toContainText('COT-000001');
+  await page.locator('.history-item').last().getByRole('button', { name: 'Abrir copia' }).click();
+  await expect(page.locator('#feedback')).toContainText('Copia abierta: editar no altera');
   await expect(page.locator('#client-name')).toHaveValue('');
   await expect(page.locator('#client-phone')).toHaveValue('');
   await expect(page.locator('#client-email')).toHaveValue('');
@@ -66,7 +68,7 @@ test('opening an unnumbered old copy clears another client without rewriting his
   expect(await raw(page)).toBe(unchanged);
 });
 
-test('invalid customer and known stale history reject without replacing stored bytes', async ({ page }) => {
+test('invalid customer and denied remote save preserve server-assigned numbering', async ({ page, remote }) => {
   await page.goto('/');
   await page.locator('#client-toggle').click();
   await page.locator('#client-email').fill('correo-invalido');
@@ -75,17 +77,15 @@ test('invalid customer and known stale history reject without replacing stored b
   expect(await raw(page)).toBeNull();
   await page.locator('#client-email').fill('');
   await page.locator('#save').click();
+  await expect(page.locator('#feedback')).toContainText('COT-000001');
   const before = await raw(page);
   expect(JSON.parse(before)[0].number).toBe('COT-000001');
-  await page.evaluate((name) => {
-    const items = JSON.parse(localStorage.getItem(name));
-    localStorage.setItem(name, JSON.stringify([{ ...items[0], id: 'other', number: 'COT-000002' }, ...items]));
-  }, key);
-  const changed = await raw(page);
+  remote.fail = '/rpc/calc3d_save_quote';
   await page.locator('#save').click();
-  await expect(page.locator('#feedback')).toHaveText('El historial cambió en otra pestaña; recarga la página antes de guardar.');
-  expect(await raw(page)).toBe(changed);
+  await expect(page.locator('#feedback')).toContainText('Network denied');
+  expect(await raw(page)).toBe(before);
+  remote.fail = null;
   await page.reload();
   await page.locator('#save').click();
-  await expect(page.locator('#feedback')).toContainText('Número COT-000003');
+  await expect(page.locator('#feedback')).toContainText('Número COT-000002');
 });

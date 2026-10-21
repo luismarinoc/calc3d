@@ -1,8 +1,7 @@
 import { evaluate } from './ui/quote.mjs';
-import { createDemoHistory } from './data/demo.mjs';
-import { createPurchaseStore } from './data/purchases.mjs';
+import { createRemoteRepositories } from './data/supabase.mjs';
+import { protectPage } from './auth/protected-page.mjs';
 import { buildSpoolCatalog } from './ui/spool-catalog.mjs';
-import { createPrinterSettingsStore } from './data/printer-settings.mjs';
 
 const form = document.querySelector('#quote-form');
 const clientFields = { name: document.querySelector('#client-name'), phone: document.querySelector('#client-phone'), email: document.querySelector('#client-email') };
@@ -13,13 +12,19 @@ function showClient(open) {
 }
 document.querySelector('#client-toggle').addEventListener('click', () => showClient(document.querySelector('#client-fields').hidden));
 function setClient(client = {}) {
-  for (const [name, input] of Object.entries(clientFields)) input.value = client[name] || '';
-  showClient(Object.values(client).some(Boolean));
+  const values = client ?? {};
+  for (const [name, input] of Object.entries(clientFields)) input.value = values[name] || '';
+  showClient(Object.values(values).some(Boolean));
 }
 const spoolSelect = form.elements.namedItem('spoolId');
 const printerSelect = form.elements.namedItem('printerProfile');
-const printerStorage = { getItem: (key) => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) };
-let settings = createPrinterSettingsStore(printerStorage);
+let repositories;
+let printerState = null;
+let settings = { snapshot: () => printerState, error: null };
+let historyRecords = [];
+let historyError = '';
+let saving = false;
+let accessible = false;
 let pinnedPrinter = null;
 let historicalCopy = false;
 const fixed = ['watts', 'electricityPricePerKwh', 'replacementCost', 'replacementLifetimeHours'];
@@ -62,7 +67,6 @@ function refreshPrinters() {
 }
 function resetPrinter() {
   historicalCopy = false;
-  settings = createPrinterSettingsStore(printerStorage);
   refreshPrinters();
   const state = settings.snapshot();
   if (state) {
@@ -75,18 +79,8 @@ function resetPrinter() {
 }
 const commercial = document.querySelector('#commercial');
 const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
-const history = createDemoHistory({
-  getItem: (key) => window.localStorage.getItem(key),
-  setItem: (key, value) => window.localStorage.setItem(key, value),
-});
-const purchases = createPurchaseStore({
-  getItem: (key) => window.localStorage.getItem(key),
-  setItem: (key, value) => window.localStorage.setItem(key, value),
-});
-const catalog = buildSpoolCatalog(purchases.listSpools());
+let catalog = [];
 const catalogError = document.querySelector('#purchase-catalog-error');
-catalogError.hidden = !purchases.error;
-if (purchases.error) catalogError.firstChild.textContent = `${purchases.error} `;
 let current;
 const tabs = [document.querySelector('#calculator-tab'), document.querySelector('#history-tab')];
 const panels = [document.querySelector('#calculator-panel'), document.querySelector('#history-panel')];
@@ -167,7 +161,7 @@ function render() {
   }
   error.hidden = !current.error && !settings.error;
   error.textContent = settings.error || current.error || '';
-  save.disabled = !!current.error || !!history.error || !!settings.error;
+  save.disabled = !accessible || saving || !!current.error || !!settings.error;
   if (current.error) {
     const field = current.field && form.elements.namedItem(current.field);
     if (field) { field.setAttribute('aria-invalid', 'true'); field.setAttribute('aria-describedby', 'form-error'); }
@@ -196,14 +190,14 @@ function render() {
 function renderHistory() {
   const list = document.querySelector('#history-list');
   const error = document.querySelector('#history-error');
-  error.hidden = !history.error;
-  error.textContent = history.error || '';
+  error.hidden = !historyError;
+  error.textContent = historyError;
   list.replaceChildren();
-  const records = history.list();
+  const records = historyRecords;
   if (!records.length) {
     const empty = document.createElement('p');
     empty.className = 'empty';
-    empty.textContent = history.error ? 'El historial no está disponible.' : 'Todavía no guardaste cálculos. Puedes probar el formulario sin registrar nada.';
+    empty.textContent = historyError ? 'El historial no está disponible.' : 'Todavía no guardaste cálculos. Puedes probar el formulario sin registrar nada.';
     list.append(empty);
   }
   for (const record of records) {
@@ -225,9 +219,10 @@ function renderHistory() {
     const open = document.createElement('button');
     open.type = 'button';
     open.textContent = 'Abrir copia';
-    open.addEventListener('click', () => {
-      const saved = history.get(record.id);
-      if (!saved) return;
+    open.addEventListener('click', async () => {
+      try {
+      const saved = await repositories.quotes.get(record.id);
+      if (!saved || !accessible) return;
       setClient(saved.client);
       for (const [name, value] of Object.entries(saved.form || {})) {
         const field = form.elements.namedItem(name);
@@ -251,6 +246,7 @@ function renderHistory() {
       render();
       document.querySelector('#feedback').textContent = `Copia abierta${saved.number ? ` de ${saved.number}` : ''}: editar no altera el registro guardado. Para guardar, crea otro cálculo de prueba.`;
       showView(0, true);
+      } catch { document.querySelector('#history-error').hidden = false; document.querySelector('#history-error').textContent = 'No se pudo abrir la copia. Comprueba la conexión y recarga para reintentar.'; }
     });
     item.append(description, open);
     list.append(item);
@@ -295,36 +291,44 @@ form.addEventListener('change', (event) => {
   if (event.target.name === 'multiplierPreset') toggleMode();
   render();
 });
-form.addEventListener('submit', (event) => {
+form.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (saving || !accessible) return;
   render();
   const feedback = document.querySelector('#feedback');
   if (current.error || settings.error) { feedback.textContent = settings.error || 'Corrige los datos antes de guardar.'; return; }
-  // Reject a changed configuration rather than claiming an old draft is a current printer.
-  const latest = createPrinterSettingsStore(printerStorage);
-  if (latest.error || !latest.snapshot() || (!historicalCopy &&
-      (JSON.stringify(latest.snapshot()) !== JSON.stringify(settings.snapshot()) ||
-       !settings.snapshot().printers.some((printer) => printer.id === pinnedPrinter?.id &&
-         JSON.stringify(printer) === JSON.stringify(pinnedPrinter))))) {
-    feedback.textContent = latest.error || 'La configuración de impresoras cambió; recarga antes de guardar.';
-    return;
-  }
-  const outcome = history.save(current, clientValues());
-  feedback.textContent = outcome.ok ? `Cálculo de prueba guardado solo en este navegador. Número ${outcome.record.number}.` : outcome.error;
-  for (const input of Object.values(clientFields)) {
-    input.removeAttribute('aria-invalid');
-    input.removeAttribute('aria-describedby');
-  }
-  if (!outcome.ok && !history.error) {
-    const input = Object.values(clientFields).find((field) => outcome.error.startsWith(field.labels[0].textContent));
-    if (input) {
-      showClient(true);
-      input.setAttribute('aria-invalid', 'true');
-      input.setAttribute('aria-describedby', 'feedback');
-      input.focus();
+  saving = true; render();
+  try {
+    // Refresh before saving: an edited active printer must not silently alter a draft.
+    const latest = await repositories.printers.load();
+    if (!historicalCopy && (JSON.stringify(latest) !== JSON.stringify(printerState) ||
+        !latest.printers.some(printer => printer.id === pinnedPrinter?.id && JSON.stringify(printer) === JSON.stringify(pinnedPrinter)))) {
+      throw new Error('La configuración de impresoras cambió; recarga antes de guardar.');
     }
-  }
-  if (outcome.ok) renderHistory();
+    const source = repositories;
+    const outcome = await source.quotes.save(current, clientValues());
+    if (!accessible || repositories !== source) return;
+    feedback.textContent = `Cálculo guardado en tu cuenta. Número ${outcome.record.number}.`;
+    historyRecords = [outcome.record, ...historyRecords];
+    renderHistory();
+    try {
+      const refreshed = await source.quotes.list();
+      if (!accessible || repositories !== source) return;
+      historyRecords = refreshed; historyError = ''; renderHistory();
+    } catch {
+      if (accessible && repositories === source) {
+        historyError = 'No se pudo actualizar el historial; recarga para reintentar.';
+        feedback.textContent = `Cálculo guardado en tu cuenta. Número ${outcome.record.number}; no se pudo actualizar el historial. Recarga para reintentar.`;
+        renderHistory();
+      }
+    }
+  } catch (error) {
+    if (accessible) {
+      feedback.textContent = error.message || 'No se pudo guardar; comprueba la conexión y recarga.';
+      const input = Object.values(clientFields).find(field => feedback.textContent.startsWith(field.labels[0].textContent));
+      if (input) { showClient(true); input.setAttribute('aria-invalid', 'true'); input.setAttribute('aria-describedby', 'feedback'); input.focus(); }
+    }
+  } finally { saving = false; render(); }
 });
 document.querySelector('#start-current').addEventListener('click', () => {
   form.reset();
@@ -349,12 +353,36 @@ function initializeDraft() {
   togglePurpose(false);
 }
 window.addEventListener('pageshow', (event) => {
-  if (event.persisted) {
-    settings = createPrinterSettingsStore(printerStorage);
-    if (historicalCopy) {
-      restorePrinter(values()); render();
-    } else initializeDraft();
-  }
+  if (event.persisted) window.location.reload();
 });
-initializeDraft();
-renderHistory();
+function clearAccount() {
+  accessible = false; repositories = null; printerState = null; historyRecords = []; historyError = ''; settings.error = null;
+  catalog = []; spoolSelect.replaceChildren(); printerSelect.replaceChildren(); pinnedPrinter = null;
+  historicalCopy = false; document.querySelector('#printer-name-current').textContent = '';
+  setClient(); form.reset(); document.querySelector('#result-content').replaceChildren();
+  catalogError.hidden = true; catalogError.firstChild.textContent = '';
+  document.querySelector('#history-list').replaceChildren();
+  document.querySelector('#feedback').textContent = '';
+  renderHistory(); document.querySelector('#save').disabled = true;
+}
+await protectPage({ onClear: clearAccount, onReady: async ({ client, session }, isCurrent) => {
+  const source = createRemoteRepositories(client, session);
+  try {
+    const [printers, quotes, spools] = await Promise.all([
+      source.printers.load(), source.quotes.list(), source.purchases.listSpools(),
+    ]);
+    if (!isCurrent()) return;
+    repositories = source;
+    printerState = printers; historyRecords = quotes;
+    catalog = buildSpoolCatalog(spools);
+    spoolSelect.replaceChildren();
+    for (const spool of catalog) spoolSelect.add(new Option(spool.label, spool.id));
+    catalogError.hidden = true; settings.error = null; accessible = true;
+    initializeDraft(); renderHistory();
+  } catch {
+    if (!isCurrent()) return;
+    clearAccount(); settings.error = 'No se pudieron cargar datos remotos. Comprueba la conexión y recarga para reintentar.';
+    catalogError.hidden = false; catalogError.firstChild.textContent = `${settings.error} `;
+    render();
+  }
+} });

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { signedInTest as test, expect } from './supabase-fixture.mjs';
 
 test('discount and surcharge each align their own type and value in one row', async ({ page }, info) => {
   await page.goto('/');
