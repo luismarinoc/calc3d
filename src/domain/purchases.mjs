@@ -17,6 +17,8 @@ function validDate(value) {
   return day <= days[month - 1];
 }
 
+export { validDate as isBusinessDate };
+
 /** Validate and snapshot a business purchase, without creating identifiers or writing data. */
 export function validatePurchase(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('La compra debe ser un objeto.');
