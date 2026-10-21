@@ -8,6 +8,12 @@ Esta entrega prepara tablas aisladas y RPC de escritura para usuarios existentes
 2. Ejecutar `node --test tests/supabase-storage.test.mjs` localmente: crea un clúster PostgreSQL temporal, instala identidades ficticias, aplica la migración y ejecuta `supabase/tests/storage.sql` con `ON_ERROR_STOP`; comprueba también dos escritores concurrentes. Requiere `initdb`, `pg_ctl` y `psql` en `PATH`. El test detiene y elimina el clúster en `finally`; nunca usa datos reales.
 3. Ejecutar `npm test` para comprobar el comportamiento JS existente. Antes de integrar la aplicación, verificar políticas, permisos de RPC y la cuenta de Auth existente en el entorno de desarrollo.
 
+## Estado del entorno de desarrollo
+
+La versión `202610210001` quedó aplicada en la base de desarrollo mediante un único bloque transaccional `DO`. La herramienta MCP `apply_migration` falló porque falta `supabase_migrations.schema_migrations`; se verificó que ese intento revirtió todo antes de aplicar el SQL por `execute_sql`. No se creó un historial global ni se tocaron las otras aplicaciones.
+
+**No volver a ejecutar esta migración:** las cinco tablas y las funciones ya existen. Si después se adopta Supabase CLI u otra herramienta de migraciones, primero establecer una línea base del esquema existente; esta aplicación no figura en el historial nativo de Supabase. Se verificaron RLS, privilegios y ausencia de registros iniciales en PostgreSQL 15.8; las pruebas funcionales corrieron en PostgreSQL local aislado. El acceso REST y el guardado desde el navegador siguen pendientes de integración.
+
 ## Contrato de lectura y escritura
 
 | Recurso público | Operación autorizada |
