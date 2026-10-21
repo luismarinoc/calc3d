@@ -1,0 +1,46 @@
+# Optional zero fields and gift purpose
+Objective: stop requiring explicit zeros in optional quote inputs and add a distinct gift choice without fictitious sale revenue.
+Branch: feat/print3d-management. Local work units only. Risk: item 3 (shared quote validation, purpose handling and history reading).
+
+## Specs
+
+S1 — Optional empty zero fields.
+User: "necesito que mo me oblique a colocar cero, en Propósito necesito adicionar regalo"
+Check: optional numeric quote fields may be empty/whitespace and normalize to zero for calculation/save, rather than requiring a typed0. Includes hours/minutes, optional depreciation/maintenance/labor/extras, markup/discount/surcharge amounts, reference replacement expense and error percentage. Price, net weight and consumed grams remain required; reference lifetime and custom multiplier must remain positive, never converted to invalid zero. Keep power and tariff required as real energy configuration. Missing optional values retain existing zero-default behavior; malformed nonempty, negative, nonfinite or out-of-range values remain rejected. Help must make blank=zero clear without expanding the page excessively. Old explicit-zero calculations stay numerically identical; opening saved blank drafts must not require zeros.
+
+S2 — Gift purpose.
+User: "necesito que mo me oblique a colocar cero, en Propósito necesito adicionar regalo"
+Check: Propósito offers Venta, Uso interno / personal and Regalo. Regalo retains production cost, creates no sale revenue/price/profit, disables and clears commercial adjustments, and stays distinguishable as Regalo in saved history and reopened copies. Explicit Save alone writes, reload preserves gift records, existing sale/internal/legacy records remain readable and unchanged. Reference example gift retains cost7724.94 and zero sale/profit; sale example still7724.94/15449.88. Do not infer paid-family pricing, payment/reporting policies or consume inventory from quotes. Legacy integer print-cost calculation and print records must remain unchanged.
+
+## Tasks
+
+T1 | S1,S2 | route: delegated/context-backstop | status: done | commit: 88412ec | Test-first optional-zero mapping and gift UI/calculation/history support with docs; preserve validation/old data.
+T2 | S1,S2 | route: independent verifier / Risk3 | status: done | commit: 88412ec | Verify public blank/invalid cases, gift save/reload/zero revenue, existing sale/internal/legacy outputs and no rejected-save writes.
+T3 | S1,S2 | route: inline | status: done | commit: 88412ec; tracking checkpoint follows | Record exact proof/mirror and commit only this coherent work unit locally; no publication.
+
+## Log
+
+L1 — Original request, verbatim:
+"necesito que mo me oblique a colocar cero, en Propósito necesito adicionar regalo"
+
+L2 — Parent bounded exploration/reproduction:
+Read quote mapper/reference calculator/history reader. Public evaluate with11hours/blankminutes returned "Ingresa un valor para Minutos."; same form purposegift returned "Selecciona Venta o Uso interno." New reference history currently only accepts sale/internal. Gift is a separate non-sale quotation purpose, not production printing scope. No new tax/channel/payment assumptions.
+
+L3 — Preservation boundaries:
+Baselinee7f1067 plus pre-existing parent spacing refinement in src/styles.css and tests/e2e/compact-calculator.pw.mjs. Those two uncommitted files passed focused16/full92browser and Node54; preserve them exactly, do not include or overwrite them in this unit. Do not modify legacy src/domain/costs.mjs or purchases/prints/catalog modules; gift support may be additive in reference calculator and mapper, with legacy calls adapted without changing old APIs. If historical-copy purpose changes to gift, preserve its production cost rather than silently dropping the draft's expenses. Existing quote history read may accept new gift records, but never rewrite/migrate prior stored bytes. User demo storage remains browser-local and explicit-save-only.
+
+L4 — Verification boundaries:
+Use test-first RED per requested rule, public interfaces and isolated storage. Assert exact errors/unchanged bytes/write/ID/clock counts for rejected saves; blank accepted normalization and gift save should not touch purchases/prints. Differential against base for old explicit-zero sale/internal modes, reference and legacy mapper paths; intentional blank-input relaxation is requested, do not treat it as regression. Browser server isolated alternate5206, explicit project cwd/workers1, no user5173 disruption. No automatic timeout retry or outside scratch cleanup. Maintain current compact1280×800 layout,44px controls, selected history-tab workflow and legacy copy notice. No new dependencies/publication.
+
+L5 — First delivery and authorized verification surface:
+Worker mvhjs7f3-a-8sgb implemented source/UI/history and new public Node/browser tests. RED3newNodefailures; GREEN focused3/3/full57/57 and diffcheck0. Reference gift7724.94cost/price0/profit0; sale7724.94/15449.88. Browser attempt failed4cases before execution because workers could not load process-substitution config /dev/fd/63; no application browser proof, no timeout claim. Browser focused/full and isolatedbase differential remain pending. Worker requested exact extra surface tests/e2e/optional-zero-gift.config.mjs. Parent relayed two choices; user selected "Autorizar el archivo temporal", token approve-temporary-gift-config. This authorizes temporary config for isolated5206 verification, not committed tooling changes. Resume existing worker; preserve/remove only its own generated config after evidence, preserve prior spacing edits. User's separate adjustment screenshot validation was read-only: eight amount/percent combinations and costfloor matched public evaluate; screenshot had discountpercent1 and recargoamount0, no arithmetic fix requested or included.
+
+L6 — Verification continuation returned partial:
+Worker mvhjzf5t-b-4k8z created approved temporary config. Focused Node3/3/full57/57/diffcheck0. Isolatedbase e7f1067 differential compared four explicit-zero legacy/reference sale/internal serialized form outputs plus legacy calculateQuote: identical, exit0, empty stderr. Focused browser4passed4timeouts on a hidden details input; fullbrowser95passed5failed (four fieldset-disabled matcher failures plus compact height802>800). Worker then corrected hidden-details navigation, fieldset assertion and shortened hint, but no browser proof exists for those corrections; no automatic retry after timeout. Parent read current test/config/source diff and confirmed details open precedes fill and disabled attribute/child control assertions are now present. Temporary tests/e2e/optional-zero-gift.config.mjs remains, for this verification only; do not commit it. Parent Risk3 assess requires independent verifier, not launched while self-proof remains incomplete. Source uncommitted/unpublished; previous spacing refinements remain untouched. Needs owner decision: authorize one new focused+full browser run of corrected tests, then required independent verification if green; otherwise leave this unit paused.
+
+L7 — Authorized corrected browser run passed:
+User explicitly answered "si autorizo" to pending new browser-run/independent-review authorization. Parent job-9 used the approved real config, explicit project cwd, isolated5206/workers1: focused gift8/8 and fullbrowser104/104 passed exit0 (full42.3s), including parent spacing/alignment regressions. Parent had also rerun Node57/57/diffcheck0 after the latest source changes. Separate parent alignment request added wide classes to multiplier labels and a public4/4 row-alignment test; no formula changes. Prior failures/timeouts remain historical evidence, not passes. Independent final-code Risk3 review is next; source remains uncommitted/unpublished and temporary config is not a delivery artifact.
+
+L8 — Independent approval and local work unit:
+Verifier mvhkez5p-c-fdbh returned S1/S2 met, no reproduced blocker: isolated focused Node10/10 exit0; independent Chromium gift2/2 exit0; public probe110checks exit0 covering required/optional/malformed fields, exact rejection errors, rejected-save byte/write/ID/clock invariants, domain adjustment rejection, corrupt gift-history reads and baselinee7f1067 explicit-zero sale/internal identity. Verifier corrected its own probe expectation6797 to6796.9 for a different zero-expense reference input, not an application defect. Sale7724.94/15449.88, gift7724.94/price0/profit0 and legacy-copy cost preserved. Full104browser not independently repeated; no build/typecheck script or physical-device claim.
+Parent reviewed delivered source/tests, removed authorized temporary repo config and committed coherent Risk item3 unit88412ec (8files235insertions34deletions). Partial staging intentionally excluded the two parent multiplier-alignment classes; those remain visible in working tree, along with src/styles.css,compact spacing regression and new alignment regression. No visual edits lost or mixed into gift commit; these small refinements remain uncommitted, not an incomplete gift feature. Existing committed tests cover S1/S2; optional duplicate independent probe was not added, outside scratch not read/deleted. Full feature mirror refreshed and structural check/checkpoint follow. No push/PR/merge/release.
