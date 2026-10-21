@@ -16,11 +16,12 @@ const fields = {
   discountValue: ['Descuento', 0], surchargeValue: ['Recargo', 0],
 };
 
-export function evaluate(form) {
+// Optional catalog accepts validated purchased spools alongside demos; omitted calls retain legacy behavior.
+export function evaluate(form, catalog = demoSpools) {
   const invalid = (error, field = null) => ({ input: null, result: null, error, field });
   const title = String(form.title ?? '').trim();
   if (!title) return invalid('Ingresa un nombre para el trabajo.', 'title');
-  if (!demoSpools.some((spool) => spool.id === form.spoolId)) return invalid('Selecciona una bobina de prueba.', 'spoolId');
+  if (!catalog.some((spool) => spool.id === form.spoolId)) return invalid('Selecciona una bobina de prueba.', 'spoolId');
   if (!['sale', 'internal'].includes(form.purpose)) return invalid('Selecciona Venta o Uso interno.', 'purpose');
   const numbers = {};
   for (const [key, [label, min]] of Object.entries(fields)) {

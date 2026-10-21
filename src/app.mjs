@@ -1,5 +1,7 @@
-import { evaluate, demoSpools } from './ui/quote.mjs';
+import { evaluate } from './ui/quote.mjs';
 import { createDemoHistory } from './data/demo.mjs';
+import { createPurchaseStore } from './data/purchases.mjs';
+import { buildSpoolCatalog } from './ui/spool-catalog.mjs';
 
 const form = document.querySelector('#quote-form');
 const spoolSelect = form.elements.namedItem('spoolId');
@@ -9,19 +11,38 @@ const history = createDemoHistory({
   getItem: (key) => window.localStorage.getItem(key),
   setItem: (key, value) => window.localStorage.setItem(key, value),
 });
+const purchases = createPurchaseStore({
+  getItem: (key) => window.localStorage.getItem(key),
+  setItem: (key, value) => window.localStorage.setItem(key, value),
+});
+const catalog = buildSpoolCatalog(purchases.listSpools());
+const catalogError = document.querySelector('#purchase-catalog-error');
+catalogError.hidden = !purchases.error;
+if (purchases.error) catalogError.firstChild.textContent = `${purchases.error} `;
 let current;
 
-for (const spool of demoSpools) {
+for (const spool of catalog) {
   const option = document.createElement('option');
   option.value = spool.id;
   option.textContent = spool.label;
   spoolSelect.append(option);
 }
+function describeSpool() {
+  const spool = catalog.find((item) => item.id === spoolSelect.value);
+  const purchased = !!spool?.purchaseId;
+  form.elements.namedItem('purchasePrice').readOnly = purchased;
+  form.elements.namedItem('netWeightGrams').readOnly = purchased;
+  document.querySelector('#spool-info').textContent = purchased
+    ? `Compra de prueba ${spool.purchaseId} · bobina ${spool.spoolId} · ${spool.material}, ${spool.brand}, ${spool.color} · ${spool.date}. Precio de adquisición ${currency.format(spool.purchasePrice)} y peso inicial adquirido ${spool.initialAcquiredGrams} g: campos de solo lectura. No representa saldo disponible ni descuenta consumo.`
+    : spool ? 'Bobina ficticia: precio y peso editables para simular; no representa inventario.'
+      : 'La bobina guardada no está disponible en compras de prueba. Se conserva la copia original; no se puede guardar otra hasta seleccionar una bobina válida.';
+}
 function setSpool() {
-  const spool = demoSpools.find((item) => item.id === spoolSelect.value);
+  const spool = catalog.find((item) => item.id === spoolSelect.value);
   if (!spool) return;
   form.elements.namedItem('purchasePrice').value = spool.purchasePrice;
   form.elements.namedItem('netWeightGrams').value = spool.netWeightGrams;
+  describeSpool();
   render();
 }
 function values() {
@@ -38,7 +59,7 @@ function row(parent, label, amount, emphasis = false) {
   parent.append(line);
 }
 function render() {
-  current = evaluate(values());
+  current = evaluate(values(), catalog);
   const error = document.querySelector('#form-error');
   const content = document.querySelector('#result-content');
   const save = document.querySelector('#save');
@@ -105,6 +126,16 @@ function renderHistory() {
         const field = form.elements.namedItem(name);
         if (field) field.value = value;
       }
+      // Keep a missing purchased identity explicit rather than silently selecting a fictitious bobina.
+      const savedSpoolId = saved.form?.spoolId || saved.spoolId;
+      if (savedSpoolId && !catalog.some((spool) => spool.id === savedSpoolId)) {
+        const missing = document.createElement('option');
+        missing.value = savedSpoolId;
+        missing.textContent = `Bobina no disponible · ${savedSpoolId}`;
+        spoolSelect.append(missing);
+        spoolSelect.value = savedSpoolId;
+      }
+      describeSpool();
       togglePurpose(true);
       render();
       document.querySelector('#feedback').textContent = 'Copia abierta: editar no altera el registro guardado. Para guardar, crea otro cálculo de prueba.';
