@@ -74,11 +74,17 @@ summary { cursor: pointer; color: var(--accent); min-height: 44px; padding: 11px
 #internal-note, #form-error, #save, #feedback { grid-column: 1 / -1; }
 .result { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 10px 12px; }
 .result-head { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
-.result-row { display: flex; justify-content: space-between; gap: 5px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.result-row { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
 .result-row span { color: var(--muted); }
-.result-row strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.result-row.emphasis { font-size: 13px; padding: 7px 0; color: var(--accent); }
-.result-row.emphasis span { color: var(--text); }
+.result-row strong { white-space: nowrap; font-variant-numeric: tabular-nums; font-size: 13px; }
+.result-row.cost-total { margin-top: 4px; padding: 9px 0; border-top: 1px solid var(--text); color: var(--text); font-size: 14px; font-weight: 700; }
+.result-row.cost-total span, .result-row.expense-total span { color: var(--text); }
+.result-row.cost-total strong { font-size: 16px; }
+.result-row.sale-total { margin: 8px -5px 2px; padding: 10px 6px; background: #953d38; border: 1px solid #bc6960; border-radius: 5px; color: #fff5ef; font-size: 14px; font-weight: 750; flex-wrap: wrap; }
+.result-row.sale-total span { color: #fff5ef; }
+.result-row.sale-total strong { font-size: 22px; }
+.result-row.expense-total { margin-top: 6px; padding: 9px 0; color: var(--accent); font-size: 14px; font-weight: 700; }
+.result-row.expense-total strong { font-size: 17px; }
 .result > .hint { margin: 8px 0 0; }
 .error { color: var(--error); padding: 5px 0; }
 .primary { width: 100%; min-height: 44px; background: var(--accent); border: 0; border-radius: 6px; color: #242824; font-weight: 750; padding: 8px; }

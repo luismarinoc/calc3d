@@ -46,7 +46,8 @@
         <section aria-labelledby="machine-heading"><div class="section-head"><span>03 / Producción</span><h2 id="machine-heading">Tiempo y energía</h2></div>
           <div class="fields"><label for="hours">Horas<input id="hours" name="hours" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="3"></label>
           <label for="minutes">Minutos · 0–59<input id="minutes" name="minutes" type="number" inputmode="numeric" min="0" max="59" step="1" placeholder="0" value="25"></label>
-          <label for="watts">Potencia estimada · W<input id="watts" name="watts" type="number" inputmode="decimal" min="0" step="any" required value="145"></label>
+          <label class="wide" for="printerProfile">Impresora<select id="printerProfile" name="printerProfile" aria-describedby="profile-note"></select><small id="profile-note">Potencias estimadas aportadas por el usuario; no son consumos medidos ni máximos verificados.</small></label>
+          <label for="watts">Potencia estimada · W<input id="watts" name="watts" type="number" inputmode="decimal" min="0" step="any" required value="130"></label>
           <label for="electricityPricePerKwh">Tarifa eléctrica · CLP/kWh<input id="electricityPricePerKwh" name="electricityPricePerKwh" type="number" inputmode="decimal" min="0" step="any" required value="215"></label></div>
           <div id="reference-expenses" class="fields reference-fields"><label for="replacementCost">Costo de reposición · CLP<input id="replacementCost" name="replacementCost" type="number" inputmode="decimal" min="0" step="any" value="220000"></label>
             <label for="replacementLifetimeHours">Vida útil de reposición · h<input id="replacementLifetimeHours" name="replacementLifetimeHours" type="number" inputmode="decimal" min="0.001" step="any" value="4320"></label>

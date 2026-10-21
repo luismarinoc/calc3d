@@ -2,6 +2,7 @@ import { evaluate } from './ui/quote.mjs';
 import { createDemoHistory } from './data/demo.mjs';
 import { createPurchaseStore } from './data/purchases.mjs';
 import { buildSpoolCatalog } from './ui/spool-catalog.mjs';
+import { printerProfiles, customPrinter, profileForStoredPower } from './ui/printer-profiles.mjs';
 
 const form = document.querySelector('#quote-form');
 const clientFields = { name: document.querySelector('#client-name'), phone: document.querySelector('#client-phone'), email: document.querySelector('#client-email') };
@@ -16,6 +17,18 @@ function setClient(client = {}) {
   showClient(Object.values(client).some(Boolean));
 }
 const spoolSelect = form.elements.namedItem('spoolId');
+const printerSelect = form.elements.namedItem('printerProfile');
+const wattsInput = form.elements.namedItem('watts');
+for (const profile of printerProfiles) printerSelect.add(new Option(`${profile.name} · ${profile.watts} W`, profile.id));
+printerSelect.add(new Option('Otro / personalizado', customPrinter));
+function resetPrinter() {
+  printerSelect.value = 'p2s';
+  wattsInput.value = '130';
+}
+function restorePrinter(saved = {}) {
+  // The stored wattage is authoritative even when the catalog or selected model has changed.
+  printerSelect.value = profileForStoredPower(saved.printerProfile, saved.watts);
+}
 const commercial = document.querySelector('#commercial');
 const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
 const decimalCurrency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -85,9 +98,9 @@ function values() {
   }
   return data;
 }
-function row(parent, label, amount, emphasis = false, format = currency) {
+function row(parent, label, amount, presentation = '', format = currency) {
   const line = document.createElement('div');
-  line.className = emphasis ? 'result-row emphasis' : 'result-row';
+  line.className = `result-row${presentation ? ` ${presentation}` : ''}`;
   const name = document.createElement('span');
   name.textContent = label;
   const value = document.createElement('strong');
@@ -120,18 +133,18 @@ function render() {
   const result = current.result;
   const format = moneyFor(current.form.calculationMode);
   const labels = { material: 'Material', electricity: 'Electricidad', depreciation: 'Depreciación', wear: 'Desgaste', allowance: 'Imprevistos', maintenance: 'Mantención', labor: 'Trabajo', extras: 'Otros costos' };
-  for (const [key, value] of Object.entries(result.breakdown)) row(content, labels[key], value, false, format);
-  row(content, 'Costo total', result.totalCost, true, format);
+  for (const [key, value] of Object.entries(result.breakdown)) row(content, labels[key], value, '', format);
+  row(content, 'Costo total', result.totalCost, 'cost-total', format);
   if (current.input.purpose === 'internal') {
-    row(content, 'Gasto interno estimado', result.internalCost, true, format);
+    row(content, 'Gasto interno estimado', result.internalCost, 'expense-total', format);
   } else if (current.input.purpose === 'gift') {
-    row(content, 'Costo de regalo estimado', result.giftCost, true, format);
+    row(content, 'Costo de regalo estimado', result.giftCost, 'expense-total', format);
   } else {
-    row(content, 'Precio base', result.basePrice, false, format);
-    row(content, 'Descuento', result.discountAmount === 0 ? 0 : -result.discountAmount, false, format);
-    row(content, 'Recargo', result.surchargeAmount, false, format);
-    row(content, 'Precio final estimado', result.finalPrice, true, format);
-    row(content, 'Ganancia estimada', result.commercialProfit, false, format);
+    row(content, 'Precio base', result.basePrice, '', format);
+    row(content, 'Descuento', result.discountAmount === 0 ? 0 : -result.discountAmount, '', format);
+    row(content, 'Recargo', result.surchargeAmount, '', format);
+    row(content, 'Precio final estimado', result.finalPrice, 'sale-total', format);
+    row(content, 'Ganancia estimada', result.commercialProfit, '', format);
   }
 }
 function renderHistory() {
@@ -172,8 +185,9 @@ function renderHistory() {
       setClient(saved.client);
       for (const [name, value] of Object.entries(saved.form || {})) {
         const field = form.elements.namedItem(name);
-        if (field) field.value = value;
+        if (field && name !== 'printerProfile') field.value = value;
       }
+      restorePrinter(saved.form);
       // Keep a missing purchased identity explicit rather than silently selecting a fictitious bobina.
       const savedSpoolId = saved.form?.spoolId || saved.spoolId;
       if (savedSpoolId && !catalog.some((spool) => spool.id === savedSpoolId)) {
@@ -220,9 +234,17 @@ function togglePurpose(reset = true) {
     : 'Uso interno: sin precio de venta, ganancia ni ajustes comerciales. Los valores comerciales se reinician al cambiar de propósito.';
   render();
 }
-form.addEventListener('input', () => { document.querySelector('#feedback').textContent = ''; render(); });
+form.addEventListener('input', (event) => {
+  if (event.target === wattsInput) printerSelect.value = customPrinter;
+  document.querySelector('#feedback').textContent = '';
+  render();
+});
 form.addEventListener('change', (event) => {
   if (event.target === spoolSelect) setSpool();
+  if (event.target === printerSelect) {
+    const profile = printerProfiles.find((item) => item.id === printerSelect.value);
+    if (profile) wattsInput.value = String(profile.watts);
+  }
   if (event.target.name === 'purpose') togglePurpose();
   if (event.target.name === 'multiplierPreset') toggleMode();
   render();
@@ -251,6 +273,7 @@ form.addEventListener('submit', (event) => {
 });
 document.querySelector('#start-current').addEventListener('click', () => {
   form.reset();
+  resetPrinter();
   setClient();
   form.elements.namedItem('calculationMode').value = 'reference';
   document.querySelector('#legacy-notice').hidden = true;
@@ -263,6 +286,7 @@ document.querySelector('#start-current').addEventListener('click', () => {
 function initializeDraft() {
   // Browser form restoration must not silently turn an ordinary reload into a historical calculation.
   setClient();
+  resetPrinter();
   form.elements.namedItem('calculationMode').value = 'reference';
   document.querySelector('#legacy-notice').hidden = true;
   setSpool();
