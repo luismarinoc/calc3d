@@ -61,6 +61,13 @@ small { font-size: 12px; font-weight: 400; }
 .hint { font-size: 12px; margin: 4px 0 8px; }
 .reference-fields { margin-top: 7px; }
 details { margin-top: 6px; }
+.client-details { margin: 0; align-self: end; min-width: 0; }
+.client-details button { width: 100%; min-height: 44px; background: transparent; border: 0; color: var(--accent); text-align: left; padding: 8px 0; font: inherit; font-size: 12px; font-weight: 600; }
+.client-details button::before { content: '▸ '; }
+.client-details button[aria-expanded="true"]::before { content: '▾ '; }
+.client-fields { display: grid; gap: 8px; padding: 8px 0; }
+.client-fields input { min-height: 44px; }
+.client-fields small { line-height: 1.35; }
 summary { cursor: pointer; color: var(--accent); min-height: 44px; padding: 11px 0; font-weight: 600; }
 .detail-fields { padding: 6px 0; }
 #commercial .hint { margin: 5px 0 8px; }
@@ -80,7 +87,8 @@ summary { cursor: pointer; color: var(--accent); min-height: 44px; padding: 11px
 .empty { color: var(--muted); padding: 12px 0; }
 .history .section-head { margin-bottom: 12px; }
 .history-item { border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; }
-.history-item p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.history-item p, .history-identity { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.history-identity { display: block; }
 @media (max-width: 1050px) {
   .workspace { grid-template-columns: 1fr; }
   .result { grid-row: 1; }

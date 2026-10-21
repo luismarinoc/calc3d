@@ -4,6 +4,17 @@ import { createPurchaseStore } from './data/purchases.mjs';
 import { buildSpoolCatalog } from './ui/spool-catalog.mjs';
 
 const form = document.querySelector('#quote-form');
+const clientFields = { name: document.querySelector('#client-name'), phone: document.querySelector('#client-phone'), email: document.querySelector('#client-email') };
+const clientValues = () => Object.fromEntries(Object.entries(clientFields).map(([name, input]) => [name, input.value]));
+function showClient(open) {
+  document.querySelector('#client-toggle').setAttribute('aria-expanded', String(open));
+  document.querySelector('#client-fields').hidden = !open;
+}
+document.querySelector('#client-toggle').addEventListener('click', () => showClient(document.querySelector('#client-fields').hidden));
+function setClient(client = {}) {
+  for (const [name, input] of Object.entries(clientFields)) input.value = client[name] || '';
+  showClient(Object.values(client).some(Boolean));
+}
 const spoolSelect = form.elements.namedItem('spoolId');
 const commercial = document.querySelector('#commercial');
 const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
@@ -144,13 +155,21 @@ function renderHistory() {
     title.textContent = record.title;
     const detail = document.createElement('p');
     detail.textContent = `${new Date(record.savedAt).toLocaleString('es-CL')} · ${({ sale: 'Venta', internal: 'Uso interno', gift: 'Regalo' })[record.input.purpose]} · costo ${moneyFor(record.form?.calculationMode).format(record.result.totalCost)}${record.input.purpose === 'sale' ? ` · precio ${moneyFor(record.form?.calculationMode).format(record.result.finalPrice)}` : ''}`;
-    description.append(title, detail);
+    description.append(title);
+    if (record.number || Object.values(record.client || {}).some(Boolean)) {
+      const identity = document.createElement('span');
+      identity.className = 'history-identity';
+      identity.textContent = [record.number, ...Object.values(record.client || {}).filter(Boolean)].filter(Boolean).join(' · ');
+      description.append(identity);
+    }
+    description.append(detail);
     const open = document.createElement('button');
     open.type = 'button';
     open.textContent = 'Abrir copia';
     open.addEventListener('click', () => {
       const saved = history.get(record.id);
       if (!saved) return;
+      setClient(saved.client);
       for (const [name, value] of Object.entries(saved.form || {})) {
         const field = form.elements.namedItem(name);
         if (field) field.value = value;
@@ -170,7 +189,7 @@ function renderHistory() {
       toggleMode();
       togglePurpose(false);
       render();
-      document.querySelector('#feedback').textContent = 'Copia abierta: editar no altera el registro guardado. Para guardar, crea otro cálculo de prueba.';
+      document.querySelector('#feedback').textContent = `Copia abierta${saved.number ? ` de ${saved.number}` : ''}: editar no altera el registro guardado. Para guardar, crea otro cálculo de prueba.`;
       showView(0, true);
     });
     item.append(description, open);
@@ -213,12 +232,26 @@ form.addEventListener('submit', (event) => {
   render();
   const feedback = document.querySelector('#feedback');
   if (current.error) { feedback.textContent = 'Corrige los datos antes de guardar.'; return; }
-  const outcome = history.save(current);
-  feedback.textContent = outcome.ok ? 'Cálculo de prueba guardado solo en este navegador.' : outcome.error;
+  const outcome = history.save(current, clientValues());
+  feedback.textContent = outcome.ok ? `Cálculo de prueba guardado solo en este navegador. Número ${outcome.record.number}.` : outcome.error;
+  for (const input of Object.values(clientFields)) {
+    input.removeAttribute('aria-invalid');
+    input.removeAttribute('aria-describedby');
+  }
+  if (!outcome.ok && !history.error) {
+    const input = Object.values(clientFields).find((field) => outcome.error.startsWith(field.labels[0].textContent));
+    if (input) {
+      showClient(true);
+      input.setAttribute('aria-invalid', 'true');
+      input.setAttribute('aria-describedby', 'feedback');
+      input.focus();
+    }
+  }
   if (outcome.ok) renderHistory();
 });
 document.querySelector('#start-current').addEventListener('click', () => {
   form.reset();
+  setClient();
   form.elements.namedItem('calculationMode').value = 'reference';
   document.querySelector('#legacy-notice').hidden = true;
   document.querySelector('#feedback').textContent = '';
@@ -229,6 +262,7 @@ document.querySelector('#start-current').addEventListener('click', () => {
 });
 function initializeDraft() {
   // Browser form restoration must not silently turn an ordinary reload into a historical calculation.
+  setClient();
   form.elements.namedItem('calculationMode').value = 'reference';
   document.querySelector('#legacy-notice').hidden = true;
   setSpool();
