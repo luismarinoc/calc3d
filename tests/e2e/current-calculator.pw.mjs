@@ -28,8 +28,8 @@ test('new and reloaded drafts expose reference example directly', async ({ page 
   for (const id of ['replacementCost', 'replacementLifetimeHours', 'errorPercent', 'multiplierPreset']) await expect(page.locator(`#${id}`)).toBeVisible();
   await expect(page.locator('#multiplierPreset')).toHaveValue('2');
   for (const [id, value] of Object.entries({ purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0', watts: '130', electricityPricePerKwh: '230' })) await page.locator(`#${id}`).fill(value);
-  await expect(amount(page, 'Costo total')).toContainText('7.724,94');
-  await expect(amount(page, 'Precio final estimado')).toContainText('15.449,88');
+  await expect(amount(page, 'Costo total')).toContainText('7.725');
+  await expect(amount(page, 'Precio final estimado')).toContainText('15.450');
   await page.screenshot({ path: testInfo.outputPath('current-reference.png'), fullPage: true });
   expect(await bytes(page, quoteKey)).toBeNull();
   await page.reload();

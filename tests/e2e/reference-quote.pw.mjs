@@ -16,7 +16,7 @@ test('reference exact displayed amounts, presets, custom, internal and saved iso
   await page.goto('/');
   await expect(page.locator('#calculationMode')).toBeHidden();
   await example(page);
-  for (const [label, expected] of Object.entries({ Material: '6.468,00', Electricidad: '328,90', Desgaste: '560,19', Imprevistos: '367,85', Mantención: '0,00', Trabajo: '0,00', 'Otros costos': '0,00', 'Costo total': '7.724,94', 'Precio base': '15.449,88', Descuento: '0,00', Recargo: '0,00', 'Precio final estimado': '15.449,88', 'Ganancia estimada': '7.724,94' })) {
+  for (const [label, expected] of Object.entries({ Material: '6.468', Electricidad: '329', Desgaste: '560', Imprevistos: '368', Mantención: '0', Trabajo: '0', 'Otros costos': '0', 'Costo total': '7.725', 'Precio base': '15.450', Descuento: '0', Recargo: '0', 'Precio final estimado': '15.450', 'Ganancia estimada': '7.725' })) {
     expect(await amount(page, label), label).toBe(expected);
   }
   expect(await bytes(page)).toBeNull();
@@ -27,17 +27,17 @@ test('reference exact displayed amounts, presets, custom, internal and saved iso
     expect(box.width).toBeGreaterThanOrEqual(44);
     expect(box.height).toBeGreaterThanOrEqual(44);
   }
-  for (const [preset, expected] of [['2.5', '19.312,35'], ['3', '23.174,82'], ['3.5', '27.037,29'], ['4', '30.899,76'], ['5', '38.624,70'], ['2', '15.449,88']]) {
+  for (const [preset, expected] of [['2.5', '19.312'], ['3', '23.175'], ['3.5', '27.037'], ['4', '30.900'], ['5', '38.625'], ['2', '15.450']]) {
     await page.locator('#multiplierPreset').selectOption(preset);
     expect(await amount(page, 'Precio base')).toBe(expected);
   }
   await page.locator('#multiplierPreset').selectOption('custom');
   await page.locator('#customMultiplier').fill('1.5');
-  await expect(row(page, 'Precio base')).toContainText('11.587,41');
+  await expect(row(page, 'Precio base')).toContainText('11.587');
   await page.locator('#discountValue').fill('10');
   await page.locator('#surchargeValue').fill('5');
-  await expect(row(page, 'Descuento')).toContainText('1.158,74');
-  await expect(row(page, 'Recargo')).toContainText('579,37');
+  await expect(row(page, 'Descuento')).toContainText('1.159');
+  await expect(row(page, 'Recargo')).toContainText('579');
   await page.locator('#customMultiplier').fill('0');
   await expect(page.locator('#form-error')).toHaveText('El multiplicador debe ser un número mayor que cero.');
   await expect(page.locator('#save')).toBeDisabled();
@@ -55,12 +55,12 @@ test('reference exact displayed amounts, presets, custom, internal and saved iso
   await page.getByRole('tab', { name: 'Historial' }).click();
   await page.getByRole('button', { name: 'Abrir copia' }).click();
   await expect(page.locator('#calculationMode')).toBeHidden();
-  expect(await amount(page, 'Precio final estimado')).toBe('15.449,88');
+  expect(await amount(page, 'Precio final estimado')).toBe('15.450');
   await page.locator('#purpose').selectOption('internal');
   await expect(page.locator('#commercial')).toHaveAttribute('disabled', '');
   await expect(page.locator('#discountValue')).toBeDisabled();
   await expect(page.locator('#surchargeValue')).toBeDisabled();
-  expect(await amount(page, 'Gasto interno estimado')).toBe('7.724,94');
+  expect(await amount(page, 'Gasto interno estimado')).toBe('7.725');
   await expect(row(page, 'Precio final estimado')).toHaveCount(0);
   expect(await bytes(page)).toBe(snapshot);
   expect(errors).toEqual([]);

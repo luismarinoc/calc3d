@@ -7,17 +7,16 @@ const amount = (page, label) => page.locator('#result-content .result-row').filt
 test('optional blanks calculate as zeros; gift save, reload and copy retain cost without revenue', async ({ page }) => {
   await page.goto('/');
   for (const [id, value] of Object.entries({ purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0', watts: '130', electricityPricePerKwh: '230' })) await page.locator(`#${id}`).fill(value);
-  await expect(amount(page, 'Costo total')).toContainText('7.724,94');
-  await expect(amount(page, 'Precio final estimado')).toContainText('15.449,88');
+  await expect(amount(page, 'Costo total')).toContainText('7.725');
+  await expect(amount(page, 'Precio final estimado')).toContainText('15.450');
   for (const id of ['minutes', 'discountValue', 'surchargeValue']) await page.locator(`#${id}`).fill('');
-  await page.getByText('Agregar otros costos de producción').click();
   await page.locator('#extraProductionCost').fill('');
   await expect(page.locator('#save')).toBeEnabled();
-  await expect(amount(page, 'Costo total')).toContainText('7.724,94');
+  await expect(amount(page, 'Costo total')).toContainText('7.725');
   await page.locator('#purpose').selectOption('gift');
   await expect(page.locator('#commercial')).toHaveAttribute('disabled', '');
   await expect(page.locator('#discountValue')).toBeDisabled();
-  await expect(amount(page, 'Costo de regalo estimado')).toContainText('7.724,94');
+  await expect(amount(page, 'Costo de regalo estimado')).toContainText('7.725');
   await expect(amount(page, 'Precio final estimado')).toHaveCount(0);
   expect(await bytes(page)).toBeNull();
   await page.locator('#grams').fill('');
@@ -41,7 +40,7 @@ test('optional blanks calculate as zeros; gift save, reload and copy retain cost
   await expect(page.locator('.history-item p')).toContainText('Regalo · costo');
   await page.getByRole('button', { name: 'Abrir copia' }).click();
   await expect(page.locator('#purpose')).toHaveValue('gift');
-  await expect(amount(page, 'Costo de regalo estimado')).toContainText('7.724,94');
+  await expect(amount(page, 'Costo de regalo estimado')).toContainText('7.725');
   expect(await bytes(page)).toBe(snapshot);
 });
 

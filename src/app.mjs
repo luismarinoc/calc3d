@@ -31,8 +31,6 @@ function restorePrinter(saved = {}) {
 }
 const commercial = document.querySelector('#commercial');
 const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
-const decimalCurrency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const moneyFor = (mode) => mode === 'reference' ? decimalCurrency : currency;
 const history = createDemoHistory({
   getItem: (key) => window.localStorage.getItem(key),
   setItem: (key, value) => window.localStorage.setItem(key, value),
@@ -98,13 +96,13 @@ function values() {
   }
   return data;
 }
-function row(parent, label, amount, presentation = '', format = currency) {
+function row(parent, label, amount, presentation = '') {
   const line = document.createElement('div');
   line.className = `result-row${presentation ? ` ${presentation}` : ''}`;
   const name = document.createElement('span');
   name.textContent = label;
   const value = document.createElement('strong');
-  value.textContent = format.format(amount);
+  value.textContent = currency.format(amount);
   line.append(name, value);
   parent.append(line);
 }
@@ -131,20 +129,19 @@ function render() {
     return;
   }
   const result = current.result;
-  const format = moneyFor(current.form.calculationMode);
   const labels = { material: 'Material', electricity: 'Electricidad', depreciation: 'Depreciación', wear: 'Desgaste', allowance: 'Imprevistos', maintenance: 'Mantención', labor: 'Trabajo', extras: 'Otros costos' };
-  for (const [key, value] of Object.entries(result.breakdown)) row(content, labels[key], value, '', format);
-  row(content, 'Costo total', result.totalCost, 'cost-total', format);
+  for (const [key, value] of Object.entries(result.breakdown)) row(content, labels[key], value);
+  row(content, 'Costo total', result.totalCost, 'cost-total');
   if (current.input.purpose === 'internal') {
-    row(content, 'Gasto interno estimado', result.internalCost, 'expense-total', format);
+    row(content, 'Gasto interno estimado', result.internalCost, 'expense-total');
   } else if (current.input.purpose === 'gift') {
-    row(content, 'Costo de regalo estimado', result.giftCost, 'expense-total', format);
+    row(content, 'Costo de regalo estimado', result.giftCost, 'expense-total');
   } else {
-    row(content, 'Precio base', result.basePrice, '', format);
-    row(content, 'Descuento', result.discountAmount === 0 ? 0 : -result.discountAmount, '', format);
-    row(content, 'Recargo', result.surchargeAmount, '', format);
-    row(content, 'Precio final estimado', result.finalPrice, 'sale-total', format);
-    row(content, 'Ganancia estimada', result.commercialProfit, '', format);
+    row(content, 'Precio base', result.basePrice);
+    row(content, 'Descuento', result.discountAmount === 0 ? 0 : -result.discountAmount);
+    row(content, 'Recargo', result.surchargeAmount);
+    row(content, 'Precio final estimado', result.finalPrice, 'sale-total');
+    row(content, 'Ganancia estimada', result.commercialProfit);
   }
 }
 function renderHistory() {
@@ -167,7 +164,7 @@ function renderHistory() {
     const title = document.createElement('strong');
     title.textContent = record.title;
     const detail = document.createElement('p');
-    detail.textContent = `${new Date(record.savedAt).toLocaleString('es-CL')} · ${({ sale: 'Venta', internal: 'Uso interno', gift: 'Regalo' })[record.input.purpose]} · costo ${moneyFor(record.form?.calculationMode).format(record.result.totalCost)}${record.input.purpose === 'sale' ? ` · precio ${moneyFor(record.form?.calculationMode).format(record.result.finalPrice)}` : ''}`;
+    detail.textContent = `${new Date(record.savedAt).toLocaleString('es-CL')} · ${({ sale: 'Venta', internal: 'Uso interno', gift: 'Regalo' })[record.input.purpose]} · costo ${currency.format(record.result.totalCost)}${record.input.purpose === 'sale' ? ` · precio ${currency.format(record.result.finalPrice)}` : ''}`;
     description.append(title);
     if (record.number || Object.values(record.client || {}).some(Boolean)) {
       const identity = document.createElement('span');

@@ -36,8 +36,7 @@ test('desktop complete draft fits with reference results and no automatic persis
     await page.screenshot({ path: 'test-results/compact-desktop-1280x800.png' });
   } else {
     await bounds(page, primary, false);
-    await page.locator('details').first().locator('summary').click();
-    await bounds(page, ['maintenancePerHour', 'laborMinutes', 'laborRatePerHour', 'extraProductionCost'], false);
+    await bounds(page, ['extraProductionCost'], false);
     await page.locator('#multiplierPreset').selectOption('custom');
     await bounds(page, ['customMultiplier'], false);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize().width);
@@ -45,8 +44,8 @@ test('desktop complete draft fits with reference results and no automatic persis
   }
   for (const [id, value] of Object.entries(reference)) await page.locator(`#${id}`).fill(value);
   await page.locator('#multiplierPreset').selectOption('2');
-  await expect(page.locator('#result-content')).toContainText('7.724,94');
-  await expect(page.locator('#result-content')).toContainText('15.449,88');
+  await expect(page.locator('#result-content')).toContainText('7.725');
+  await expect(page.locator('#result-content')).toContainText('15.450');
   expect(await stored(page)).toBeNull();
 });
 
@@ -88,6 +87,25 @@ test('tabs use keyboard navigation and save/open-copy never writes on navigation
   expect(await stored(page)).toBe(snapshot);
 });
 
+test('fields have breathing room and paired controls align', async ({ page }, info) => {
+  await page.goto('/');
+  const spacing = await page.locator('.fields').first().evaluate(element => {
+    const style = getComputedStyle(element);
+    return { row: parseFloat(style.rowGap), column: parseFloat(style.columnGap) };
+  });
+  expect(spacing.row).toBeGreaterThanOrEqual(10);
+  expect(spacing.column).toBeGreaterThanOrEqual(12);
+  expect(await page.locator('label[for="hours"]').evaluate(element => parseFloat(getComputedStyle(element).gap))).toBeGreaterThanOrEqual(4);
+  const watts = await page.locator('#watts').boundingBox();
+  const tariff = await page.locator('#electricityPricePerKwh').boundingBox();
+  expect(Math.abs(watts.y - tariff.y)).toBeLessThanOrEqual(1);
+  if (info.project.name === 'chromium-desktop') {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    expect(await page.locator('#quote-form').evaluate(element => parseFloat(getComputedStyle(element).columnGap))).toBeGreaterThanOrEqual(20);
+    await bounds(page, primary, true);
+  }
+});
+
 test('short desktop height scrolls to all controls rather than clipping', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 600 });
   await page.goto('/');
@@ -96,7 +114,6 @@ test('short desktop height scrolls to all controls rather than clipping', async 
   await expect(page.locator('#save')).toBeInViewport();
   await page.locator('#replacementLifetimeHours').scrollIntoViewIfNeeded();
   await expect(page.locator('#replacementLifetimeHours')).toBeInViewport();
-  await page.locator('details').first().locator('summary').click();
   await page.locator('#extraProductionCost').scrollIntoViewIfNeeded();
   await expect(page.locator('#extraProductionCost')).toBeInViewport();
 });

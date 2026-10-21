@@ -58,8 +58,8 @@ test('saved profile copies preserve power; old and disagreeing forms reopen cust
 test('reference costs, semantic hierarchy, non-sale expenses and compact bounds', async ({ page }, info) => {
   await page.goto('/');
   for (const [id, value] of Object.entries({ purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0', electricityPricePerKwh: '230' })) await page.locator(`#${id}`).fill(value);
-  await expect(result(page, 'Costo total')).toContainText('7.724,94');
-  await expect(result(page, 'Precio final estimado')).toContainText('15.449,88');
+  await expect(result(page, 'Costo total')).toContainText('7.725');
+  await expect(result(page, 'Precio final estimado')).toContainText('15.450');
   await expect(result(page, 'Costo total')).toHaveClass(/cost-total/);
   await expect(result(page, 'Precio final estimado')).toHaveClass(/sale-total/);
   const style = await result(page, 'Precio final estimado').evaluate((element) => ({ background: getComputedStyle(element).backgroundColor, font: parseFloat(getComputedStyle(element.querySelector('strong')).fontSize) }));
@@ -86,7 +86,6 @@ test('reference costs, semantic hierarchy, non-sale expenses and compact bounds'
     expect((await page.locator('.result').boundingBox()).y + (await page.locator('.result').boundingBox()).height).toBeLessThanOrEqual(800);
   } else {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize().width);
-    await page.locator('details summary').click();
     await page.locator('#extraProductionCost').scrollIntoViewIfNeeded();
     await expect(page.locator('#extraProductionCost')).toBeInViewport();
   }
