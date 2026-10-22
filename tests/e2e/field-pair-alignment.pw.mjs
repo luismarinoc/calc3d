@@ -37,8 +37,7 @@ test('locally paired captions and controls align without shifting other groups',
   await expect(page.locator('#customMultiplier')).toBeVisible();
   const custom = await page.locator('#customMultiplier').boundingBox();
   const discount = await page.locator('#discountType').boundingBox();
-  if (page.viewportSize().width > 1050) expect(custom.y).toBeGreaterThanOrEqual(discount.y + discount.height);
-  else expect(discount.y).toBeGreaterThanOrEqual(custom.y + custom.height);
+  expect(discount.y).toBeGreaterThanOrEqual(custom.y + custom.height);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   if (info.project.name === 'chromium-desktop') {
     await expect(page.locator('#extraProductionCost')).toBeInViewport({ ratio: 1 });

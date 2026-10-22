@@ -20,10 +20,13 @@ test('reference summary presents whole CLP and full-width right-aligned sale wit
   await page.goto('/');
   await setPrinterCosts(page, { electricityPricePerKwh: 230 });
   for (const [id, value] of Object.entries(example)) await page.locator(`#${id}`).fill(value);
-  for (const [label, expected] of Object.entries({ Material: '$6.468', Electricidad: '$329', Desgaste: '$560', Imprevistos: '$368', Mantención: '$0', Trabajo: '$0', 'Otros costos': '$0', 'Costo total': '$7.725', 'Precio base': '$15.450', Descuento: '$0', Recargo: '$0', 'Precio final estimado': '$15.450', 'Ganancia estimada': '$7.725' })) {
+  for (const [label, expected] of Object.entries({ Material: '$6.468', Electricidad: '$329', Desgaste: '$560', Imprevistos: '$368', 'Otros costos': '$0', 'Costo total': '$7.725', 'Precio base': '$15.450', Descuento: '$0', Recargo: '$0', 'Precio final estimado': '$15.450', 'Ganancia estimada': '$7.725' })) {
     expect((await row(page, label).locator('strong').textContent()).replace(/\s/g, ''), label).toBe(expected);
     await assertRightAligned(page, label);
   }
+  await expect(row(page, 'Mantención')).toHaveCount(0);
+  await expect(row(page, 'Trabajo')).toHaveCount(0);
+  await expect(row(page, 'Costos históricos')).toHaveCount(0);
   const sale = row(page, 'Precio final estimado');
   const layout = await sale.evaluate((line) => {
     const label = line.querySelector('span').getBoundingClientRect();

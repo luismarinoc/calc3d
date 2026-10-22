@@ -78,9 +78,9 @@ fieldset:disabled { opacity: .55; }
   #quote-form label[for="title"], #quote-form .time-pair,
   #quote-form #reference-multiplier, #quote-form #legacy-markup { grid-row: 2; }
   #quote-form .purpose-pair, #quote-form label[for="printerProfile"],
-  #quote-form .discount-pair { grid-row: 3; }
+  #quote-form #custom-multiplier { grid-row: 3; }
   #quote-form .material-start, #quote-form label[for="errorPercent"],
-  #quote-form #custom-multiplier { grid-row: 4; }
+  #quote-form .discount-pair { grid-row: 4; }
   #quote-form .material-pair, #quote-form label[for="extraProductionCost"],
   #quote-form .surcharge-pair { grid-row: 5; }
   #quote-form label[for="grams"] { grid-row: 6; }

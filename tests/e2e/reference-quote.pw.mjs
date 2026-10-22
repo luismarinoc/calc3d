@@ -17,9 +17,12 @@ test('reference exact displayed amounts, presets, custom, internal and saved iso
   await page.goto('/');
   await expect(page.locator('#calculationMode')).toBeHidden();
   await example(page);
-  for (const [label, expected] of Object.entries({ Material: '6.468', Electricidad: '329', Desgaste: '560', Imprevistos: '368', Mantención: '0', Trabajo: '0', 'Otros costos': '0', 'Costo total': '7.725', 'Precio base': '15.450', Descuento: '0', Recargo: '0', 'Precio final estimado': '15.450', 'Ganancia estimada': '7.725' })) {
+  for (const [label, expected] of Object.entries({ Material: '6.468', Electricidad: '329', Desgaste: '560', Imprevistos: '368', 'Otros costos': '0', 'Costo total': '7.725', 'Precio base': '15.450', Descuento: '0', Recargo: '0', 'Precio final estimado': '15.450', 'Ganancia estimada': '7.725' })) {
     expect(await amount(page, label), label).toBe(expected);
   }
+  await expect(row(page, 'Mantención')).toHaveCount(0);
+  await expect(row(page, 'Trabajo')).toHaveCount(0);
+  await expect(row(page, 'Costos históricos')).toHaveCount(0);
   expect(await bytes(page)).toBeNull();
   for (const id of ['printerProfile', 'errorPercent', 'multiplierPreset']) {
     const control = page.locator(`#${id}`);

@@ -2,8 +2,8 @@ import { signedInTest as test, expect } from './supabase-fixture.mjs';
 
 const rows = [
   [['title'], ['hours', 'minutes'], ['multiplierPreset']],
-  [['purpose', 'client-toggle'], ['printerProfile'], ['discountType', 'discountValue']],
-  [['spoolId'], ['errorPercent'], []],
+  [['purpose', 'client-toggle'], ['printerProfile'], []],
+  [['spoolId'], ['errorPercent'], ['discountType', 'discountValue']],
   [['purchasePrice', 'netWeightGrams'], ['extraProductionCost'], ['surchargeType', 'surchargeValue']],
 ];
 

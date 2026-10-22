@@ -172,8 +172,13 @@ function render() {
     return;
   }
   const result = current.result;
-  const labels = { material: 'Material', electricity: 'Electricidad', depreciation: 'Depreciación', wear: 'Desgaste', allowance: 'Imprevistos', maintenance: 'Mantención', labor: 'Trabajo', extras: 'Otros costos' };
-  for (const [key, value] of Object.entries(result.breakdown)) row(content, labels[key], value);
+  const labels = { material: 'Material', electricity: 'Electricidad', depreciation: 'Depreciación', wear: 'Desgaste', allowance: 'Imprevistos', extras: 'Otros costos' };
+  const historicalCosts = result.breakdown.maintenance + result.breakdown.labor;
+  for (const [key, value] of Object.entries(result.breakdown)) {
+    if (key === 'maintenance') {
+      if (historicalCosts > 0) row(content, 'Costos históricos', historicalCosts);
+    } else if (key !== 'labor') row(content, labels[key], value);
+  }
   row(content, 'Costo total', result.totalCost, 'cost-total');
   if (current.input.purpose === 'internal') {
     row(content, 'Gasto interno estimado', result.internalCost, 'expense-total');

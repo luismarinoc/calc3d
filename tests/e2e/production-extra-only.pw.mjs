@@ -33,7 +33,8 @@ test('historical component costs survive hidden controls and remain unchanged in
   await expect(page.locator('.production-extras input:visible')).toHaveCount(1);
   await expect(row(page, 'Costo total')).toContainText('215');
   await expect(row(page, 'Depreciación')).toContainText('20');
-  await expect(row(page, 'Mantención')).toContainText('40');
-  await expect(row(page, 'Trabajo')).toContainText('50');
+  await expect(row(page, 'Mantención')).toHaveCount(0);
+  await expect(row(page, 'Trabajo')).toHaveCount(0);
+  await expect(row(page, 'Costos históricos').locator('strong')).toHaveText('$90');
   expect(await remoteQuotes(page)).toEqual(before);
 });
