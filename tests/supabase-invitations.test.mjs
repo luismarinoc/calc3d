@@ -35,7 +35,7 @@ test('isolated PostgreSQL invitation admission and revocation across all public 
   try {
     run('initdb', ['-D', data, '-U', 'postgres', '-A', 'trust', '--no-instructions']);
     const port = await freePort();
-    run('pg_ctl', ['-D', data, '-l', join(root, 'server.log'), '-o', `-c listen_addresses=127.0.0.1 -c unix_socket_directories=${root} -p ${port}`, '-w', 'start']);
+    run('pg_ctl', ['-D', data, '-l', join(root, 'server.log'), '-o', `-c listen_addresses=127.0.0.1 -c unix_socket_directories='' -p ${port}`, '-w', 'start']);
     started = true;
     psql(port, ['-c', `create role anon nologin; create role authenticated nologin;
       create schema auth; create table auth.users (id uuid primary key, email text, email_confirmed_at timestamptz);
