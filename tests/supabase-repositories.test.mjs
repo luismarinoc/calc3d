@@ -87,3 +87,113 @@ test('revocation and account switch fail closed before reads or writes', async (
   await assert.rejects(repo.purchases.savePurchase({}), /cuenta/);
   assert.equal(h.calls.some(([name]) => name === 'calc3d_save_purchase'), false);
 });
+
+const profileId = '22222222-2222-4222-8222-222222222222';
+const profileInput = { name: '  Bobina  ', material: 'PLA+', brand: '', purchasePrice: 0, netWeightGrams: 0.5 };
+const profileRow = (revision = 1) => ({ id: profileId, name: 'Bobina', material: 'PLA+', brand: '', purchase_price: 0,
+  net_weight_grams: '0.5', revision, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' });
+
+function profileHarness() {
+  let session = owner;
+  let allowed = true;
+  let afterCall = () => {};
+  let stored = [profileRow()];
+  let mutations = 0;
+  const calls = [];
+  let reply = profileRow();
+  const client = {
+    from(table) {
+      assert.equal(table, 'calc3d_spool_profiles');
+      return { select(columns) {
+        calls.push([table, columns]);
+        return { then(resolve, reject) { const result = { data: stored, error: null }; afterCall(); return Promise.resolve(result).then(resolve, reject); } };
+      } };
+    },
+    async rpc(name, args) {
+      calls.push([name, args]);
+      mutations++;
+      const result = reply?.error ? { data: null, error: reply.error } : { data: reply, error: null };
+      afterCall();
+      return result;
+    },
+  };
+  const access = { async requireAccess() { return { session, access: { allowed } }; } };
+  return { repo: createRemoteRepositories(client, owner, access), calls, get mutations() { return mutations; },
+    get stored() { return stored; }, setStored(value) { stored = value; }, setReply(value) { reply = value; },
+    switchAccount() { session = { user: { id: profileId } }; }, deny() { allowed = false; },
+    after(fn) { afterCall = fn; } };
+}
+
+test('profile list maps selected columns, controlled numeric conversion and detached DTOs', async () => {
+  const h = profileHarness();
+  const rows = await h.repo.spoolProfiles.list();
+  assert.deepEqual(h.calls[0], ['calc3d_spool_profiles', 'id,name,material,brand,purchase_price,net_weight_grams,revision,created_at,updated_at']);
+  assert.deepEqual(rows, [{ id: profileId, name: 'Bobina', material: 'PLA+', brand: '', purchasePrice: 0,
+    netWeightGrams: 0.5, revision: 1, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-02T00:00:00Z' }]);
+  rows[0].name = 'Changed';
+  assert.equal(h.stored[0].name, 'Bobina');
+  assert.equal((await h.repo.spoolProfiles.list())[0].name, 'Bobina');
+  for (const invalid of [{ ...profileRow(), id: 'bad' }, { ...profileRow(), revision: 0 },
+    { ...profileRow(), net_weight_grams: 'Infinity' }, { ...profileRow(), purchase_price: '5' },
+    { ...profileRow(), name: ' ' }]) {
+    h.setStored([invalid]);
+    await assert.rejects(h.repo.spoolProfiles.list(), /remota inválida/i);
+  }
+});
+
+test('create/update send normalized payload and CAS args, verify returned ID/revision, and detach records', async () => {
+  const h = profileHarness();
+  const created = await h.repo.spoolProfiles.createProfile(profileInput);
+  assert.deepEqual(h.calls[0], ['calc3d_save_spool_profile', { payload: { ...profileInput, name: 'Bobina' }, profile_id: null, expected_revision: 0 }]);
+  created.profile.name = 'Changed';
+  assert.equal(h.stored[0].name, 'Bobina');
+  h.setReply(profileRow(2));
+  const updated = await h.repo.spoolProfiles.updateProfile(profileId, profileInput, 1);
+  assert.equal(updated.profile.revision, 2);
+  assert.deepEqual(h.calls.at(-1), ['calc3d_save_spool_profile', { payload: { ...profileInput, name: 'Bobina' }, profile_id: profileId, expected_revision: 1 }]);
+  for (const reply of [{ ...profileRow(), id: 'bad' }, profileRow(1), { ...profileRow(2), id: owner.user.id }, { ...profileRow(2), net_weight_grams: 'NaN' }]) {
+    h.setReply(reply);
+    await assert.rejects(h.repo.spoolProfiles.updateProfile(profileId, profileInput, 1), /remota inválida|guard/i);
+  }
+});
+
+test('invalid profile inputs and revisions never call mutation or alter stored rows', async () => {
+  const h = profileHarness();
+  for (const action of [() => h.repo.spoolProfiles.createProfile({ ...profileInput, purchasePrice: '5' }),
+    () => h.repo.spoolProfiles.updateProfile('bad', profileInput, 1),
+    () => h.repo.spoolProfiles.updateProfile(profileId, profileInput, 0),
+    () => h.repo.spoolProfiles.updateProfile(profileId, profileInput, Number.MAX_SAFE_INTEGER),
+    () => h.repo.spoolProfiles.updateProfile(profileId, { ...profileInput, netWeightGrams: 0 }, 1)]) {
+    await assert.rejects(action());
+  }
+  assert.equal(h.mutations, 0);
+  assert.deepEqual(h.stored, [profileRow()]);
+  assert.deepEqual(h.calls, []);
+});
+
+test('stale conflict propagates meaningful Spanish feedback without retry or local writes', async () => {
+  const h = profileHarness();
+  h.setReply({ error: Object.assign(new Error('Spool profile revision conflict'), { code: '40001' }) });
+  await assert.rejects(h.repo.spoolProfiles.updateProfile(profileId, profileInput, 1), /bobina.*cambió|perfil.*cambió/i);
+  assert.equal(h.mutations, 1);
+  assert.deepEqual(h.stored, [profileRow()]);
+});
+
+test('profile repository guard rejects before calls and after returned protected data', async () => {
+  const h = profileHarness();
+  h.deny();
+  await assert.rejects(h.repo.spoolProfiles.list(), /Acceso/);
+  await assert.rejects(h.repo.spoolProfiles.createProfile(profileInput), /Acceso/);
+  assert.deepEqual(h.calls, []);
+  const switched = profileHarness();
+  switched.switchAccount();
+  await assert.rejects(switched.repo.spoolProfiles.updateProfile(profileId, profileInput, 1), /cuenta/);
+  assert.equal(switched.mutations, 0);
+  for (const method of ['list', 'create', 'update']) {
+    const changed = profileHarness();
+    changed.after(() => changed.switchAccount());
+    await assert.rejects(method === 'list' ? changed.repo.spoolProfiles.list() : method === 'create'
+      ? changed.repo.spoolProfiles.createProfile(profileInput)
+      : changed.repo.spoolProfiles.updateProfile(profileId, profileInput, 1), /cuenta/);
+  }
+});

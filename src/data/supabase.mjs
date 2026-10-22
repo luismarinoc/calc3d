@@ -1,6 +1,7 @@
 import { normalizeClient } from '../domain/quote-client.mjs';
 import { demoPrinter, validPrinterId, validatePrinterSettings } from '../domain/printer-settings.mjs';
 import { validatePurchase } from '../domain/purchases.mjs';
+import { validateSpoolProfile } from '../domain/spool-profiles.mjs';
 import { normalizeRow, createAccessService } from '../auth/access.mjs';
 
 const copy = value => structuredClone(value);
@@ -25,6 +26,25 @@ const spool = row => ({ id: row.id, purchaseId: row.purchase_id, date: row.purch
   purchasePrice: row.purchase_price, netWeightGrams: Number(row.net_weight_grams),
   remainingGrams: Number(row.remaining_grams) });
 const defaultState = () => ({ activeId: demoPrinter.id, printers: [copy(demoPrinter)] });
+const validProfileId = value => typeof value === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+const invalidProfile = () => { throw new Error('Respuesta remota inválida del perfil de bobina.'); };
+const profile = row => {
+  if (!row || !validProfileId(row.id) || !Number.isSafeInteger(row.revision) || row.revision <= 0 ||
+      typeof row.created_at !== 'string' || !Number.isFinite(Date.parse(row.created_at)) ||
+      typeof row.updated_at !== 'string' || !Number.isFinite(Date.parse(row.updated_at)) ||
+      typeof row.net_weight_grams !== 'number' &&
+        (typeof row.net_weight_grams !== 'string' || !/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(row.net_weight_grams)) ||
+      !Number.isSafeInteger(row.purchase_price)) invalidProfile();
+  const weight = Number(row.net_weight_grams);
+  let data;
+  try {
+    data = validateSpoolProfile({ name: row.name, material: row.material, brand: row.brand,
+      purchasePrice: row.purchase_price, netWeightGrams: weight });
+  } catch { invalidProfile(); }
+  if (data.name !== row.name || data.material !== row.material || data.brand !== row.brand) invalidProfile();
+  return { id: row.id, ...data, revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at };
+};
 
 /** Each repository belongs to one authenticated identity. Every operation rechecks admission
  * before touching protected data; the database RLS/RPC remains the authorization authority. */
@@ -101,7 +121,40 @@ export function createRemoteRepositories(client, session, accessService = create
       return { ok: true };
     },
   };
+  const spoolProfiles = {
+    async list() {
+      return copy((await read('calc3d_spool_profiles',
+        'id,name,material,brand,purchase_price,net_weight_grams,revision,created_at,updated_at')).map(profile));
+    },
+    async createProfile(input) {
+      const payload = validateSpoolProfile(input);
+      const row = await saveProfile(payload, null, 0);
+      if (row.revision !== 1) invalidProfile();
+      return { ok: true, profile: copy(row) };
+    },
+    async updateProfile(id, input, expectedRevision) {
+      if (!validProfileId(id)) throw new TypeError('Identificador de bobina inválido.');
+      if (!Number.isSafeInteger(expectedRevision) || expectedRevision <= 0 || expectedRevision >= Number.MAX_SAFE_INTEGER) {
+        throw new TypeError('La revisión de bobina debe ser un entero positivo válido.');
+      }
+      const payload = validateSpoolProfile(input);
+      const row = await saveProfile(payload, id, expectedRevision);
+      if (row.id.toLowerCase() !== id.toLowerCase() || row.revision !== expectedRevision + 1) invalidProfile();
+      return { ok: true, profile: copy(row) };
+    },
+  };
+  async function saveProfile(payload, id, expectedRevision) {
+    let row;
+    try {
+      row = await write('calc3d_save_spool_profile', { payload, profile_id: id, expected_revision: expectedRevision });
+    } catch (error) {
+      if (error?.code === '40001') throw new Error('El perfil de bobina cambió; recarga antes de guardar.');
+      throw error;
+    }
+    return profile(row);
+  }
   return {
+    spoolProfiles,
     quotes: {
       async list() { return copy((await read('calc3d_quotes', 'id,saved_at,number,client,title,spool_id,form,input,result', 'saved_at')).map(quote)); },
       async get(id) { return (await this.list()).find(item => item.id === id) ?? null; },
