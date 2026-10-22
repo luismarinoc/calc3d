@@ -7,3 +7,6 @@ test-results/
 .env.*
 !.env.example
 .DS_Store
+
+# Private agent configuration and MCP credentials.
+/.pi/

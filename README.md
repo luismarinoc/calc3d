@@ -2,6 +2,8 @@
 
 Para las PR, checks y releases automáticos de versiones, consulta [controles del repositorio](docs/repository-controls.md). Los controles están activos en [GitHub](https://github.com/luismarinoc/calc3d): `main` requiere PR y checks exitosos, también para administradores. El [CI de la carga inicial](https://github.com/luismarinoc/calc3d/actions/runs/39512874793) pasó sin publicar una release; la publicación de una futura PR de versión aún no se ha ejercitado.
 
+Para publicar el frontend en `calc3d.tbema.net`, consulta [despliegue en Dokploy](docs/deploy-dokploy.md) y [acceso MCP a Dokploy](docs/dokploy-mcp.md).
+
 En la raíz del proyecto, ejecuta `npm start` y abre http://127.0.0.1:5173. `npm start` inicia Vite. Configura antes `.env.local` privado como se indica en [Acceso por invitación](docs/login.md). Pruebas: `npm test` (pruebas Node, sin navegador). Para pruebas de navegador, instala las dependencias de desarrollo con `npm ci` y los navegadores locales con `npx playwright install chromium webkit`; luego ejecuta `npm run test:e2e`. Playwright levanta y detiene su propio servidor local en 127.0.0.1:5174 (el puerto debe estar libre); genera capturas inicial y final de cada proyecto en `test-results/`, excluido de Git. Los proyectos emulan escritorio Chromium, teléfono WebKit y iPad WebKit en vertical/horizontal; no equivalen a pruebas en un dispositivo iOS físico ni en Safari real. No abras `index.html` con `file://`: los módulos ES necesitan HTTP local.
 
 ## Configuración de impresoras (por cuenta)
