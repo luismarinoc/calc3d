@@ -1,7 +1,6 @@
 import { signedInTest as test, expect } from './supabase-fixture.mjs';
 
 const pairs = [
-  ['purchasePrice', 'netWeightGrams'],
   ['discountType', 'discountValue'],
   ['surchargeType', 'surchargeValue'],
 ];
@@ -9,7 +8,7 @@ const pairs = [
 test('locally paired captions and controls align without shifting other groups', async ({ page }, info) => {
   await page.goto('/');
   // The authenticated catalog marks completion of async page initialization before measuring.
-  await expect(page.locator('#spoolId option')).toHaveCount(2);
+  await expect(page.locator('#spoolId option')).toHaveCount(1);
   for (const [first, second] of pairs) {
     const aLabel = await page.locator(`label[for="${first}"]`).boundingBox();
     const bLabel = await page.locator(`label[for="${second}"]`).boundingBox();

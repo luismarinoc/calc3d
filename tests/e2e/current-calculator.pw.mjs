@@ -1,4 +1,4 @@
-import { signedInTest as test, expect, remoteQuotes, remotePurchases, remoteForPage, seedHistoricalQuote } from './supabase-fixture.mjs';
+import { signedInTest as test, expect, remoteQuotes, remotePurchases, remoteForPage, seedHistoricalQuote, setQuoteProfilePrice } from './supabase-fixture.mjs';
 import { setPrinterCosts } from './printer-fixtures.mjs';
 
 const amount = (page, label) => page.locator('#result-content .result-row').filter({ has: page.getByText(label, { exact: true }) }).locator('strong');
@@ -21,7 +21,8 @@ test('new and reloaded drafts expose reference example directly', async ({ page 
   for (const id of ['printerProfile', 'errorPercent', 'multiplierPreset']) await expect(page.locator(`#${id}`)).toBeVisible();
   await expect(page.locator('#multiplierPreset')).toHaveValue('2');
   await setPrinterCosts(page, { electricityPricePerKwh: 230 });
-  for (const [id, value] of Object.entries({ purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0' })) await page.locator(`#${id}`).fill(value);
+  await setQuoteProfilePrice(page, 22000);
+  for (const [id, value] of Object.entries({ grams: '294', hours: '11', minutes: '0' })) await page.locator(`#${id}`).fill(value);
   await expect(amount(page, 'Costo total')).toContainText('7.725');
   await expect(amount(page, 'Precio final estimado')).toContainText('15.450');
   await page.screenshot({ path: testInfo.outputPath('current-reference.png'), fullPage: true });

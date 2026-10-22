@@ -1,4 +1,4 @@
-import { signedInTest as test, expect, remoteRows, remotePrinterState } from './supabase-fixture.mjs';
+import { signedInEmptyTest as test, expect, remoteRows, remotePrinterState } from './supabase-fixture.mjs';
 
 test('S1-S3: save a presentation, reload, edit the same revision and retain custom material', async ({ page }) => {
   await page.goto('/settings.html');

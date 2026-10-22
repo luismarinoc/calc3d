@@ -9,12 +9,12 @@ const purchased = [{ id: 'demo-petg', purchaseId: 'purchase-one', date: '2025-02
 
 test('catalog uses collision-safe identities, date and provenance with detached records', () => {
   const source = structuredClone(purchased);
-  const catalog = buildSpoolCatalog(purchased);
-  assert.deepEqual(catalog.map(({ id }) => id), ['demo-petg', 'demo-pla', 'purchase:demo-petg', 'purchase:spool-two']);
-  assert.match(catalog[2].label, /PLA.*Sur.*Ámbar.*2025-02-28/);
-  assert.equal(catalog[2].purchaseId, 'purchase-one');
-  assert.equal(catalog[2].spoolId, 'demo-petg');
-  catalog[2].purchasePrice = 1;
+  const catalog = buildSpoolCatalog(purchased, [{ id: 'abc', name: 'PLA 800 g', material: 'PLA', brand: 'Sur', purchasePrice: 21900, netWeightGrams: 800 }]);
+  assert.deepEqual(catalog.map(({ id }) => id), ['profile:abc', 'purchase:demo-petg', 'purchase:spool-two']);
+  assert.match(catalog[1].label, /PLA.*Sur.*Ámbar.*2025-02-28/);
+  assert.equal(catalog[1].purchaseId, 'purchase-one');
+  assert.equal(catalog[1].spoolId, 'demo-petg');
+  catalog[1].purchasePrice = 1;
   assert.deepEqual(purchased, source);
   assert.equal(demoSpools[0].purchasePrice, 21900);
 });
@@ -39,5 +39,5 @@ test('corrupt purchase storage cannot introduce spools into the validated catalo
   const store = createPurchaseStore({ getItem: () => '{bad', setItem: () => { throw Error('unexpected write'); } });
   assert.match(store.error, /no se pueden leer/);
   assert.deepEqual(store.listSpools(), []);
-  assert.equal(buildSpoolCatalog(store.listSpools()).length, demoSpools.length);
+  assert.deepEqual(buildSpoolCatalog(store.listSpools()), []);
 });

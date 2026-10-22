@@ -40,7 +40,7 @@ test('S2: choosing non-active installed A saves its snapshot while B stays activ
 
 test('S4: compact aligned controls without redundant data-used note', async ({ page }, info) => {
   await page.goto('/');
-  await expect(page.getByRole('link', { name: 'Configuración · Impresoras' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Configuración · Bobinas e impresoras' })).toBeVisible();
   await expect(page.locator('#printer-name-current')).toBeHidden();
   await expect(page.getByText('Datos usados:', { exact: false })).toHaveCount(0);
   await expect(page.locator('#printerProfile')).toBeVisible();
@@ -63,7 +63,8 @@ test('S4: compact aligned controls without redundant data-used note', async ({ p
         expect(gap).toBeGreaterThanOrEqual(4);
         expect(gap).toBeLessThanOrEqual(8);
       }
-      for (const ids of [['spoolId', 'errorPercent'], ['purchasePrice', 'netWeightGrams', 'extraProductionCost', 'surchargeValue']]) {
+      // The removed financial controls occupied row 5; grams is deliberately on row 6.
+      for (const ids of [['spoolId', 'errorPercent'], ['extraProductionCost', 'surchargeValue']]) {
         const bottoms = await Promise.all(ids.map(async id => {
           const box = await page.locator(`#${id}`).boundingBox(); return box.y + box.height;
         }));

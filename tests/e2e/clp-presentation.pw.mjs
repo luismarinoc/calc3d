@@ -1,9 +1,9 @@
-import { signedInTest as test, expect, remoteQuotes, remoteForPage, seedHistoricalQuote } from './supabase-fixture.mjs';
+import { signedInTest as test, expect, remoteQuotes, remoteForPage, seedHistoricalQuote, setQuoteProfilePrice } from './supabase-fixture.mjs';
 import { setPrinterCosts } from './printer-fixtures.mjs';
 
 const raw = async page => { const rows = await remoteQuotes(page); return rows.length ? JSON.stringify(rows) : null; };
 const row = (page, label) => page.locator('#result-content .result-row').filter({ has: page.getByText(label, { exact: true }) });
-const example = { purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0', errorPercent: '5' };
+const example = { grams: '294', hours: '11', minutes: '0', errorPercent: '5' };
 
 async function assertRightAligned(page, label) {
   const measure = await row(page, label).evaluate((line) => {
@@ -19,6 +19,7 @@ async function assertRightAligned(page, label) {
 test('reference summary presents whole CLP and full-width right-aligned sale without changing stored precision', async ({ page }, info) => {
   await page.goto('/');
   await setPrinterCosts(page, { electricityPricePerKwh: 230 });
+  await setQuoteProfilePrice(page, 22000);
   for (const [id, value] of Object.entries(example)) await page.locator(`#${id}`).fill(value);
   for (const [label, expected] of Object.entries({ Material: '$6.468', Electricidad: '$329', Desgaste: '$560', Imprevistos: '$368', 'Otros costos': '$0', 'Costo total': '$7.725', 'Precio base': '$15.450', Descuento: '$0', Recargo: '$0', 'Precio final estimado': '$15.450', 'Ganancia estimada': '$7.725' })) {
     expect((await row(page, label).locator('strong').textContent()).replace(/\s/g, ''), label).toBe(expected);

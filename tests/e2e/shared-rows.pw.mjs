@@ -4,7 +4,8 @@ const rows = [
   [['title'], ['hours', 'minutes'], ['multiplierPreset']],
   [['purpose', 'client-toggle'], ['printerProfile'], []],
   [['spoolId'], ['errorPercent'], ['discountType', 'discountValue']],
-  [['purchasePrice', 'netWeightGrams'], ['extraProductionCost'], ['surchargeType', 'surchargeValue']],
+  // The removed purchase-price/weight pair occupied column 1 in row 5; grams remains in row 6.
+  [[], ['extraProductionCost'], ['surchargeType', 'surchargeValue']],
 ];
 
 async function geometry(page) {
@@ -86,7 +87,7 @@ test('real shared horizontal rows align desktop controls and captions', async ({
   test.skip(info.project.name !== 'chromium-desktop');
   await page.goto('/');
   // Avoid measuring one control before and another after authenticated data mounts.
-  await expect(page.locator('#spoolId option')).toHaveCount(2);
+  await expect(page.locator('#spoolId option')).toHaveCount(1);
   await geometry(page);
   for (const width of [1280, 1440]) {
     await page.setViewportSize({ width, height: width === 1280 ? 800 : 900 });

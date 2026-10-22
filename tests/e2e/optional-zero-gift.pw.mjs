@@ -1,4 +1,4 @@
-import { signedInTest as test, expect, remoteQuotes, remoteForPage, seedHistoricalQuote } from './supabase-fixture.mjs';
+import { signedInTest as test, expect, remoteQuotes, remoteForPage, seedHistoricalQuote, setQuoteProfilePrice } from './supabase-fixture.mjs';
 import { setPrinterCosts } from './printer-fixtures.mjs';
 
 const bytes = async page => { const rows = await remoteQuotes(page); return rows.length ? JSON.stringify(rows) : null; };
@@ -7,7 +7,8 @@ const amount = (page, label) => page.locator('#result-content .result-row').filt
 test('optional blanks calculate as zeros; gift save, reload and copy retain cost without revenue', async ({ page }) => {
   await page.goto('/');
   await setPrinterCosts(page, { electricityPricePerKwh: 230 });
-  for (const [id, value] of Object.entries({ purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0' })) await page.locator(`#${id}`).fill(value);
+  await setQuoteProfilePrice(page, 22000);
+  for (const [id, value] of Object.entries({ grams: '294', hours: '11', minutes: '0' })) await page.locator(`#${id}`).fill(value);
   await expect(amount(page, 'Costo total')).toContainText('7.725');
   await expect(amount(page, 'Precio final estimado')).toContainText('15.450');
   for (const id of ['minutes', 'discountValue', 'surchargeValue']) await page.locator(`#${id}`).fill('');

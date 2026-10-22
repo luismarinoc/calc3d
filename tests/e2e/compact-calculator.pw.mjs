@@ -1,9 +1,9 @@
-import { signedInTest as test, expect, remoteQuotes } from './supabase-fixture.mjs';
+import { signedInTest as test, expect, remoteQuotes, setQuoteProfilePrice } from './supabase-fixture.mjs';
 
 const stored = async page => { const rows = await remoteQuotes(page); return rows.length ? JSON.stringify(rows) : null; };
 import { setPrinterCosts } from './printer-fixtures.mjs';
-const primary = ['title', 'purpose', 'spoolId', 'purchasePrice', 'netWeightGrams', 'grams', 'hours', 'minutes', 'printerProfile', 'errorPercent', 'multiplierPreset', 'discountType', 'discountValue', 'surchargeType', 'surchargeValue', 'save'];
-const reference = { purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0', errorPercent: '5' };
+const primary = ['title', 'purpose', 'spoolId', 'grams', 'hours', 'minutes', 'printerProfile', 'errorPercent', 'multiplierPreset', 'discountType', 'discountValue', 'surchargeType', 'surchargeValue', 'save'];
+const reference = { grams: '294', hours: '11', minutes: '0', errorPercent: '5' };
 
 async function bounds(page, ids, withinViewport) {
   const size = page.viewportSize();
@@ -43,6 +43,7 @@ test('desktop complete draft fits with reference results and no automatic persis
     if (info.project.name === 'webkit-phone') await page.screenshot({ path: info.outputPath('compact-phone.png'), fullPage: true });
   }
   await setPrinterCosts(page, { electricityPricePerKwh: 230 });
+  await setQuoteProfilePrice(page, 22000);
   for (const [id, value] of Object.entries(reference)) await page.locator(`#${id}`).fill(value);
   await page.locator('#multiplierPreset').selectOption('2');
   await expect(page.locator('#result-content')).toContainText('7.725');

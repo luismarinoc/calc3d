@@ -1,9 +1,12 @@
-import { demoSpools } from './quote.mjs';
-
-/** Build a detached calculator catalog from validated purchaseStore.listSpools() output. */
-export function buildSpoolCatalog(purchasedSpools) {
+/** Build a detached owned calculator catalog from validated profile and purchase lists. */
+export function buildSpoolCatalog(purchasedSpools, profiles = []) {
   return [
-    ...demoSpools.map((spool) => ({ ...spool })),
+    ...profiles.map(profile => ({
+      id: `profile:${profile.id}`,
+      label: [profile.name, profile.material, profile.brand].filter(Boolean).join(' · '),
+      material: profile.material, brand: profile.brand,
+      purchasePrice: profile.purchasePrice, netWeightGrams: profile.netWeightGrams,
+    })),
     ...purchasedSpools.map((spool) => ({
       id: `purchase:${spool.id}`,
       spoolId: spool.id,

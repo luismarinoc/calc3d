@@ -18,10 +18,7 @@ test('public purchase to calculator, quote snapshot and reload without inventory
   const selectedId = `purchase:${spool.id}`;
   await expect(page.locator(`#spoolId option[value="${selectedId}"]`)).toContainText(/PLA.*Sur.*Azul.*2025-02-28/);
   await page.locator('#spoolId').selectOption(selectedId);
-  await expect(page.locator('#purchasePrice')).toHaveValue('18000');
-  await expect(page.locator('#netWeightGrams')).toHaveValue('800');
-  await expect(page.locator('#purchasePrice')).toHaveAttribute('readonly', '');
-  await expect(page.locator('#netWeightGrams')).toHaveAttribute('readonly', '');
+  await expect(page.locator('#quote-form #purchasePrice, #quote-form #netWeightGrams')).toHaveCount(0);
   await expect(page.locator('#spool-info')).toContainText(spool.id);
   await expect(page.locator('#spool-info')).toContainText(spool.purchaseId);
   await page.locator('#grams').fill('1600');
@@ -34,7 +31,8 @@ test('public purchase to calculator, quote snapshot and reload without inventory
   await expect(page.locator('#feedback')).toContainText('COT-000001');
   const saved = await remoteQuotes(page);
   expect(saved).toHaveLength(1);
-  expect(saved[0].form.spoolId).toBe(selectedId);
+  expect(saved[0].form).toMatchObject({ spoolId: selectedId, purchasePrice: 18000, netWeightGrams: 800 });
+  expect(saved[0].input.spool).toEqual({ purchasePrice: 18000, netWeightGrams: 800 });
   await page.locator('#grams').fill('40');
   expect(await remoteQuotes(page)).toEqual(saved);
   expect(await remotePurchases(page)).toEqual(original);
@@ -46,11 +44,9 @@ test('public purchase to calculator, quote snapshot and reload without inventory
   await expect(material(page)).toContainText(/36[.\s\u00a0]?000/);
   expect(await remoteQuotes(page)).toEqual(saved);
   expect(await remotePurchases(page)).toEqual(original);
-  await page.locator('#spoolId').selectOption('demo-petg');
-  await expect(page.locator('#purchasePrice')).toBeEditable();
-  await expect(page.locator('#netWeightGrams')).toBeEditable();
-  await page.locator('#purchasePrice').fill('12345');
-  await expect(page.locator('#purchasePrice')).toHaveValue('12345');
+  await page.locator('#spoolId').selectOption('profile:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+  await expect(material(page)).not.toContainText(/36[.\s\u00a0]?000/);
+  await expect(page.locator('#quote-form #purchasePrice, #quote-form #netWeightGrams')).toHaveCount(0);
   expect(await remoteQuotes(page)).toEqual(saved);
   expect(await remotePurchases(page)).toEqual(original);
   expect(errors).toEqual([]);

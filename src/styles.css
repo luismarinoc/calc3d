@@ -68,8 +68,7 @@ fieldset:disabled { opacity: .55; }
   #quote-form section[aria-labelledby="machine-heading"] > .section-head { grid-column: 2; grid-row: 1; }
   #quote-form #commercial > legend { grid-column: 3; grid-row: 1; align-self: start; padding: 0; line-height: 2.8; }
   #quote-form label[for="title"], #quote-form .purpose-pair,
-  #quote-form .material-start, #quote-form .material-pair,
-  #quote-form label[for="grams"] { grid-column: 1; }
+  #quote-form .material-start, #quote-form label[for="grams"] { grid-column: 1; }
   #quote-form .time-pair, #quote-form label[for="printerProfile"],
   #quote-form label[for="errorPercent"], #quote-form label[for="extraProductionCost"] { grid-column: 2; }
   #quote-form #reference-multiplier, #quote-form #legacy-markup,
@@ -81,8 +80,7 @@ fieldset:disabled { opacity: .55; }
   #quote-form #custom-multiplier { grid-row: 3; }
   #quote-form .material-start, #quote-form label[for="errorPercent"],
   #quote-form .discount-pair { grid-row: 4; }
-  #quote-form .material-pair, #quote-form label[for="extraProductionCost"],
-  #quote-form .surcharge-pair { grid-row: 5; }
+  #quote-form label[for="extraProductionCost"], #quote-form .surcharge-pair { grid-row: 5; }
   #quote-form label[for="grams"] { grid-row: 6; }
   #quote-form #spool-info { grid-column: 1; grid-row: 7; margin: 0; }
   #quote-form #purchase-catalog-error { grid-column: 1; grid-row: 8; margin: 0; }

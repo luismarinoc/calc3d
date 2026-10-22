@@ -10,7 +10,7 @@
   <script type="module" src="./src/app.mjs"></script>
 </head>
 <body>
-  <header class="topbar"><a class="brand" href="#inicio">calc<span>3D</span></a><a href="./purchases.html">Compras e inventario de prueba</a><a href="./settings.html">Configuración · Impresoras</a><span>Estudio de costos · Chile</span></header>
+  <header class="topbar"><a class="brand" href="#inicio">calc<span>3D</span></a><a href="./purchases.html">Compras e inventario de prueba</a><a href="./settings.html">Configuración · Bobinas e impresoras</a><span>Estudio de costos · Chile</span></header>
   <main id="inicio" class="shell">
     <div class="intro"><h1>Calculadora de impresión 3D</h1><p>Estimación en vivo. Solo Guardar registra una copia.</p></div>
     <div class="tabs" role="tablist" aria-label="Vistas de la calculadora">
@@ -40,8 +40,6 @@
           <label class="wide" for="spoolId">Bobina de prueba<select id="spoolId" name="spoolId" aria-describedby="spool-info"></select></label></div>
           <p class="hint wide" id="spool-info" aria-live="polite"></p>
           <p class="error wide" id="purchase-catalog-error" role="status" hidden>Las compras de prueba no se pueden leer; no se modificaron sus datos. <a href="./purchases.html">Revisar compras</a></p>
-          <div class="row-pair material-pair"><label for="purchasePrice">Precio de compra · CLP<input id="purchasePrice" name="purchasePrice" type="number" inputmode="decimal" min="0" step="any" required></label>
-          <label for="netWeightGrams">Peso neto · g<input id="netWeightGrams" name="netWeightGrams" type="number" inputmode="decimal" min="0.001" step="any" required></label></div>
           <label class="wide" for="grams">Gramos consumidos · g<input id="grams" name="grams" type="number" inputmode="decimal" min="0" step="any" required value="74" aria-describedby="grams-note"></label><small class="grams-help" id="grams-note">Incluye soportes, purga y desperdicio estimado.</small></div>
         </section>
         </div>

@@ -4,7 +4,7 @@ test('discount shares the Imprevistos row in default and custom modes on wide la
   test.skip(!['chromium-desktop', 'webkit-ipad-landscape'].includes(info.project.name));
   await page.goto('/');
   // Measure only after authenticated catalog and account navigation have mounted.
-  await expect(page.locator('#spoolId option')).toHaveCount(2);
+  await expect(page.locator('#spoolId option')).toHaveCount(1);
   await expect(page.locator('.account-nav')).toBeVisible();
   const box = async selector => page.locator(selector).boundingBox();
   for (const mode of ['default', 'custom']) {

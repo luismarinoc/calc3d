@@ -1,4 +1,4 @@
-import { test, expect, signIn } from './supabase-fixture.mjs';
+import { test, expect, signIn, remoteQuotes } from './supabase-fixture.mjs';
 
 test('all three pages redirect anonymous visitors to login', async ({ page, remote }) => {
   for (const path of ['/', '/settings.html', '/purchases.html']) {
@@ -43,8 +43,10 @@ test('printer save/activate and purchase acquired spool persist across reloads',
   await page.goto('/');
   await expect(page.locator('#spoolId')).toContainText('PLA · Sur · Azul');
   await page.locator('#spoolId').selectOption('purchase:spool-1');
-  await expect(page.locator('#purchasePrice')).toHaveValue('18000');
-  await expect(page.locator('#netWeightGrams')).toHaveValue('1000');
+  await expect(page.locator('#quote-form #purchasePrice, #quote-form #netWeightGrams')).toHaveCount(0);
+  await page.locator('#save').click();
+  await expect(page.locator('#feedback')).toContainText('COT-000001');
+  expect((await remoteQuotes(page))[0].input.spool).toEqual({ purchasePrice: 18000, netWeightGrams: 1000 });
 });
 
 test('activation persists selected nonactive B rather than previous active printer', async ({ page, remote }) => {

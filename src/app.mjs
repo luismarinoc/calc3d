@@ -2,6 +2,7 @@ import { evaluate } from './ui/quote.mjs';
 import { createRemoteRepositories } from './data/supabase.mjs';
 import { protectPage } from './auth/protected-page.mjs';
 import { buildSpoolCatalog } from './ui/spool-catalog.mjs';
+import { historicalSpool, selectedSpool } from './ui/spool-selection.mjs';
 
 const form = document.querySelector('#quote-form');
 const clientFields = { name: document.querySelector('#client-name'), phone: document.querySelector('#client-phone'), email: document.querySelector('#client-email') };
@@ -80,6 +81,7 @@ function resetPrinter() {
 const commercial = document.querySelector('#commercial');
 const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
 let catalog = [];
+let pinnedSpool = null;
 const catalogError = document.querySelector('#purchase-catalog-error');
 let current;
 const tabs = [document.querySelector('#calculator-tab'), document.querySelector('#history-tab')];
@@ -103,27 +105,21 @@ tabs.forEach((tab, index) => {
   });
 });
 
-for (const spool of catalog) {
-  const option = document.createElement('option');
-  option.value = spool.id;
-  option.textContent = spool.label;
-  spoolSelect.append(option);
-}
 function describeSpool() {
-  const spool = catalog.find((item) => item.id === spoolSelect.value);
-  const purchased = !!spool?.purchaseId;
-  form.elements.namedItem('purchasePrice').readOnly = purchased;
-  form.elements.namedItem('netWeightGrams').readOnly = purchased;
-  document.querySelector('#spool-info').textContent = purchased
-    ? `Compra de prueba ${spool.purchaseId} · bobina ${spool.spoolId} · ${spool.material}, ${spool.brand}, ${spool.color} · ${spool.date}. Precio de adquisición ${currency.format(spool.purchasePrice)} y peso inicial adquirido ${spool.initialAcquiredGrams} g: campos de solo lectura. No representa saldo disponible ni descuenta consumo.`
-    : spool ? 'Bobina ficticia: precio y peso editables para simular; no representa inventario.'
-      : 'La bobina guardada no está disponible en compras de prueba. Se conserva la copia original; no se puede guardar otra hasta seleccionar una bobina válida.';
+  const spool = catalog.find(item => item.id === spoolSelect.value);
+  document.querySelector('#spool-info').replaceChildren();
+  const info = document.querySelector('#spool-info');
+  if (!catalog.length) {
+    info.append('No hay bobinas configuradas. ');
+    const link = document.createElement('a'); link.href = './settings.html'; link.textContent = 'Configurar bobinas';
+    info.append(link);
+  } else if (spool?.purchaseId) {
+    info.textContent = `Compra de prueba ${spool.purchaseId} · bobina ${spool.spoolId} · ${spool.material}, ${spool.brand}, ${spool.color} · ${spool.date}. No representa saldo disponible ni descuenta consumo.`;
+  } else if (spool) info.textContent = spool.label;
+  else info.textContent = 'La bobina guardada ya no está disponible. La copia conserva su costo original; selecciona una bobina disponible para un cálculo nuevo.';
 }
 function setSpool() {
-  const spool = catalog.find((item) => item.id === spoolSelect.value);
-  if (!spool) return;
-  form.elements.namedItem('purchasePrice').value = spool.purchasePrice;
-  form.elements.namedItem('netWeightGrams').value = spool.netWeightGrams;
+  pinnedSpool = null;
   describeSpool();
   render();
 }
@@ -131,6 +127,11 @@ function values() {
   const data = Object.fromEntries([...new FormData(form).entries()]);
   if (data.calculationMode !== 'reference') {
     for (const name of ['replacementCost', 'replacementLifetimeHours', 'errorPercent', 'multiplierPreset', 'customMultiplier']) delete data[name];
+  }
+  const spool = selectedSpool(catalog, data.spoolId, pinnedSpool);
+  if (spool) {
+    data.purchasePrice = spool.purchasePrice;
+    data.netWeightGrams = spool.netWeightGrams;
   }
   if (pinnedPrinter) {
     data.printerInstanceId = pinnedPrinter.id;
@@ -149,8 +150,12 @@ function row(parent, label, amount, presentation = '') {
   line.append(name, value);
   parent.append(line);
 }
+function canSaveSpool() {
+  return catalog.some(item => item.id === spoolSelect.value) ||
+    (pinnedSpool?.id === spoolSelect.value && pinnedSpool.id.startsWith('demo-'));
+}
 function render() {
-  current = evaluate(values(), catalog);
+  current = evaluate(values(), pinnedSpool && !catalog.some(item => item.id === pinnedSpool.id) ? [...catalog, pinnedSpool] : catalog);
   const error = document.querySelector('#form-error');
   const content = document.querySelector('#result-content');
   const save = document.querySelector('#save');
@@ -159,9 +164,10 @@ function render() {
     input.removeAttribute('aria-invalid');
     input.removeAttribute('aria-describedby');
   }
-  error.hidden = !current.error && !settings.error;
-  error.textContent = settings.error || current.error || '';
-  save.disabled = !accessible || saving || !!current.error || !!settings.error;
+  const unavailable = pinnedSpool && !canSaveSpool();
+  error.hidden = !current.error && !settings.error && !unavailable;
+  error.textContent = settings.error || current.error || (unavailable ? 'La bobina guardada no está disponible; selecciona una bobina válida antes de guardar.' : '');
+  save.disabled = !accessible || saving || !!current.error || !!settings.error || !canSaveSpool();
   if (current.error) {
     const field = current.field && form.elements.namedItem(current.field);
     if (field) { field.setAttribute('aria-invalid', 'true'); field.setAttribute('aria-describedby', 'form-error'); }
@@ -236,6 +242,7 @@ function renderHistory() {
       restorePrinter(saved.form);
       // Keep a missing purchased identity explicit rather than silently selecting a fictitious bobina.
       const savedSpoolId = saved.form?.spoolId || saved.spoolId;
+      pinnedSpool = historicalSpool(saved);
       if (savedSpoolId && !catalog.some((spool) => spool.id === savedSpoolId)) {
         const missing = document.createElement('option');
         missing.value = savedSpoolId;
@@ -301,7 +308,7 @@ form.addEventListener('submit', async (event) => {
   if (saving || !accessible) return;
   render();
   const feedback = document.querySelector('#feedback');
-  if (current.error || settings.error) { feedback.textContent = settings.error || 'Corrige los datos antes de guardar.'; return; }
+  if (current.error || settings.error || !canSaveSpool()) { feedback.textContent = settings.error || 'Selecciona una bobina disponible antes de guardar.'; return; }
   saving = true; render();
   try {
     // Refresh before saving: an edited active printer must not silently alter a draft.
@@ -337,6 +344,7 @@ form.addEventListener('submit', async (event) => {
 });
 document.querySelector('#start-current').addEventListener('click', () => {
   form.reset();
+  pinnedSpool = null;
   resetPrinter();
   setClient();
   form.elements.namedItem('calculationMode').value = 'reference';
@@ -350,6 +358,7 @@ document.querySelector('#start-current').addEventListener('click', () => {
 function initializeDraft() {
   // Browser form restoration must not silently turn an ordinary reload into a historical calculation.
   setClient();
+  pinnedSpool = null;
   resetPrinter();
   form.elements.namedItem('calculationMode').value = 'reference';
   document.querySelector('#legacy-notice').hidden = true;
@@ -362,7 +371,7 @@ window.addEventListener('pageshow', (event) => {
 });
 function clearAccount() {
   accessible = false; repositories = null; printerState = null; historyRecords = []; historyError = ''; settings.error = null;
-  catalog = []; spoolSelect.replaceChildren(); printerSelect.replaceChildren(); pinnedPrinter = null;
+  catalog = []; pinnedSpool = null; spoolSelect.replaceChildren(); printerSelect.replaceChildren(); pinnedPrinter = null;
   historicalCopy = false; document.querySelector('#printer-name-current').textContent = '';
   setClient(); form.reset(); document.querySelector('#result-content').replaceChildren();
   catalogError.hidden = true; catalogError.firstChild.textContent = '';
@@ -373,15 +382,18 @@ function clearAccount() {
 await protectPage({ onClear: clearAccount, onReady: async ({ client, session }, isCurrent) => {
   const source = createRemoteRepositories(client, session);
   try {
-    const [printers, quotes, spools] = await Promise.all([
-      source.printers.load(), source.quotes.list(), source.purchases.listSpools(),
+    const [printers, quotes, spools, profiles] = await Promise.all([
+      source.printers.load(), source.quotes.list(), source.purchases.listSpools(), source.spoolProfiles.list(),
     ]);
     if (!isCurrent()) return;
     repositories = source;
     printerState = printers; historyRecords = quotes;
-    catalog = buildSpoolCatalog(spools);
+    catalog = buildSpoolCatalog(spools, profiles);
     spoolSelect.replaceChildren();
     for (const spool of catalog) spoolSelect.add(new Option(spool.label, spool.id));
+    let remembered = null;
+    try { remembered = sessionStorage.getItem(`calc3d-spool-selection:${session.user.id}`); } catch { /* Optional selection memory. */ }
+    if (catalog.some(item => item.id === `profile:${remembered}`)) spoolSelect.value = `profile:${remembered}`;
     catalogError.hidden = true; settings.error = null; accessible = true;
     initializeDraft(); renderHistory();
   } catch {

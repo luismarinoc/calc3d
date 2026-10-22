@@ -80,9 +80,29 @@ export const test = base.extend({
   },
 });
 export { expect };
+export const signedInEmptyTest = test.extend({
+  authenticated: [async ({ page, remote }, use) => { await signIn(page, { withProfile: false }); await use(); }, { auto: true }],
+});
 export const signedInTest = test.extend({
   authenticated: [async ({ page, remote }, use) => { await signIn(page); await use(); }, { auto: true }],
 });
+/** Test-only profile revision through the public RPC; never edits calculator financial fields. */
+export async function setQuoteProfilePrice(page, purchasePrice, netWeightGrams = 1000) {
+  const [profile] = await remoteRows(page, 'spool_profiles');
+  const error = await page.evaluate(async ({ profile, purchasePrice, netWeightGrams }) => {
+    const { client } = await import('/src/auth/browser.mjs');
+    const { error } = await client.rpc('calc3d_save_spool_profile', {
+      payload: { name: profile.name, material: profile.material, brand: profile.brand, purchasePrice, netWeightGrams },
+      profile_id: profile.id, expected_revision: profile.revision,
+    });
+    return error?.message ?? null;
+  }, { profile, purchasePrice, netWeightGrams });
+  if (error) throw Error(error);
+  await page.reload();
+  await expect(page.locator('#spoolId')).toHaveValue(`profile:${profile.id}`);
+  await expect(page.locator('#save')).toBeEnabled();
+  return `profile:${profile.id}`;
+}
 /** Read through the same public authenticated REST API as the application. */
 export async function remoteRows(page, table) {
   return page.evaluate(async table => {
@@ -124,12 +144,19 @@ export async function seedHistoricalQuote(page, remote, fields) {
   remote.quotes.unshift(row);
   return row;
 }
-export async function signIn(page) {
+export async function signIn(page, { withProfile = true } = {}) {
+  const remote = remoteForPage(page);
+  // Fixture-owned legacy profile, never an application default or a production seed.
+  if (withProfile && !remote.profiles.some(row => row.owner_id === remote.user.id)) {
+    remote.profiles.push({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', owner_id: remote.user.id,
+      name: 'PETG 1 kg', material: 'PETG', brand: 'Prueba', purchase_price: 21900,
+      net_weight_grams: 1000, revision: 1, created_at: stamp, updated_at: stamp });
+  }
   await page.goto('/login.html');
   await page.getByText('Entrar con correo y contraseña').click();
   await page.getByLabel('Correo', { exact: true }).fill('member@example.test');
   await page.getByLabel('Contraseña').fill('fake-password');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await page.waitForURL('/');
-  await expect(page.locator('#save')).toBeEnabled();
+  await expect(page.locator('#spool-info')).not.toBeEmpty();
 }

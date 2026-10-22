@@ -1,4 +1,4 @@
-import { signedInTest as test, expect, remoteQuotes, remotePurchases } from './supabase-fixture.mjs';
+import { signedInTest as test, expect, remoteQuotes, remotePurchases, setQuoteProfilePrice } from './supabase-fixture.mjs';
 import { setPrinterCosts } from './printer-fixtures.mjs';
 
 const bytes = async page => [await remoteQuotes(page), await remotePurchases(page)];
@@ -65,7 +65,8 @@ test('new saved quote pins instance and params, legacy copy never invents a matc
 test('reference costs, semantic hierarchy, non-sale expenses and compact bounds', async ({ page }, info) => {
   await page.goto('/');
   await setPrinterCosts(page, { electricityPricePerKwh: 230 });
-  for (const [id, value] of Object.entries({ purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0' })) await page.locator(`#${id}`).fill(value);
+  await setQuoteProfilePrice(page, 22000);
+  for (const [id, value] of Object.entries({ grams: '294', hours: '11', minutes: '0' })) await page.locator(`#${id}`).fill(value);
   await expect(result(page, 'Costo total')).toContainText('7.725');
   await expect(result(page, 'Precio final estimado')).toContainText('15.450');
   await expect(result(page, 'Costo total')).toHaveClass(/cost-total/);

@@ -1,4 +1,4 @@
-import { signedInTest as test, expect, remoteQuotes } from './supabase-fixture.mjs';
+import { signedInTest as test, expect, remoteQuotes, setQuoteProfilePrice } from './supabase-fixture.mjs';
 import { setPrinterCosts } from './printer-fixtures.mjs';
 
 const bytes = async page => { const rows = await remoteQuotes(page); return rows.length ? JSON.stringify(rows) : null; };
@@ -6,7 +6,8 @@ const row = (page, label) => page.locator('#result-content .result-row').filter(
 const amount = async (page, label) => (await row(page, label).locator('strong').textContent()).replace(/[^\d.,-]/g, '');
 async function example(page) {
   await setPrinterCosts(page, { watts: 130, electricityPricePerKwh: 230, replacementCost: 220000, replacementLifetimeHours: 4320 });
-  for (const [id, value] of Object.entries({ purchasePrice: '22000', netWeightGrams: '1000', grams: '294', hours: '11', minutes: '0', errorPercent: '5' })) {
+  await setQuoteProfilePrice(page, 22000);
+  for (const [id, value] of Object.entries({ grams: '294', hours: '11', minutes: '0', errorPercent: '5' })) {
     await page.locator(`#${id}`).fill(value);
   }
 }
