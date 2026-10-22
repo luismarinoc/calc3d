@@ -6,8 +6,8 @@ const states = new WeakMap();
 export const remoteForPage = page => states.get(page);
 export const test = base.extend({
   remote: async ({ page }, use) => {
-    const state = { quotes: [], printers: null, purchases: [], spools: [], number: 0, allowed: true,
-      fail: null, failAfter: null, reads: {}, calls: [], holdQuotes: null, user };
+    const state = { quotes: [], printers: null, purchases: [], spools: [], profiles: [], number: 0, allowed: true,
+      fail: null, failAfter: null, reads: {}, calls: [], holdQuotes: null, holdProfiles: null, user };
     await page.route('http://127.0.0.1:54321/**', async route => {
       const request = route.request();
       const url = new URL(request.url());
@@ -29,12 +29,35 @@ export const test = base.extend({
         return json(visible);
       }
       if (pathname.endsWith('/rest/v1/calc3d_printer_settings')) return json(state.printers && state.printers.owner_id === state.user.id ? [state.printers] : []);
+      if (pathname.endsWith('/rest/v1/calc3d_spool_profiles')) {
+        const visible = state.profiles.filter(row => row.owner_id === state.user.id);
+        if (state.holdProfiles) await state.holdProfiles;
+        return json(visible);
+      }
       if (pathname.endsWith('/rest/v1/calc3d_purchases')) return json(state.purchases.filter(row => !row.owner_id || row.owner_id === state.user.id));
       if (pathname.endsWith('/rest/v1/calc3d_spools')) return json(state.spools.filter(row => !row.owner_id || row.owner_id === state.user.id));
       if (pathname.endsWith('/rest/v1/rpc/calc3d_save_quote')) {
         state.number++;
         const row = { ...body.payload, owner_id: state.user.id, id: `quote-${state.number}`, saved_at: stamp, number: `COT-${String(state.number).padStart(6, '0')}`, spool_id: body.payload.spoolId };
         state.quotes.unshift(row);
+        return json(row);
+      }
+      if (pathname.endsWith('/rest/v1/rpc/calc3d_save_spool_profile')) {
+        const current = state.profiles.find(row => row.id === body.profile_id && row.owner_id === state.user.id);
+        if ((body.profile_id && !current) || body.expected_revision !== (current?.revision ?? 0)) {
+          return json({ code: '40001', message: 'Spool profile revision conflict' }, 409);
+        }
+        const payload = body.payload;
+        if (!payload || !payload.name?.trim() || !payload.material?.trim() ||
+            !Number.isSafeInteger(payload.purchasePrice) || payload.purchasePrice < 0 ||
+            !Number.isFinite(payload.netWeightGrams) || payload.netWeightGrams <= 0) {
+          return json({ code: '23514', message: 'Invalid spool profile' }, 400);
+        }
+        const row = { id: current?.id ?? crypto.randomUUID(), owner_id: state.user.id,
+          name: payload.name, material: payload.material, brand: payload.brand,
+          purchase_price: payload.purchasePrice, net_weight_grams: payload.netWeightGrams,
+          revision: (current?.revision ?? 0) + 1, created_at: current?.created_at ?? stamp, updated_at: stamp };
+        state.profiles = current ? state.profiles.map(item => item.id === current.id ? row : item) : [...state.profiles, row];
         return json(row);
       }
       if (pathname.endsWith('/rest/v1/rpc/calc3d_save_printers')) {

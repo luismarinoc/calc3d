@@ -2,6 +2,7 @@ import { createRemoteRepositories } from './data/supabase.mjs';
 import { protectPage } from './auth/protected-page.mjs';
 import { demoPrinter } from './domain/printer-settings.mjs';
 import { printerProfiles, customPrinter } from './ui/printer-profiles.mjs';
+import { createSpoolSettings } from './ui/spool-settings.mjs';
 
 let repository;
 let state = null;
@@ -12,6 +13,7 @@ const select = document.querySelector('#active-printer');
 const form = document.querySelector('#printer-form');
 const feedback = document.querySelector('#settings-feedback');
 const failure = document.querySelector('#settings-error');
+const spoolSettings = createSpoolSettings();
 const model = form.elements.namedItem('modelId');
 for (const profile of printerProfiles) model.add(new Option(profile.name, profile.id));
 model.add(new Option('Otro / personalizado', customPrinter));
@@ -111,15 +113,18 @@ window.addEventListener('pageshow', (event) => {
 showState();
 await protectPage({ onClear: () => {
   repository = null; state = null; editing = null; pending = false; form.reset(); feedback.textContent = '';
-  failure.textContent = 'Comprobando acceso remoto…'; showState();
+  failure.textContent = 'Comprobando acceso remoto…'; showState(); spoolSettings.clear();
 }, onReady: async ({ client, session }, isCurrent) => {
   const source = createRemoteRepositories(client, session);
-  try {
-    const loaded = await source.printers.load();
-    if (!isCurrent()) return;
-    repository = source; state = loaded; failure.textContent = ''; showState(); populate(demoPrinter);
-  } catch {
-    if (!isCurrent()) return;
-    state = null; failure.textContent = 'No se pudo leer la configuración. Comprueba la conexión y recarga para reintentar.'; showState();
-  }
+  repository = source;
+  await Promise.all([spoolSettings.load(source, session, isCurrent), (async () => {
+    try {
+      const loaded = await source.printers.load();
+      if (!isCurrent() || repository !== source) return;
+      state = loaded; failure.textContent = ''; showState(); populate(demoPrinter);
+    } catch {
+      if (!isCurrent() || repository !== source) return;
+      state = null; failure.textContent = 'No se pudo leer la configuración. Comprueba la conexión y recarga para reintentar.'; showState();
+    }
+  })()]);
 } });

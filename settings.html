@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="es-CL">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#202321"><title>Calc3D · Configuración de impresoras</title><link rel="stylesheet" href="./src/styles.css"><link rel="stylesheet" href="./src/settings-styles.css"><link rel="stylesheet" href="./src/auth.css"><script type="module" src="./src/printer-settings-app.mjs"></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#202321"><title>Calc3D · Configuración</title><link rel="stylesheet" href="./src/styles.css"><link rel="stylesheet" href="./src/settings-styles.css"><link rel="stylesheet" href="./src/auth.css"><script type="module" src="./src/printer-settings-app.mjs"></script></head>
 <body>
 <header class="topbar"><a class="brand" href="./index.html">calc<span>3D</span></a><a href="./index.html">Volver a la calculadora</a><span>Estudio de costos · Chile</span></header>
 <main class="shell settings-shell">
-  <div class="intro"><h1>Configuración de impresoras</h1></div>
+  <div class="intro"><h1>Configuración</h1></div>
   <p class="notice" role="note">Las impresoras se guardan en tu cuenta al pulsar Guardar. Elegir un modelo no guarda nada.</p>
   <p id="settings-error" class="error" role="alert" hidden></p>
   <section aria-labelledby="installed-heading"><div class="section-head"><span>01 / Instaladas</span><h2 id="installed-heading">Elegir impresora para próximos cálculos</h2></div>
@@ -21,5 +21,19 @@
       <button id="save-printer" class="primary" type="submit">Guardar impresora</button>
     </form>
     <p id="settings-feedback" role="status" aria-live="polite"></p>
+  </section>
+  <section aria-labelledby="spool-heading"><div class="section-head"><span>03 / Materiales</span><h2 id="spool-heading">Bobinas</h2></div>
+    <p class="hint">Guarda el precio de compra y el peso neto del filamento por presentación, no el peso del carrete. Elegir una bobina no guarda cambios.</p>
+    <p id="spool-error" class="error" role="alert" hidden></p>
+    <div class="spool-actions"><label for="spool-profile">Presentación guardada<select id="spool-profile"></select></label><button id="edit-spool" type="button">Editar seleccionada</button><button id="new-spool" type="button">Nueva bobina</button></div>
+    <form id="spool-form" novalidate>
+      <label for="spool-name">Nombre / presentación<input id="spool-name" name="name" type="text" maxlength="120" required></label>
+      <label for="spool-material">Material<input id="spool-material" name="material" type="text" list="spool-materials" maxlength="120" required></label><datalist id="spool-materials"></datalist>
+      <label for="spool-brand">Marca (opcional)<input id="spool-brand" name="brand" type="text" maxlength="120"></label>
+      <label for="spool-purchasePrice">Precio de compra · CLP<input id="spool-purchasePrice" name="purchasePrice" type="number" inputmode="numeric" min="0" step="1" required></label>
+      <label for="spool-netWeightGrams">Peso neto del filamento · g<input id="spool-netWeightGrams" name="netWeightGrams" type="number" inputmode="decimal" min="0.001" step="any" required></label>
+      <button id="save-spool" class="primary" type="submit">Guardar bobina</button>
+    </form>
+    <p id="spool-feedback" role="status" aria-live="polite"></p>
   </section>
 </main></body></html>
