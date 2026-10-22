@@ -4,8 +4,7 @@ const rows = [
   [['title'], ['hours', 'minutes'], ['multiplierPreset']],
   [['purpose', 'client-toggle'], ['printerProfile'], []],
   [['spoolId'], ['errorPercent'], ['discountType', 'discountValue']],
-  // The removed purchase-price/weight pair occupied column 1 in row 5; grams remains in row 6.
-  [[], ['extraProductionCost'], ['surchargeType', 'surchargeValue']],
+  [['grams'], ['extraProductionCost'], ['surchargeType', 'surchargeValue']],
 ];
 
 async function geometry(page) {

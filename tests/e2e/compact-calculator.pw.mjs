@@ -89,6 +89,21 @@ test('tabs use keyboard navigation and save/open-copy never writes on navigation
   expect(await stored(page)).toBe(snapshot);
 });
 
+async function alignedGramsRow(page) {
+  const positions = await page.evaluate(() => Object.fromEntries(['grams', 'extraProductionCost', 'surchargeType', 'surchargeValue'].map(id => {
+    const control = document.getElementById(id);
+    const label = document.querySelector(`label[for="${id}"]`);
+    const caption = document.createRange();
+    caption.selectNodeContents(label.firstChild);
+    return [id, { inputTop: control.getBoundingClientRect().top, captionBottom: caption.getBoundingClientRect().bottom }];
+  })));
+  console.log('grams row alignment', positions);
+  for (const id of ['extraProductionCost', 'surchargeType', 'surchargeValue']) {
+    expect(Math.abs(positions.grams.inputTop - positions[id].inputTop), `${id} input top vs grams`).toBeLessThanOrEqual(1);
+    expect(Math.abs(positions.grams.captionBottom - positions[id].captionBottom), `${id} caption baseline vs grams`).toBeLessThanOrEqual(1);
+  }
+}
+
 test('fields have breathing room and paired controls align', async ({ page }, info) => {
   await page.goto('/');
   const spacing = await page.locator('.fields').first().evaluate(element => {
@@ -102,7 +117,7 @@ test('fields have breathing room and paired controls align', async ({ page }, in
   const extras = await page.locator('#extraProductionCost').boundingBox();
   expect(extras.height).toBeGreaterThanOrEqual(44);
   if (info.project.name === 'chromium-desktop') {
-    expect(grams.y).toBeGreaterThanOrEqual(extras.y + extras.height);
+    await alignedGramsRow(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     expect(await page.locator('#quote-form').evaluate(element => parseFloat(getComputedStyle(element).columnGap))).toBeGreaterThanOrEqual(20);
     await bounds(page, primary, true);
@@ -119,7 +134,7 @@ test('fields have breathing room and paired controls align', async ({ page }, in
       const allowance = await page.locator('#errorPercent').boundingBox();
       expect(spool.x + spool.width).toBeLessThanOrEqual(allowance.x);
       expect(Math.abs(spool.y + spool.height - allowance.y - allowance.height)).toBeLessThanOrEqual(1);
-      expect(grams.y).toBeGreaterThanOrEqual(extras.y + extras.height);
+      await alignedGramsRow(page);
     } else if (width <= 600) {
       // A single-column phone stacks Material before Production; neither section overlaps.
       expect(grams.y + grams.height).toBeLessThanOrEqual(production.y);

@@ -80,10 +80,10 @@ fieldset:disabled { opacity: .55; }
   #quote-form #custom-multiplier { grid-row: 3; }
   #quote-form .material-start, #quote-form label[for="errorPercent"],
   #quote-form .discount-pair { grid-row: 4; }
-  #quote-form label[for="extraProductionCost"], #quote-form .surcharge-pair { grid-row: 5; }
-  #quote-form label[for="grams"] { grid-row: 6; }
-  #quote-form #spool-info { grid-column: 1; grid-row: 7; margin: 0; }
-  #quote-form #purchase-catalog-error { grid-column: 1; grid-row: 8; margin: 0; }
+  #quote-form label[for="grams"], #quote-form label[for="extraProductionCost"],
+  #quote-form .surcharge-pair { grid-row: 5; }
+  #quote-form #spool-info { grid-column: 1; grid-row: 6; margin: 0; }
+  #quote-form #purchase-catalog-error { grid-column: 1; grid-row: 7; margin: 0; }
   /* The longer instructions remain linked to their controls for assistive tech.
      On compact desktops they cannot push or overlap shared control rows. */
   #quote-form .work-help, #quote-form .grams-help, #quote-form #profile-note,
@@ -99,8 +99,8 @@ fieldset:disabled { opacity: .55; }
   #quote-form .purpose-pair .client-fields label { display: flex; }
   #quote-form #internal-note, #quote-form #form-error, #quote-form #save,
   #quote-form #feedback { grid-row: auto; }
-  #quote-form #save { grid-row: 9; }
-  #quote-form #feedback { grid-row: 10; }
+  #quote-form #save { grid-row: 8; }
+  #quote-form #feedback { grid-row: 9; }
   /* Historical notice precedes the form visually and in DOM/tab order. */
   #quote-form:has(#legacy-notice:not([hidden])) { position: relative; padding-top: 90px; }
   #quote-form #legacy-notice:not([hidden]) { position: absolute; top: 0; left: 0; right: 0; }
