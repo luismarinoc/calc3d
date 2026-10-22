@@ -8,4 +8,4 @@ En el cotizador elige la presentación configurada o una bobina adquirida y escr
 
 Sin bobinas propias, el cotizador ofrece un enlace a Configuración y desactiva Guardar; el historial sigue disponible. Abrir una copia histórica utiliza el costo de material guardado entonces, aun si editas el precio del perfil después. Iniciar un cálculo nuevo o elegir otra bobina usa el costo actual. Las copias históricas no modifican el registro original. Los ejemplos ficticios solo se conservan para interpretar registros anteriores y para la API de cálculo heredada; no aparecen como opciones para cálculos nuevos.
 
-Cambios solo en código fuente: no se ha aplicado ninguna migración remota ni desplegado la aplicación.
+Antes de publicar esta función en una instalación existente, aplica `supabase/migrations/202610220001_calc3d_spool_profiles.sql` después de las migraciones de almacenamiento e invitaciones. Agrega solo el catálogo protegido y su función de guardado; no importa datos, crea precios de ejemplo ni modifica compras o cotizaciones anteriores.
