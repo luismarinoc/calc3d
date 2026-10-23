@@ -9,7 +9,7 @@ async function bounds(page, ids, withinViewport) {
   const size = page.viewportSize();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
   for (const id of ids) {
-    const locator = page.locator(`#${id}`);
+    const locator = page.locator(id === 'spoolId' ? '.calculator-spool-picker .spool-picker-trigger' : `#${id}`);
     await expect(locator).toBeVisible();
     const box = await locator.boundingBox();
     expect(box.width, `${id} width`).toBeGreaterThanOrEqual(44);
@@ -130,7 +130,7 @@ test('fields have breathing room and paired controls align', async ({ page }, in
       // Landscape iPad is 1080px: it uses the shared desktop grid, where
       // sections are display:contents and their bounding boxes are not columns.
       expect(width).toBe(1080);
-      const spool = await page.locator('#spoolId').boundingBox();
+      const spool = await page.locator('.calculator-spool-picker .spool-picker-trigger').boundingBox();
       const allowance = await page.locator('#errorPercent').boundingBox();
       expect(spool.x + spool.width).toBeLessThanOrEqual(allowance.x);
       expect(Math.abs(spool.y + spool.height - allowance.y - allowance.height)).toBeLessThanOrEqual(1);

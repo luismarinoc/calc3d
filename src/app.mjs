@@ -4,6 +4,7 @@ import { protectPage } from './auth/protected-page.mjs';
 import { buildSpoolCatalog } from './ui/spool-catalog.mjs';
 import { orderSpoolsForDisplay } from './ui/spool-order.mjs';
 import { historicalSpool, selectedSpool } from './ui/spool-selection.mjs';
+import { createBrandProfilePicker } from './ui/brand-profile-picker.mjs';
 
 const form = document.querySelector('#quote-form');
 const clientFields = { name: document.querySelector('#client-name'), phone: document.querySelector('#client-phone'), email: document.querySelector('#client-email') };
@@ -19,6 +20,11 @@ function setClient(client = {}) {
   showClient(Object.values(values).some(Boolean));
 }
 const spoolSelect = form.elements.namedItem('spoolId');
+const spoolPicker = createBrandProfilePicker(spoolSelect, {
+  root: document.querySelector('.calculator-spool-picker'),
+  listId: 'calculator-spool-picker-list', label: 'Bobina de prueba', listLabel: 'Bobinas de prueba',
+  formatRow: item => item.label,
+});
 const printerSelect = form.elements.namedItem('printerProfile');
 let repositories;
 let printerState = null;
@@ -253,6 +259,7 @@ function renderHistory() {
       }
       form.elements.namedItem('calculationMode').value = saved.form?.calculationMode === 'reference' ? 'reference' : 'legacy';
       document.querySelector('#legacy-notice').hidden = saved.form?.calculationMode === 'reference';
+      spoolPicker.sync();
       describeSpool();
       toggleMode();
       togglePurpose(false);
@@ -346,6 +353,7 @@ form.addEventListener('submit', async (event) => {
 document.querySelector('#start-current').addEventListener('click', () => {
   form.reset();
   pinnedSpool = null;
+  spoolPicker.sync();
   resetPrinter();
   setClient();
   form.elements.namedItem('calculationMode').value = 'reference';
@@ -372,7 +380,7 @@ window.addEventListener('pageshow', (event) => {
 });
 function clearAccount() {
   accessible = false; repositories = null; printerState = null; historyRecords = []; historyError = ''; settings.error = null;
-  catalog = []; pinnedSpool = null; spoolSelect.replaceChildren(); printerSelect.replaceChildren(); pinnedPrinter = null;
+  catalog = []; pinnedSpool = null; spoolSelect.replaceChildren(); spoolPicker.render([], true); printerSelect.replaceChildren(); pinnedPrinter = null;
   historicalCopy = false; document.querySelector('#printer-name-current').textContent = '';
   setClient(); form.reset(); document.querySelector('#result-content').replaceChildren();
   catalogError.hidden = true; catalogError.firstChild.textContent = '';
@@ -397,6 +405,7 @@ await protectPage({ onClear: clearAccount, onReady: async ({ client, session }, 
     let remembered = null;
     try { remembered = sessionStorage.getItem(`calc3d-spool-selection:${session.user.id}`); } catch { /* Optional selection memory. */ }
     if (catalog.some(item => item.id === `profile:${remembered}`)) spoolSelect.value = `profile:${remembered}`;
+    spoolPicker.render(orderSpoolsForDisplay(catalog), false);
     catalogError.hidden = true; settings.error = null; accessible = true;
     initializeDraft(); renderHistory();
   } catch {

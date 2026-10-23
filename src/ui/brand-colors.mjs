@@ -1,17 +1,17 @@
 const identity = brand => (brand ?? '').trim().normalize('NFC').toLocaleLowerCase('es');
 
-/** Assign one reproducible hue per visible brand; probe occupied hues rather than trusting hash buckets. */
+/** A brand's color depends only on its normalized identity, never on the loaded catalog. */
 export function brandColors(brands) {
-  const keys = [...new Set(brands.map(identity))].filter(Boolean).sort();
-  const hues = new Map();
-  const occupied = new Set();
-  for (const key of keys) {
+  const colors = new Map();
+  for (const brand of brands) {
+    const key = identity(brand);
+    if (!key) { colors.set(brand, null); continue; }
     let hash = 2166136261;
     for (const character of key) hash = Math.imul(hash ^ character.codePointAt(0), 16777619);
-    let hue = (hash >>> 0) % 360;
-    while (occupied.has(hue)) hue = (hue + 137) % 360;
-    occupied.add(hue);
-    hues.set(key, `oklch(69% 0.15 ${hue})`);
+    // Start at the accepted hash bucket, spreading former bucket collisions across
+    // a bounded hue range. Close hues can still occur; catalog changes cannot recolor.
+    const value = hash >>> 0;
+    colors.set(brand, `oklch(69% 0.15 ${((value % 360 + (value / 2 ** 32) * 24) % 360).toFixed(6)})`);
   }
-  return new Map(brands.map(brand => [brand, hues.get(identity(brand)) ?? null]));
+  return colors;
 }

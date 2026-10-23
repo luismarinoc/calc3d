@@ -48,12 +48,14 @@ test('unsorted profiles and purchase display by material then brand without chan
   await expect(page.locator('#spool-name')).toHaveValue('Azul');
   await expect(page.locator('#spool-purchasePrice')).toHaveValue('12000');
   await page.goto('/');
-  await page.locator('#spoolId').selectOption(`profile:${ids.petgZ}`);
+  await page.locator('.calculator-spool-picker .spool-picker-trigger').click();
+  await page.locator(`#calculator-spool-picker-list [role="option"][data-id="profile:${ids.petgZ}"]`).click();
   await page.locator('#grams').fill('50');
   await page.locator('#hours').fill('0');
   await page.locator('#minutes').fill('0');
   await expect(materialCost(page)).toContainText('1.095');
-  await page.locator('#spoolId').selectOption('purchase:purchase-petg');
+  await page.locator('.calculator-spool-picker .spool-picker-trigger').click();
+  await page.locator('#calculator-spool-picker-list [role="option"][data-id="purchase:purchase-petg"]').click();
   await expect(materialCost(page)).toContainText('750');
   expect(await remoteRows(page, 'spool_profiles')).toEqual(profilesBefore);
   expect(await remoteRows(page, 'spools')).toEqual(spoolsBefore);

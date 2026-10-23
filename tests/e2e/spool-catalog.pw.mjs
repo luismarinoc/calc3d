@@ -17,7 +17,8 @@ test('public purchase to calculator, quote snapshot and reload without inventory
   await page.goto('/');
   const selectedId = `purchase:${spool.id}`;
   await expect(page.locator(`#spoolId option[value="${selectedId}"]`)).toContainText(/PLA.*Sur.*Azul.*2025-02-28/);
-  await page.locator('#spoolId').selectOption(selectedId);
+  await page.locator('.calculator-spool-picker .spool-picker-trigger').click();
+  await page.locator(`#calculator-spool-picker-list [role="option"][data-id="${selectedId}"]`).click();
   await expect(page.locator('#quote-form #purchasePrice, #quote-form #netWeightGrams')).toHaveCount(0);
   await expect(page.locator('#spool-info')).toContainText(spool.id);
   await expect(page.locator('#spool-info')).toContainText(spool.purchaseId);
@@ -44,7 +45,8 @@ test('public purchase to calculator, quote snapshot and reload without inventory
   await expect(material(page)).toContainText(/36[.\s\u00a0]?000/);
   expect(await remoteQuotes(page)).toEqual(saved);
   expect(await remotePurchases(page)).toEqual(original);
-  await page.locator('#spoolId').selectOption('profile:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+  await page.locator('.calculator-spool-picker .spool-picker-trigger').click();
+  await page.locator('#calculator-spool-picker-list [role="option"][data-id="profile:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"]').click();
   await expect(material(page)).not.toContainText(/36[.\s\u00a0]?000/);
   await expect(page.locator('#quote-form #purchasePrice, #quote-form #netWeightGrams')).toHaveCount(0);
   expect(await remoteQuotes(page)).toEqual(saved);

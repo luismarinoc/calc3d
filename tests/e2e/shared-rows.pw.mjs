@@ -8,7 +8,7 @@ const rows = [
 ];
 
 async function geometry(page) {
-  const box = async id => page.locator(`#${id}`).boundingBox();
+  const box = async id => page.locator(id === 'spoolId' ? '.calculator-spool-picker .spool-picker-trigger' : `#${id}`).boundingBox();
   for (const group of rows) {
     const boxes = (await Promise.all(group.flat().map(box)));
     for (const control of boxes) expect(control.height).toBeGreaterThanOrEqual(44);
@@ -41,7 +41,7 @@ test('Material and bobina remain below Trabajo in the first column at wide width
   for (const width of [1280, 1440, 1575]) {
     await page.setViewportSize({ width, height: width === 1280 ? 800 : 900 });
     const [work, title, purpose, material, spool, bobina, discount] = await Promise.all([
-      '#work-heading', '#title', '#purpose', '#material-heading', '#spoolId', 'label[for="spoolId"]', '#discountType',
+      '#work-heading', '#title', '#purpose', '#material-heading', '.calculator-spool-picker .spool-picker-trigger', 'label[for="spoolId"]', '#discountType',
     ].map((selector) => page.locator(selector).boundingBox()));
     const placement = await page.locator('.material-start').evaluate((element) => ({
       column: getComputedStyle(element).gridColumnStart,
@@ -74,7 +74,8 @@ test('each visible desktop caption hugs its own control', async ({ page }, info)
         const text = label.firstChild;
         const range = document.createRange();
         range.selectNodeContents(text);
-        return document.getElementById(controlId).getBoundingClientRect().top - range.getBoundingClientRect().bottom;
+        const control = controlId === 'spoolId' ? document.querySelector('.calculator-spool-picker .spool-picker-trigger') : document.getElementById(controlId);
+        return control.getBoundingClientRect().top - range.getBoundingClientRect().bottom;
       }, id);
       expect(gap, `${width}px ${id} caption-to-control gap`).toBeGreaterThanOrEqual(4);
       expect(gap, `${width}px ${id} caption-to-control gap`).toBeLessThanOrEqual(8);
@@ -112,9 +113,10 @@ test('responsive layout keeps every field reachable without horizontal overflow'
   test.skip(info.project.name === 'chromium-desktop');
   await page.goto('/');
   for (const id of ['title', 'spoolId', 'grams', 'hours', 'extraProductionCost', 'multiplierPreset', 'save']) {
-    await expect(page.locator(`#${id}`)).toBeVisible();
-    await page.locator(`#${id}`).scrollIntoViewIfNeeded();
-    await expect(page.locator(`#${id}`)).toBeInViewport();
+    const control = page.locator(id === 'spoolId' ? '.calculator-spool-picker .spool-picker-trigger' : `#${id}`);
+    await expect(control).toBeVisible();
+    await control.scrollIntoViewIfNeeded();
+    await expect(control).toBeInViewport();
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize().width);
   await page.screenshot({ path: info.outputPath(`shared-${info.project.name}.png`), fullPage: true });

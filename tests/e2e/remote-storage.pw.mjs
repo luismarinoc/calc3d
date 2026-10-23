@@ -42,7 +42,8 @@ test('printer save/activate and purchase acquired spool persist across reloads',
   await expect(page.locator('#purchase-inventory .saved-item')).toHaveCount(1);
   await page.goto('/');
   await expect(page.locator('#spoolId')).toContainText('PLA · Sur · Azul');
-  await page.locator('#spoolId').selectOption('purchase:spool-1');
+  await page.locator('.calculator-spool-picker .spool-picker-trigger').click();
+  await page.locator('#calculator-spool-picker-list [role="option"][data-id="purchase:spool-1"]').click();
   await expect(page.locator('#quote-form #purchasePrice, #quote-form #netWeightGrams')).toHaveCount(0);
   await page.locator('#save').click();
   await expect(page.locator('#feedback')).toContainText('COT-000001');

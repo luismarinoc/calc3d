@@ -1,16 +1,19 @@
 import { brandColors } from './brand-colors.mjs';
 
 /** Native select remains the selection model and no-script fallback; only this view owns its extra nodes. */
-export function createBrandProfilePicker(select) {
-  const root = document.querySelector('.spool-picker');
+export function createBrandProfilePicker(select, {
+  root = document.querySelector('.spool-picker'), listId = 'spool-picker-list',
+  label = 'Presentación guardada', listLabel = 'Presentaciones guardadas',
+  formatRow = item => `${item.material} · ${item.brand?.trim() || 'Sin marca'} · ${item.name}`,
+} = {}) {
   const trigger = document.createElement('button');
   trigger.type = 'button'; trigger.className = 'spool-picker-trigger';
-  trigger.setAttribute('aria-label', 'Presentación guardada');
+  trigger.setAttribute('aria-label', label);
   trigger.setAttribute('aria-haspopup', 'listbox');
-  trigger.setAttribute('aria-controls', 'spool-picker-list');
+  trigger.setAttribute('aria-controls', listId);
   const list = document.createElement('div');
-  list.id = 'spool-picker-list'; list.className = 'spool-picker-list';
-  list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', 'Presentaciones guardadas');
+  list.id = listId; list.className = 'spool-picker-list';
+  list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', listLabel);
   list.hidden = true;
   root.append(trigger, list);
   root.classList.add('spool-picker-enhanced');
@@ -60,8 +63,12 @@ export function createBrandProfilePicker(select) {
     if (selected) {
       const brand = selected.dataset.brand;
       trigger.append(chip(brand), document.createTextNode(selected.textContent));
-    } else trigger.textContent = select.options[0]?.textContent ?? 'Elige una presentación';
-    trigger.setAttribute('aria-label', `Presentación guardada: ${trigger.textContent}`);
+    } else {
+      const option = select.selectedOptions[0] ?? select.options[0];
+      if (option && option.value) trigger.append(chip(''), document.createTextNode(option.textContent));
+      else trigger.textContent = option?.textContent ?? 'Elige una presentación';
+    }
+    trigger.setAttribute('aria-label', `${label}: ${trigger.textContent}`);
     for (const row of rows) row.setAttribute('aria-selected', String(row.dataset.id === select.value));
   }
   function render(items, disabled) {
@@ -71,12 +78,12 @@ export function createBrandProfilePicker(select) {
       const row = document.createElement('div');
       row.className = 'spool-picker-option'; row.setAttribute('role', 'option'); row.tabIndex = -1;
       row.dataset.id = item.id; row.dataset.brand = item.brand ?? '';
-      row.append(chip(item.brand ?? ''), document.createTextNode(`${item.material} · ${item.brand?.trim() || 'Sin marca'} · ${item.name}`));
+      row.append(chip(item.brand ?? ''), document.createTextNode(formatRow(item)));
       row.addEventListener('click', () => choose(row));
       list.append(row); rows.push(row);
     }
     trigger.disabled = disabled || !rows.length;
     renderSelection();
   }
-  return { render, close };
+  return { render, close, sync: renderSelection };
 }

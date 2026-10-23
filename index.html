@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#202321">
   <title>Calc3D · Calculadora de impresión 3D</title>
   <link rel="stylesheet" href="./src/styles.css">
+  <link rel="stylesheet" href="./src/ui/brand-profile-picker.css">
   <link rel="stylesheet" href="./src/auth.css">
   <script type="module" src="./src/app.mjs"></script>
 </head>
@@ -37,7 +38,7 @@
           <p class="hint wide work-help" id="work-help">Opcionales vacíos = cero. Regalo no es venta; cobro familiar sin definir.</p></div>
         </section>
         <section aria-labelledby="material-heading"><div class="fields"><div class="material-start"><div class="section-head"><span>02 / Material</span><h2 id="material-heading">Bobina y consumo</h2></div>
-          <label class="wide" for="spoolId">Bobina de prueba<select id="spoolId" name="spoolId" aria-describedby="spool-info"></select></label></div>
+          <label class="wide" for="spoolId">Bobina de prueba</label><div class="spool-picker calculator-spool-picker"><select id="spoolId" name="spoolId" aria-describedby="spool-info"></select></div></div>
           <p class="hint wide" id="spool-info" aria-live="polite"></p>
           <p class="error wide" id="purchase-catalog-error" role="status" hidden>Las compras de prueba no se pueden leer; no se modificaron sus datos. <a href="./purchases.html">Revisar compras</a></p>
           <label class="wide" for="grams">Gramos consumidos · g<input id="grams" name="grams" type="number" inputmode="decimal" min="0" step="any" required value="74" aria-describedby="grams-note"></label><small class="grams-help" id="grams-note">Incluye soportes, purga y desperdicio estimado.</small></div>
