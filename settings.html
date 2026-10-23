@@ -25,7 +25,7 @@
   <section aria-labelledby="spool-heading"><div class="section-head"><span>03 / Materiales</span><h2 id="spool-heading">Bobinas</h2></div>
     <p class="hint">Guarda el precio de compra y el peso neto del filamento por presentación, no el peso del carrete. Elegir una bobina no guarda cambios.</p>
     <p id="spool-error" class="error" role="alert" hidden></p>
-    <div class="spool-actions"><label for="spool-profile">Presentación guardada<select id="spool-profile"></select></label><button id="edit-spool" type="button">Editar seleccionada</button><button id="new-spool" type="button">Nueva bobina</button></div>
+    <div class="spool-actions"><div class="spool-picker"><label for="spool-profile">Presentación guardada<select id="spool-profile"></select></label></div><button id="edit-spool" type="button">Editar seleccionada</button><button id="new-spool" type="button">Nueva bobina</button></div>
     <form id="spool-form" novalidate>
       <label for="spool-name">Nombre / presentación<input id="spool-name" name="name" type="text" maxlength="120" required></label>
       <label for="spool-material">Material<input id="spool-material" name="material" type="text" list="spool-materials" maxlength="120" required></label><datalist id="spool-materials"></datalist>

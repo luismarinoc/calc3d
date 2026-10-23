@@ -1,10 +1,12 @@
 import { validateSpoolProfile } from '../domain/spool-profiles.mjs';
 import { filamentMaterials } from './filament-materials.mjs';
 import { orderSpoolsForDisplay } from './spool-order.mjs';
+import { createBrandProfilePicker } from './brand-profile-picker.mjs';
 
 /** Independent settings panel; the caller owns the protected-page lifecycle. */
 export function createSpoolSettings() {
   const select = document.querySelector('#spool-profile');
+  const picker = createBrandProfilePicker(select);
   const form = document.querySelector('#spool-form');
   const feedback = document.querySelector('#spool-feedback');
   const failure = document.querySelector('#spool-error');
@@ -20,10 +22,12 @@ export function createSpoolSettings() {
     failure.hidden = profiles !== null || !failure.textContent;
     for (const control of actions) control.disabled = profiles === null || pending;
     select.replaceChildren();
-    if (!profiles) return;
+    if (!profiles) { picker.render([], true); return; }
     select.add(new Option(profiles.length ? 'Elige una presentación' : 'Todavía no hay bobinas guardadas', ''));
-    for (const item of orderSpoolsForDisplay(profiles)) select.add(new Option([item.name, item.material, item.brand].filter(Boolean).join(' · '), item.id));
+    const ordered = orderSpoolsForDisplay(profiles);
+    for (const item of ordered) select.add(new Option([item.name, item.material, item.brand].filter(Boolean).join(' · '), item.id));
     select.value = profiles.some(item => item.id === selectedId) ? selectedId : '';
+    picker.render(ordered, pending);
     document.querySelector('#edit-spool').disabled = pending || !select.value;
     if (!profiles.length && !feedback.textContent) feedback.textContent = 'Agrega una bobina para guardar su precio y peso neto.';
   }

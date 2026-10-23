@@ -35,7 +35,15 @@ test('unsorted profiles and purchase display by material then brand without chan
   expect(await optionValues(page, '#spool-profile')).toEqual([
     '', ids.abs, ids.petgA, ids.petgZ, ids.pla,
   ]);
-  await page.locator('#spool-profile').selectOption(ids.pla);
+  await page.locator('.spool-picker-trigger').click();
+  const visibleOptions = page.locator('#spool-picker-list').getByRole('option');
+  await expect(visibleOptions).toHaveText([
+    'ABS · Prueba · ABS común', 'petg · Álamo · Bobina 10',
+    'PETG · Zeta · Bobina 2', 'PLA · Prueba · Azul',
+  ]);
+  await page.locator('#spool-picker-list').getByRole('option', { name: 'PLA · Prueba · Azul' }).click();
+  await expect(page.locator('#spool-profile')).toHaveValue(ids.pla);
+  await expect(page.locator('.spool-picker-trigger')).toContainText('PLA · Prueba · Azul');
   await page.locator('#edit-spool').click();
   await expect(page.locator('#spool-name')).toHaveValue('Azul');
   await expect(page.locator('#spool-purchasePrice')).toHaveValue('12000');
