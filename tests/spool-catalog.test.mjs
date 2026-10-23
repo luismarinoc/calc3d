@@ -11,6 +11,7 @@ test('catalog uses collision-safe identities, date and provenance with detached 
   const source = structuredClone(purchased);
   const catalog = buildSpoolCatalog(purchased, [{ id: 'abc', name: 'PLA 800 g', material: 'PLA', brand: 'Sur', purchasePrice: 21900, netWeightGrams: 800 }]);
   assert.deepEqual(catalog.map(({ id }) => id), ['profile:abc', 'purchase:demo-petg', 'purchase:spool-two']);
+  assert.deepEqual(catalog.map(({ brand }) => brand), ['Sur', 'Sur', 'Sur']);
   assert.match(catalog[1].label, /PLA.*Sur.*Ámbar.*2025-02-28/);
   assert.equal(catalog[1].purchaseId, 'purchase-one');
   assert.equal(catalog[1].spoolId, 'demo-petg');

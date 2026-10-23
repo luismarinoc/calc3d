@@ -4,6 +4,7 @@ const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true })
 export function orderSpoolsForDisplay(items) {
   return [...items].sort((a, b) =>
     collator.compare(a.material, b.material) ||
+    collator.compare(a.brand ?? '', b.brand ?? '') ||
     collator.compare(a.name ?? a.label ?? '', b.name ?? b.label ?? '') ||
     collator.compare(a.id, b.id));
 }

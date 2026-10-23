@@ -157,6 +157,8 @@ export async function signIn(page, { withProfile = true } = {}) {
   await page.getByLabel('Correo', { exact: true }).fill('member@example.test');
   await page.getByLabel('Contraseña').fill('fake-password');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
-  await page.waitForURL('/');
+  // WebKit can cancel a document's load after committing the authenticated route.
+  // Verify the app is actually ready below rather than requiring the load event.
+  await page.waitForURL('/', { waitUntil: 'commit' });
   await expect(page.locator('#spool-info')).not.toBeEmpty();
 }

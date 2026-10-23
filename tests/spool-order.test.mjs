@@ -20,6 +20,26 @@ test('display groups mixed-case and custom materials, then names or labels, with
   assert.deepEqual(orderSpoolsForDisplay(Object.freeze([])), []);
 });
 
+test('display sorts material, then optional brand, then name or label and ID with Spanish numeric collation', () => {
+  const items = Object.freeze([
+    Object.freeze({ id: 'profile:z', material: 'PETG', brand: 'Zeta', name: 'Bobina 1' }),
+    Object.freeze({ id: 'profile:b', material: 'petg', brand: 'Álamo', name: 'Bobina 10' }),
+    Object.freeze({ id: 'profile:no-brand', material: 'PETG', name: 'Última' }),
+    Object.freeze({ id: 'purchase:2', material: 'PETG', brand: 'alamo', label: 'Bobina 2' }),
+    Object.freeze({ id: 'profile:a', material: 'PETG', brand: 'Alamo', name: 'Bobina 2' }),
+    Object.freeze({ id: 'profile:abs', material: 'ABS', brand: 'Zeta', name: 'Primera' }),
+    Object.freeze({ id: 'profile:empty', material: 'PETG', brand: '', name: 'Antes' }),
+  ]);
+  const ordered = orderSpoolsForDisplay(items);
+  assert.deepEqual(ordered.map(item => item.id), [
+    'profile:abs', 'profile:empty', 'profile:no-brand', 'profile:a', 'purchase:2', 'profile:b', 'profile:z',
+  ]);
+  assert.deepEqual(items.map(item => item.id), [
+    'profile:z', 'profile:b', 'profile:no-brand', 'purchase:2', 'profile:a', 'profile:abs', 'profile:empty',
+  ]);
+  for (const item of ordered) assert.strictEqual(item, items.find(source => source.id === item.id));
+});
+
 test('existing catalog identity and numeric values remain attached to each selection', () => {
   const catalog = Object.freeze([
     Object.freeze({ id: 'profile:first', material: 'PETG', label: 'First', purchasePrice: 21900, netWeightGrams: 1000 }),
