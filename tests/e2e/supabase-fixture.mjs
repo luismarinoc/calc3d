@@ -157,8 +157,9 @@ export async function signIn(page, { withProfile = true } = {}) {
   await page.getByLabel('Correo', { exact: true }).fill('member@example.test');
   await page.getByLabel('Contraseña').fill('fake-password');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
-  // WebKit can cancel a document's load after committing the authenticated route.
-  // Verify the app is actually ready below rather than requiring the load event.
-  await page.waitForURL('/', { waitUntil: 'commit' });
+  // A WebKit policy-canceled navigation wait can reject even after the root document
+  // arrives. Assert its actual URL, then wait for the protected app to finish mounting.
+  await expect(page).toHaveURL('/');
   await expect(page.locator('#spool-info')).not.toBeEmpty();
+  await expect(page.locator('.account-nav')).toBeVisible();
 }

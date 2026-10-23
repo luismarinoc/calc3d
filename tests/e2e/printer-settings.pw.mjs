@@ -45,6 +45,7 @@ test('S4: compact aligned controls without redundant data-used note', async ({ p
   await expect(page.getByText('Datos usados:', { exact: false })).toHaveCount(0);
   await expect(page.locator('#printerProfile')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const visibleControl = id => page.locator(id === 'spoolId' ? '.calculator-spool-picker .spool-picker-trigger' : `#${id}`);
   if (info.project.name === 'chromium-desktop') {
     for (const width of [1280, 1440]) {
       await page.setViewportSize({ width, height: width === 1280 ? 800 : 900 });
@@ -53,11 +54,12 @@ test('S4: compact aligned controls without redundant data-used note', async ({ p
       expect(spoolLabel.y - (heading.y + heading.height)).toBeGreaterThanOrEqual(0);
       expect(spoolLabel.y - (heading.y + heading.height)).toBeLessThanOrEqual(20);
       for (const id of ['spoolId', 'errorPercent', 'surchargeValue']) {
-        const control = await page.locator(`#${id}`).boundingBox();
+        const control = await visibleControl(id).boundingBox();
         const gap = await page.locator(`label[for="${id}"]`).evaluate((element, id) => {
           const range = document.createRange();
           range.selectNodeContents(element.firstChild);
-          return document.getElementById(id).getBoundingClientRect().top - range.getBoundingClientRect().bottom;
+          const visible = id === 'spoolId' ? document.querySelector('.calculator-spool-picker .spool-picker-trigger') : document.getElementById(id);
+          return visible.getBoundingClientRect().top - range.getBoundingClientRect().bottom;
         }, id);
         expect(control.height).toBeGreaterThanOrEqual(44);
         expect(gap).toBeGreaterThanOrEqual(4);
@@ -66,7 +68,7 @@ test('S4: compact aligned controls without redundant data-used note', async ({ p
       // Row 5 aligns grams, production costs and surcharge controls.
       for (const ids of [['spoolId', 'errorPercent'], ['grams', 'extraProductionCost', 'surchargeType', 'surchargeValue']]) {
         const bottoms = await Promise.all(ids.map(async id => {
-          const box = await page.locator(`#${id}`).boundingBox(); return box.y + box.height;
+          const box = await visibleControl(id).boundingBox(); return box.y + box.height;
         }));
         expect(Math.max(...bottoms) - Math.min(...bottoms)).toBeLessThanOrEqual(1);
       }
@@ -75,8 +77,8 @@ test('S4: compact aligned controls without redundant data-used note', async ({ p
     }
   } else {
     for (const id of ['printerProfile', 'spoolId', 'grams', 'save']) {
-      await page.locator(`#${id}`).scrollIntoViewIfNeeded();
-      await expect(page.locator(`#${id}`)).toBeInViewport();
+      await visibleControl(id).scrollIntoViewIfNeeded();
+      await expect(visibleControl(id)).toBeInViewport();
     }
     await page.screenshot({ path: info.outputPath(`compact-${info.project.name}.png`), fullPage: true });
   }
