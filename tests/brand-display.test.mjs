@@ -52,6 +52,25 @@ test('S6 catalog projection keeps full presentation and purchase labels, catalog
   assert.deepEqual({ profiles, purchases }, originals);
 });
 
+test('S9 active-only catalog retains archived brand metadata for associated active profiles and purchase history', () => {
+  const registry = [{ ...brands[0], archivedAt: '2026-01-01T00:00:00Z' }];
+  const profiles = [
+    { id: 'active', name: 'Actual', material: 'PETG', brand: 'Prueba', brandId: 'a', purchasePrice: 12000, netWeightGrams: 1000, archivedAt: null },
+    { id: 'removed', name: 'Anterior', material: 'PLA', brand: 'Prueba', brandId: 'a', purchasePrice: 14000, netWeightGrams: 500, archivedAt: '2026-01-01T00:00:00Z' },
+  ];
+  const purchases = [{ id: 'bought', purchaseId: 'purchase-1', material: 'PLA', brand: 'Prueba', color: 'Azul', date: '2025-02-28', purchasePrice: 200, netWeightGrams: 1000 }];
+  const original = structuredClone({ registry, profiles, purchases });
+  const catalog = buildSpoolCatalog(purchases, profiles, registry);
+  assert.deepEqual(catalog.map(item => item.id), ['profile:active', 'purchase:bought']);
+  assert.equal(catalog[0].label, 'Actual · PETG · Nueva Marca');
+  assert.equal(catalog[0].brandColor, '#AABBCC');
+  assert.equal(catalog[0].brandId, 'a');
+  assert.equal(catalog[0].purchasePrice, 12000);
+  assert.equal(catalog[1].label, 'PLA · Nueva Marca · Azul · 2025-02-28 · compra de prueba · bobina bought');
+  assert.equal(catalog[1].purchasePrice, 200);
+  assert.deepEqual({ registry, profiles, purchases }, original);
+});
+
 test('S1/S5/S6 unmatched purchased brand retains full context, neutral marker, price and sources without a fabricated sample', () => {
   const purchases = [{ id: 'unknown', purchaseId: 'purchase-7', date: '2025-03-01', material: 'PETG',
     brand: 'Sin registro', color: 'Tornasol', purchasePrice: 23456, netWeightGrams: 750 }];

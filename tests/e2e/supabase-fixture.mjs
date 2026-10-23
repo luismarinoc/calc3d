@@ -8,7 +8,7 @@ export const remoteForPage = page => states.get(page);
 export const test = base.extend({
   remote: async ({ page }, use) => {
     const state = { quotes: [], printers: null, purchases: [], spools: [], profiles: [], brands: [], number: 0, allowed: true,
-      fail: null, failAfter: null, reads: {}, calls: [], holdQuotes: null, holdProfiles: null, holdBrands: null, user };
+      fail: null, failAfter: null, reads: {}, calls: [], holdQuotes: null, holdProfiles: null, holdBrands: null, holdArchive: null, user };
     await page.route('http://127.0.0.1:54321/**', async route => {
       const request = route.request();
       const url = new URL(request.url());
@@ -54,11 +54,30 @@ export const test = base.extend({
         if (state.brands.some(row => row.owner_id === state.user.id && row.id !== current?.id && row.aliases.includes(key)))
           return json({ code: '23505', message: 'Brand name already in use' }, 409);
         const row = { id: current?.id ?? crypto.randomUUID(), owner_id: state.user.id, name,
-          normalized_name: key, color: payload.color.toUpperCase(),
+          normalized_name: key, color: payload.color.toUpperCase(), archived_at: current?.archived_at ?? null,
           aliases: current ? [...new Set([...current.aliases, key])] : [key],
           revision: (current?.revision ?? 0) + 1, created_at: current?.created_at ?? stamp, updated_at: stamp };
         state.brands = current ? state.brands.map(item => item.id === current.id ? row : item) : [...state.brands, row];
         return json(row);
+      }
+      if (pathname.endsWith('/rest/v1/rpc/calc3d_archive_brand') || pathname.endsWith('/rest/v1/rpc/calc3d_archive_spool_profile')) {
+        if (!state.allowed) return json({ code: '28000', message: 'Calc3D access denied' }, 403);
+        const isBrand = pathname.endsWith('calc3d_archive_brand');
+        const collection = isBrand ? 'brands' : 'profiles';
+        const key = isBrand ? 'brand_id' : 'profile_id';
+        const label = isBrand ? 'brand' : 'spool profile';
+        if (!body[key] || !Number.isSafeInteger(body.expected_revision) || body.expected_revision <= 0 ||
+            body.expected_revision >= Number.MAX_SAFE_INTEGER) {
+          return json({ code: '23514', message: `Invalid ${label} archive` }, 400);
+        }
+        const current = state[collection].find(row => row.id === body[key] && row.owner_id === state.user.id);
+        if (!current || current.revision !== body.expected_revision || current.archived_at) {
+          return json({ code: '40001', message: `${isBrand ? 'Brand' : 'Spool profile'} revision conflict` }, 409);
+        }
+        if (state.holdArchive) await state.holdArchive;
+        const archived = { ...current, archived_at: stamp, revision: current.revision + 1, updated_at: stamp };
+        state[collection] = state[collection].map(row => row === current ? archived : row);
+        return json(archived);
       }
       if (pathname.endsWith('/rest/v1/calc3d_purchases')) return json(state.purchases.filter(row => !row.owner_id || row.owner_id === state.user.id));
       if (pathname.endsWith('/rest/v1/calc3d_spools')) return json(state.spools.filter(row => !row.owner_id || row.owner_id === state.user.id));
@@ -101,6 +120,7 @@ export const test = base.extend({
           brand_id: resolvedBrand?.id ?? null, filament_color: filamentColor,
           filament_color_hex: filamentColorHex?.toUpperCase() ?? null,
           purchase_price: payload.purchasePrice, net_weight_grams: payload.netWeightGrams,
+          archived_at: current?.archived_at ?? null,
           revision: (current?.revision ?? 0) + 1, created_at: current?.created_at ?? stamp, updated_at: stamp };
         state.profiles = current ? state.profiles.map(item => item.id === current.id ? row : item) : [...state.profiles, row];
         return json(row);

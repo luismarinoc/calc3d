@@ -3,7 +3,7 @@ import { presentSpools } from './brand-display.mjs';
 /** Build a detached owned calculator catalog from validated profile and purchase lists. */
 export function buildSpoolCatalog(purchasedSpools, profiles = [], brands = []) {
   return presentSpools([
-    ...profiles.map(profile => ({
+    ...profiles.filter(profile => !profile.archivedAt).map(profile => ({
       id: `profile:${profile.id}`,
       label: [profile.name, profile.material, profile.brand].filter(Boolean).join(' · '),
       name: profile.name, material: profile.material, brand: profile.brand, brandId: profile.brandId ?? null,

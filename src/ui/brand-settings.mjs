@@ -11,6 +11,7 @@ export function createBrandSettings(onChange) {
   const failure = section.querySelector('#brand-error');
   const edit = section.querySelector('#edit-brand');
   const fresh = section.querySelector('#new-brand');
+  const archive = section.querySelector('#archive-brand');
   let source = null;
   let brands = null;
   let editing = null;
@@ -18,10 +19,10 @@ export function createBrandSettings(onChange) {
   const snapshot = () => brands ? [...brands] : [];
   function controls(selected = '') {
     select.replaceChildren(new Option('Nueva marca', ''));
-    for (const brand of brands ?? []) select.add(new Option(brand.name, brand.id));
-    select.value = brands?.some(brand => brand.id === selected) ? selected : '';
-    for (const control of [select, edit, fresh, ...form.elements]) control.disabled = brands === null || pending;
-    edit.disabled = brands === null || pending || !select.value;
+    for (const brand of brands ?? []) if (!brand.archivedAt) select.add(new Option(brand.name, brand.id));
+    select.value = brands?.some(brand => brand.id === selected && !brand.archivedAt) ? selected : '';
+    for (const control of [select, edit, fresh, archive, ...form.elements]) control.disabled = brands === null || pending;
+    edit.disabled = archive.disabled = brands === null || pending || !select.value;
     failure.hidden = brands !== null || !failure.textContent;
   }
   function resetForm() { form.reset(); color.value = '#565c59'; editing = null; }
@@ -33,8 +34,33 @@ export function createBrandSettings(onChange) {
     feedback.textContent = '';
     for (const field of form.querySelectorAll('[aria-invalid]')) { field.removeAttribute('aria-invalid'); field.removeAttribute('aria-describedby'); }
   }
-  fresh.addEventListener('click', () => { clearError(); resetForm(); select.value = ''; name.focus(); });
-  select.addEventListener('change', () => { edit.disabled = !select.value; });
+  fresh.addEventListener('click', () => { clearError(); resetForm(); controls(); name.focus(); });
+  select.addEventListener('change', () => { edit.disabled = archive.disabled = !select.value; });
+  archive.addEventListener('click', async () => {
+    const brand = brands?.find(item => item.id === select.value && !item.archivedAt);
+    if (!source || pending || !brand) return;
+    if (!window.confirm(`¿Quitar la marca «${brand.name}» de las listas? Se conservarán las bobinas relacionadas, compras y cálculos guardados. No se puede restaurar desde esta página.`)) return;
+    const current = source;
+    pending = true; clearError(); controls(brand.id);
+    try {
+      const result = await current.brands.archiveBrand(brand.id, brand.revision);
+      if (source !== current) return;
+      brands = brands.map(item => item.id === brand.id ? result.brand : item);
+      editing = null; resetForm();
+      const fallback = brands.find(item => !item.archivedAt)?.id ?? '';
+      feedback.textContent = 'Marca quitada de las listas. Se conserva el historial.';
+      controls(fallback); onChange(snapshot());
+      try {
+        const loaded = await current.brands.list();
+        if (source !== current) return;
+        brands = loaded;
+        onChange(snapshot());
+      } catch {
+        if (source === current) feedback.textContent = 'Marca quitada de las listas. No se pudo actualizar la lista; recarga para reintentar.';
+      }
+    } catch (error) { if (source === current) report(error.message); }
+    finally { if (source === current) { pending = false; controls(brands?.find(item => !item.archivedAt)?.id ?? ''); } }
+  });
   edit.addEventListener('click', () => {
     const brand = brands?.find(item => item.id === select.value);
     if (!brand) return;
@@ -83,7 +109,7 @@ export function createBrandSettings(onChange) {
     try {
       const loaded = await current.brands.list();
       if (!isCurrent() || source !== current) return;
-      brands = loaded; failure.textContent = ''; controls(loaded[0]?.id); onChange(snapshot());
+      brands = loaded; failure.textContent = ''; controls(loaded.find(item => !item.archivedAt)?.id); onChange(snapshot());
     } catch {
       if (!isCurrent() || source !== current) return;
       brands = null; failure.textContent = 'No se pudieron leer las marcas. Comprueba la conexión y recarga para reintentar.'; controls(); onChange([]);

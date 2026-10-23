@@ -18,7 +18,7 @@ function harness() {
 test('list and save use guarded public brand contract with detached alias keys', async () => {
   const h = harness();
   const listed = await h.repo.brands.list();
-  assert.deepEqual(h.calls[0], ['calc3d_brands', 'id,name,normalized_name,color,aliases,revision,created_at,updated_at']);
+  assert.deepEqual(h.calls[0], ['calc3d_brands', 'id,name,normalized_name,color,aliases,revision,created_at,updated_at,archived_at']);
   assert.deepEqual(listed[0].aliases, ['acme', 'old']);
   listed[0].aliases.push('mutated');
   assert.deepEqual((await h.repo.brands.list())[0].aliases, ['acme', 'old']);

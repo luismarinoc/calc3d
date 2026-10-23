@@ -9,17 +9,17 @@
 .settings-fields { display: contents; }
 #printer-form .primary { grid-column: 1 / -1; max-width: 360px; }
 #settings-feedback, #spool-feedback, #brand-feedback { color: var(--accent); min-height: 1.3em; }
-.brand-actions { display: grid; grid-template-columns: minmax(220px, 1fr) auto auto; align-items: end; gap: 12px; margin-bottom: 16px; }
+.brand-actions { display: grid; grid-template-columns: minmax(220px, 1fr) repeat(3, auto); align-items: end; gap: 12px; margin-bottom: 16px; }
 #brand-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 #brand-form .primary { grid-column: 1 / -1; max-width: 360px; }
 #brand-color, #spool-filamentColorHex { min-height: 44px; width: 100%; cursor: pointer; }
 #spool-form .sample-toggle { display: flex; align-items: center; gap: 10px; }
 #spool-form .sample-toggle input { width: auto; min-width: 20px; min-height: 20px; margin: 0; }
 #spool-filamentColorHex:disabled { opacity: .55; cursor: default; }
-.spool-actions { display: grid; grid-template-columns: minmax(220px, 1fr) auto auto; align-items: end; gap: 12px; margin-bottom: 16px; }
+.spool-actions { display: grid; grid-template-columns: minmax(220px, 1fr) repeat(3, auto); align-items: end; gap: 12px; margin-bottom: 16px; }
 #spool-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 #spool-form .primary { grid-column: 1 / -1; max-width: 360px; }
-.spool-actions button:disabled { opacity: .55; }
+.spool-actions button:disabled, .brand-actions button:disabled { opacity: .55; }
 .spool-actions .spool-picker-trigger { margin-top: 6px; }
 @media (max-width: 760px) { .spool-actions .spool-picker { grid-column: 1 / -1; } }
 @media (max-width: 480px) { .spool-actions .spool-picker { grid-column: 1; } }

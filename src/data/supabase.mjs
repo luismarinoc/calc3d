@@ -31,6 +31,19 @@ const validProfileId = value => typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const invalidProfile = () => { throw new Error('Respuesta remota inválida del perfil de bobina.'); };
 const CONTROL_PROFILE = /[\p{Cc}\p{Cf}]/u;
+const archiveTime = row => {
+  const time = row.archived_at === undefined ? null : row.archived_at;
+  if (time !== null && (typeof time !== 'string' || !Number.isFinite(Date.parse(time)))) {
+    throw new Error('Respuesta remota inválida del archivo.');
+  }
+  return time;
+};
+const validArchiveTarget = (id, expectedRevision, label) => {
+  if (!validProfileId(id)) throw new TypeError(`Identificador de ${label} inválido.`);
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision <= 0 || expectedRevision >= Number.MAX_SAFE_INTEGER) {
+    throw new TypeError(`La revisión de ${label} debe ser un entero positivo válido.`);
+  }
+};
 const profile = row => {
   if (!row || !validProfileId(row.id) || !Number.isSafeInteger(row.revision) || row.revision <= 0 ||
       typeof row.created_at !== 'string' || !Number.isFinite(Date.parse(row.created_at)) ||
@@ -55,7 +68,7 @@ const profile = row => {
       (typeof filamentColorHex !== 'string' || !/^#[0-9A-F]{6}$/.test(filamentColorHex))) ||
       (!filamentColor && filamentColorHex)) invalidProfile();
   return { id: row.id, ...data, brandId, filamentColor, filamentColorHex,
-    revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at };
+    revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at, archivedAt: archiveTime(row) };
 };
 
 const invalidBrand = () => { throw new Error('Respuesta remota inválida de la marca.'); };
@@ -79,7 +92,8 @@ const brand = row => {
     if (name !== row.name) invalidBrand();
   }
   return { id: row.id, name: row.name, normalizedName: row.normalized_name, color: row.color,
-    aliases: [...row.aliases], revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at };
+    aliases: [...row.aliases], revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at,
+    archivedAt: archiveTime(row) };
 };
 
 /** Each repository belongs to one authenticated identity. Every operation rechecks admission
@@ -160,12 +174,23 @@ export function createRemoteRepositories(client, session, accessService = create
   const brands = {
     async list() {
       return copy((await read('calc3d_brands',
-        'id,name,normalized_name,color,aliases,revision,created_at,updated_at')).map(brand));
+        'id,name,normalized_name,color,aliases,revision,created_at,updated_at,archived_at')).map(brand));
     },
     async createBrand(input) {
       const payload = validateBrand(input);
       const row = await saveBrand(payload, null, 0);
       if (row.revision !== 1 || row.normalizedName !== normalizeBrandName(payload.name) || row.color !== payload.color) invalidBrand();
+      return { ok: true, brand: copy(row) };
+    },
+    async archiveBrand(id, expectedRevision) {
+      validArchiveTarget(id, expectedRevision, 'marca');
+      let row;
+      try { row = brand(await write('calc3d_archive_brand', { brand_id: id, expected_revision: expectedRevision })); }
+      catch (error) {
+        if (error?.code === '40001') throw new Error('La marca cambió; recarga antes de guardar.');
+        throw error;
+      }
+      if (row.id.toLowerCase() !== id.toLowerCase() || row.revision !== expectedRevision + 1 || !row.archivedAt) invalidBrand();
       return { ok: true, brand: copy(row) };
     },
     async updateBrand(id, input, expectedRevision) {
@@ -192,12 +217,23 @@ export function createRemoteRepositories(client, session, accessService = create
   const spoolProfiles = {
     async list() {
       return copy((await read('calc3d_spool_profiles',
-        'id,name,material,brand,brand_id,filament_color,filament_color_hex,purchase_price,net_weight_grams,revision,created_at,updated_at')).map(profile));
+        'id,name,material,brand,brand_id,filament_color,filament_color_hex,purchase_price,net_weight_grams,revision,created_at,updated_at,archived_at')).map(profile));
     },
     async createProfile(input) {
       const payload = validateSpoolProfile(input);
       const row = await saveProfile(payload, null, 0);
       if (row.revision !== 1) invalidProfile();
+      return { ok: true, profile: copy(row) };
+    },
+    async archiveProfile(id, expectedRevision) {
+      validArchiveTarget(id, expectedRevision, 'bobina');
+      let row;
+      try { row = profile(await write('calc3d_archive_spool_profile', { profile_id: id, expected_revision: expectedRevision })); }
+      catch (error) {
+        if (error?.code === '40001') throw new Error('El perfil de bobina cambió; recarga antes de guardar.');
+        throw error;
+      }
+      if (row.id.toLowerCase() !== id.toLowerCase() || row.revision !== expectedRevision + 1 || !row.archivedAt) invalidProfile();
       return { ok: true, profile: copy(row) };
     },
     async updateProfile(id, input, expectedRevision) {
