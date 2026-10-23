@@ -24,7 +24,17 @@ test('partial snapshots require evidence, preserve name and reject held or bad f
   assert.equal(batch.items[0].originalName, item.originalName);
   assert.equal(batch.items[0].profile.name, item.profile.name);
   assert.deepEqual(batch.items[0].compatibilityNotes, ['TPU: alimentación externa']);
-  const seed = JSON.parse(readFileSync(resolve('.cache/odd/todotoner-p2s-catalog/pipeline-seed.json'), 'utf8'));
+  const sample = JSON.parse(sampleSnapshot()).items[0];
+  const presentation = (sku, name) => {
+    const entry = structuredClone(sample);
+    entry.sku = sku; entry.profile.name = name;
+    entry.evidence.sku.value = sku; entry.evidence.name.value = name;
+    return entry;
+  };
+  const seed = { coverage: { complete: false }, items: [
+    ...Array.from({ length: 25 }, (_, index) => presentation(`TEST-${index}`, `ABS blanco ${index} | Filamentos`)),
+    presentation('197PLAESUN', 'Glow | Filamentos'), presentation('12PLAELEGOO', 'Wood | Filamentos'),
+  ] };
   const actual = normalizeCatalogBatch(seed);
   assert.equal(seed.coverage.complete, false);
   assert.equal(seed.items.length, 27);
@@ -32,7 +42,7 @@ test('partial snapshots require evidence, preserve name and reject held or bad f
   assert.deepEqual(actual.heldSkus, ['197PLAESUN', '12PLAELEGOO']);
   assert.equal(new Set(actual.items.map(x => x.sku)).size, 25);
   assert.equal(new Set(actual.items.map(x => x.profile.name)).size, 25);
-  assert.equal(actual.items.find(x => x.sku === 'TPUNECR').compatibilityNotes[0].includes('alimentación externa'), true);
+  assert.equal(actual.items.find(x => x.sku === 'TEST-0').compatibilityNotes[0].includes('alimentación externa'), true);
   assert.equal(normalizeCatalogBatch({ items: [{ ...JSON.parse(sampleSnapshot()).items[0], sku: '197PLAESUN' }] }).items.length, 0);
   assert.throws(() => normalizeCatalogBatch({ items: [{ ...JSON.parse(sampleSnapshot()).items[0], diameterMm: 2.85 }] }));
   assert.throws(() => normalizeCatalogBatch({ items: [{ ...JSON.parse(sampleSnapshot()).items[0], evidence: {} }] }));
