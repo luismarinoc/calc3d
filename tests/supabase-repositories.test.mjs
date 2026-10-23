@@ -127,9 +127,10 @@ function profileHarness() {
 test('profile list maps selected columns, controlled numeric conversion and detached DTOs', async () => {
   const h = profileHarness();
   const rows = await h.repo.spoolProfiles.list();
-  assert.deepEqual(h.calls[0], ['calc3d_spool_profiles', 'id,name,material,brand,purchase_price,net_weight_grams,revision,created_at,updated_at']);
-  assert.deepEqual(rows, [{ id: profileId, name: 'Bobina', material: 'PLA+', brand: '', purchasePrice: 0,
-    netWeightGrams: 0.5, revision: 1, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-02T00:00:00Z' }]);
+  assert.deepEqual(h.calls[0], ['calc3d_spool_profiles', 'id,name,material,brand,brand_id,filament_color,filament_color_hex,purchase_price,net_weight_grams,revision,created_at,updated_at']);
+  assert.deepEqual(rows, [{ id: profileId, name: 'Bobina', material: 'PLA+', brand: '', brandId: null,
+    filamentColor: '', filamentColorHex: null, purchasePrice: 0, netWeightGrams: 0.5,
+    revision: 1, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-02T00:00:00Z' }]);
   rows[0].name = 'Changed';
   assert.equal(h.stored[0].name, 'Bobina');
   assert.equal((await h.repo.spoolProfiles.list())[0].name, 'Bobina');

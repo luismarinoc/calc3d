@@ -30,6 +30,7 @@ const defaultState = () => ({ activeId: demoPrinter.id, printers: [copy(demoPrin
 const validProfileId = value => typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const invalidProfile = () => { throw new Error('Respuesta remota inválida del perfil de bobina.'); };
+const CONTROL_PROFILE = /[\p{Cc}\p{Cf}]/u;
 const profile = row => {
   if (!row || !validProfileId(row.id) || !Number.isSafeInteger(row.revision) || row.revision <= 0 ||
       typeof row.created_at !== 'string' || !Number.isFinite(Date.parse(row.created_at)) ||
@@ -44,7 +45,17 @@ const profile = row => {
       purchasePrice: row.purchase_price, netWeightGrams: weight });
   } catch { invalidProfile(); }
   if (data.name !== row.name || data.material !== row.material || data.brand !== row.brand) invalidProfile();
-  return { id: row.id, ...data, revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at };
+  // Missing columns in older response mocks are treated as the legacy empty presentation.
+  const brandId = row.brand_id === undefined ? null : row.brand_id;
+  const filamentColor = row.filament_color === undefined ? '' : row.filament_color;
+  const filamentColorHex = row.filament_color_hex === undefined ? null : row.filament_color_hex;
+  if ((brandId !== null && !validProfileId(brandId)) || typeof filamentColor !== 'string' ||
+      CONTROL_PROFILE.test(filamentColor) || filamentColor !== filamentColor.trim() ||
+      [...filamentColor].length > 120 || (filamentColorHex !== null &&
+      (typeof filamentColorHex !== 'string' || !/^#[0-9A-F]{6}$/.test(filamentColorHex))) ||
+      (!filamentColor && filamentColorHex)) invalidProfile();
+  return { id: row.id, ...data, brandId, filamentColor, filamentColorHex,
+    revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at };
 };
 
 const invalidBrand = () => { throw new Error('Respuesta remota inválida de la marca.'); };
@@ -181,7 +192,7 @@ export function createRemoteRepositories(client, session, accessService = create
   const spoolProfiles = {
     async list() {
       return copy((await read('calc3d_spool_profiles',
-        'id,name,material,brand,purchase_price,net_weight_grams,revision,created_at,updated_at')).map(profile));
+        'id,name,material,brand,brand_id,filament_color,filament_color_hex,purchase_price,net_weight_grams,revision,created_at,updated_at')).map(profile));
     },
     async createProfile(input) {
       const payload = validateSpoolProfile(input);
