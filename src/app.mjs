@@ -2,6 +2,7 @@ import { evaluate } from './ui/quote.mjs';
 import { createRemoteRepositories } from './data/supabase.mjs';
 import { protectPage } from './auth/protected-page.mjs';
 import { buildSpoolCatalog } from './ui/spool-catalog.mjs';
+import { orderSpoolsForDisplay } from './ui/spool-order.mjs';
 import { historicalSpool, selectedSpool } from './ui/spool-selection.mjs';
 
 const form = document.querySelector('#quote-form');
@@ -390,7 +391,9 @@ await protectPage({ onClear: clearAccount, onReady: async ({ client, session }, 
     printerState = printers; historyRecords = quotes;
     catalog = buildSpoolCatalog(spools, profiles);
     spoolSelect.replaceChildren();
-    for (const spool of catalog) spoolSelect.add(new Option(spool.label, spool.id));
+    for (const spool of orderSpoolsForDisplay(catalog)) spoolSelect.add(new Option(spool.label, spool.id));
+    // The first catalog identity, not the display order, remains the default selection.
+    if (catalog.length) spoolSelect.value = catalog[0].id;
     let remembered = null;
     try { remembered = sessionStorage.getItem(`calc3d-spool-selection:${session.user.id}`); } catch { /* Optional selection memory. */ }
     if (catalog.some(item => item.id === `profile:${remembered}`)) spoolSelect.value = `profile:${remembered}`;

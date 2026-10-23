@@ -1,5 +1,6 @@
 import { validateSpoolProfile } from '../domain/spool-profiles.mjs';
 import { filamentMaterials } from './filament-materials.mjs';
+import { orderSpoolsForDisplay } from './spool-order.mjs';
 
 /** Independent settings panel; the caller owns the protected-page lifecycle. */
 export function createSpoolSettings() {
@@ -21,7 +22,7 @@ export function createSpoolSettings() {
     select.replaceChildren();
     if (!profiles) return;
     select.add(new Option(profiles.length ? 'Elige una presentación' : 'Todavía no hay bobinas guardadas', ''));
-    for (const item of profiles) select.add(new Option([item.name, item.material, item.brand].filter(Boolean).join(' · '), item.id));
+    for (const item of orderSpoolsForDisplay(profiles)) select.add(new Option([item.name, item.material, item.brand].filter(Boolean).join(' · '), item.id));
     select.value = profiles.some(item => item.id === selectedId) ? selectedId : '';
     document.querySelector('#edit-spool').disabled = pending || !select.value;
     if (!profiles.length && !feedback.textContent) feedback.textContent = 'Agrega una bobina para guardar su precio y peso neto.';
