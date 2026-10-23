@@ -26,6 +26,31 @@ test('S1-S2: collision neighbors cannot change a brand color across Settings and
   assert.equal(brandColors(['Zeta', second, first]).get(second), alone);
 });
 
+test('Creality and eSun stay visibly separated without recoloring other brands', () => {
+  const alone = brandColors(['Creality', 'eSun', 'Zeta', '', '   ']);
+  const reversed = brandColors(['Zeta', ' ESUN ', 'CREALITY', 'eSun', 'Creality']);
+  const parse = color => {
+    const match = /^oklch\((\d+%) (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)\)$/.exec(color);
+    assert.ok(match, `expected oklch color, got ${color}`);
+    return { lightness: match[1], chroma: match[2], hue: Number(match[3]) };
+  };
+  const creality = parse(alone.get('Creality'));
+  const esun = parse(alone.get('eSun'));
+  assert.equal(creality.lightness, esun.lightness);
+  assert.equal(creality.chroma, esun.chroma);
+  const gap = Math.abs(creality.hue - esun.hue);
+  assert.ok(Math.min(gap, 360 - gap) >= 60, `circular hue gap ${gap} must be at least 60 degrees`);
+  assert.equal(alone.get('Creality'), 'oklch(69% 0.15 58.374727)');
+  assert.equal(reversed.get('CREALITY'), alone.get('Creality'));
+  assert.equal(reversed.get('Creality'), alone.get('Creality'));
+  assert.equal(reversed.get(' ESUN '), alone.get('eSun'));
+  assert.equal(reversed.get('eSun'), alone.get('eSun'));
+  assert.equal(reversed.get('Zeta'), alone.get('Zeta'));
+  assert.equal(alone.get('Zeta'), brandColors(['Zeta']).get('Zeta'));
+  assert.equal(alone.get(''), null);
+  assert.equal(alone.get('   '), null);
+});
+
 test('S1: many displayed brands receive distinct CSS color values', () => {
   const colors = brandColors(Array.from({ length: 73 }, (_, i) => `Marca ${i}`));
   assert.equal(new Set([...colors.values()]).size, 73);

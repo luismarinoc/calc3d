@@ -11,7 +11,9 @@ export function brandColors(brands) {
     // Start at the accepted hash bucket, spreading former bucket collisions across
     // a bounded hue range. Close hues can still occur; catalog changes cannot recolor.
     const value = hash >>> 0;
-    colors.set(brand, `oklch(69% 0.15 ${((value % 360 + (value / 2 ** 32) * 24) % 360).toFixed(6)})`);
+    // eSun's hash hue nearly matches Creality's; reserve a clear blue for eSun only.
+    const hue = key === 'esun' ? 250 : (value % 360 + (value / 2 ** 32) * 24) % 360;
+    colors.set(brand, `oklch(69% 0.15 ${hue.toFixed(6)})`);
   }
   return colors;
 }
