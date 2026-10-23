@@ -2,6 +2,7 @@ import { normalizeClient } from '../domain/quote-client.mjs';
 import { demoPrinter, validPrinterId, validatePrinterSettings } from '../domain/printer-settings.mjs';
 import { validatePurchase } from '../domain/purchases.mjs';
 import { validateSpoolProfile } from '../domain/spool-profiles.mjs';
+import { normalizeBrandName, validateBrand } from '../domain/brands.mjs';
 import { normalizeRow, createAccessService } from '../auth/access.mjs';
 
 const copy = value => structuredClone(value);
@@ -44,6 +45,30 @@ const profile = row => {
   } catch { invalidProfile(); }
   if (data.name !== row.name || data.material !== row.material || data.brand !== row.brand) invalidProfile();
   return { id: row.id, ...data, revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at };
+};
+
+const invalidBrand = () => { throw new Error('Respuesta remota inválida de la marca.'); };
+const brand = row => {
+  if (!row || !validProfileId(row.id) || !Number.isSafeInteger(row.revision) || row.revision <= 0 ||
+      typeof row.created_at !== 'string' || !Number.isFinite(Date.parse(row.created_at)) ||
+      typeof row.updated_at !== 'string' || !Number.isFinite(Date.parse(row.updated_at)) ||
+      typeof row.normalized_name !== 'string' || !Array.isArray(row.aliases) ||
+      row.aliases.length < 1 || !row.aliases.every(key => typeof key === 'string' && key && key === normalizeBrandName(key)) ||
+      new Set(row.aliases).size !== row.aliases.length ||
+      !row.aliases.includes(row.normalized_name) ||
+      (row.color !== null && (typeof row.color !== 'string' || !/^#[0-9A-F]{6}$/.test(row.color)))) invalidBrand();
+  if (typeof row.name !== 'string' || !normalizeBrandName(row.name) ||
+      normalizeBrandName(row.name) !== row.normalized_name) invalidBrand();
+  // Pre-existing purchase text can exceed the editable-name limit or contain controls.
+  // The RPC validates all new saves; legacy null-color rows retain their original spelling.
+  if (row.color !== null) {
+    let name;
+    try { name = validateBrand({ name: row.name, color: row.color }).name; }
+    catch { invalidBrand(); }
+    if (name !== row.name) invalidBrand();
+  }
+  return { id: row.id, name: row.name, normalizedName: row.normalized_name, color: row.color,
+    aliases: [...row.aliases], revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at };
 };
 
 /** Each repository belongs to one authenticated identity. Every operation rechecks admission
@@ -121,6 +146,38 @@ export function createRemoteRepositories(client, session, accessService = create
       return { ok: true };
     },
   };
+  const brands = {
+    async list() {
+      return copy((await read('calc3d_brands',
+        'id,name,normalized_name,color,aliases,revision,created_at,updated_at')).map(brand));
+    },
+    async createBrand(input) {
+      const payload = validateBrand(input);
+      const row = await saveBrand(payload, null, 0);
+      if (row.revision !== 1 || row.normalizedName !== normalizeBrandName(payload.name) || row.color !== payload.color) invalidBrand();
+      return { ok: true, brand: copy(row) };
+    },
+    async updateBrand(id, input, expectedRevision) {
+      if (!validProfileId(id)) throw new TypeError('Identificador de marca inválido.');
+      if (!Number.isSafeInteger(expectedRevision) || expectedRevision <= 0 || expectedRevision >= Number.MAX_SAFE_INTEGER) {
+        throw new TypeError('La revisión de marca debe ser un entero positivo válido.');
+      }
+      const payload = validateBrand(input);
+      const row = await saveBrand(payload, id, expectedRevision);
+      if (row.id.toLowerCase() !== id.toLowerCase() || row.revision !== expectedRevision + 1 ||
+          row.normalizedName !== normalizeBrandName(payload.name) || row.color !== payload.color) invalidBrand();
+      return { ok: true, brand: copy(row) };
+    },
+  };
+  async function saveBrand(payload, id, expectedRevision) {
+    let row;
+    try { row = await write('calc3d_save_brand', { payload, brand_id: id, expected_revision: expectedRevision }); }
+    catch (error) {
+      if (error?.code === '40001') throw new Error('La marca cambió; recarga antes de guardar.');
+      throw error;
+    }
+    return brand(row);
+  }
   const spoolProfiles = {
     async list() {
       return copy((await read('calc3d_spool_profiles',
@@ -155,6 +212,7 @@ export function createRemoteRepositories(client, session, accessService = create
   }
   return {
     spoolProfiles,
+    brands,
     quotes: {
       async list() { return copy((await read('calc3d_quotes', 'id,saved_at,number,client,title,spool_id,form,input,result', 'saved_at')).map(quote)); },
       async get(id) { return (await this.list()).find(item => item.id === id) ?? null; },
