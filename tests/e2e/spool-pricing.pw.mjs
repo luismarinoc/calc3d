@@ -9,11 +9,14 @@ test('S1-S3: owned presentation prices drafts, while saved copies keep their ori
   await expect(page.locator('#spool-info a[href="./settings.html"]')).toHaveText('Configurar bobinas');
   expect(await remoteQuotes(page)).toEqual([]);
   expect(remote.number).toBe(0);
+  remote.brands = [{ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', owner_id: remote.user.id,
+    name: 'Marca propia', normalized_name: 'marca propia', aliases: ['marca propia'], color: '#123456',
+    revision: 1, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' }];
   await page.goto('/settings.html');
   await expect(page.locator('#save-spool')).toBeEnabled();
   await page.locator('#spool-name').fill('PETG 1 kg');
   await page.locator('#spool-material').fill('PETG');
-  await page.locator('#spool-brand').fill('Marca propia');
+  await page.locator('#spool-brandId').selectOption(remote.brands[0].id);
   await page.locator('#spool-purchasePrice').fill('21900');
   await page.locator('#spool-netWeightGrams').fill('1000');
   await page.locator('#save-spool').click();

@@ -1,13 +1,18 @@
 import { signedInEmptyTest as test, expect, remoteRows, remotePrinterState } from './supabase-fixture.mjs';
 
-test('S1-S3: save a presentation, reload, edit the same revision and retain custom material', async ({ page }) => {
+const ownedBrand = (remote, name) => ({ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', owner_id: remote.user.id,
+  name, normalized_name: name.toLowerCase(), color: '#123456', aliases: [name.toLowerCase()], revision: 1,
+  created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' });
+
+test('S1-S3: save a presentation, reload, edit the same revision and retain custom material', async ({ page, remote }) => {
+  remote.brands = [ownedBrand(remote, 'Marca propia')];
   await page.goto('/settings.html');
   await expect(page.getByRole('heading', { name: 'Bobinas' })).toBeVisible();
   await expect(page.locator('#spool-purchasePrice')).toBeEmpty();
   await expect(page.locator('#spool-netWeightGrams')).toBeEmpty();
   await page.locator('#spool-name').fill('PLA 750 g');
   await page.locator('#spool-material').fill('PLA seda');
-  await page.locator('#spool-brand').fill('Marca propia');
+  await page.locator('#spool-brandId').selectOption(remote.brands[0].id);
   await page.locator('#spool-purchasePrice').fill('0');
   await page.locator('#spool-netWeightGrams').fill('750');
   expect(await remoteRows(page, 'spool_profiles')).toEqual([]);
@@ -35,11 +40,12 @@ test('S1-S3: save a presentation, reload, edit the same revision and retain cust
 });
 
 test('S1-S3: confirmed save survives list refresh failure and next save updates the same profile', async ({ page, remote }) => {
+  remote.brands = [ownedBrand(remote, 'Mi marca')];
   await page.goto('/settings.html');
   await expect(page.locator('#save-spool')).toBeEnabled();
   await page.locator('#spool-name').fill('PETG azul 1 kg');
   await page.locator('#spool-material').fill('PETG');
-  await page.locator('#spool-brand').fill('Mi marca');
+  await page.locator('#spool-brandId').selectOption(remote.brands[0].id);
   await page.locator('#spool-purchasePrice').fill('21900');
   await page.locator('#spool-netWeightGrams').fill('1000');
   const path = '/rest/v1/calc3d_spool_profiles';

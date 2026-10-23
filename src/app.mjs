@@ -391,13 +391,13 @@ function clearAccount() {
 await protectPage({ onClear: clearAccount, onReady: async ({ client, session }, isCurrent) => {
   const source = createRemoteRepositories(client, session);
   try {
-    const [printers, quotes, spools, profiles] = await Promise.all([
-      source.printers.load(), source.quotes.list(), source.purchases.listSpools(), source.spoolProfiles.list(),
+    const [printers, quotes, spools, profiles, brands] = await Promise.all([
+      source.printers.load(), source.quotes.list(), source.purchases.listSpools(), source.spoolProfiles.list(), source.brands.list(),
     ]);
     if (!isCurrent()) return;
     repositories = source;
     printerState = printers; historyRecords = quotes;
-    catalog = buildSpoolCatalog(spools, profiles);
+    catalog = buildSpoolCatalog(spools, profiles, brands);
     spoolSelect.replaceChildren();
     for (const spool of orderSpoolsForDisplay(catalog)) spoolSelect.add(new Option(spool.label, spool.id));
     // The first catalog identity, not the display order, remains the default selection.

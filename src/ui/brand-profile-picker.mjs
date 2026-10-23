@@ -1,10 +1,8 @@
-import { brandColors } from './brand-colors.mjs';
-
-/** Native select remains the selection model and no-script fallback; only this view owns its extra nodes. */
+/** Native select owns the selection identity; this view renders only detached presentation data. */
 export function createBrandProfilePicker(select, {
   root = document.querySelector('.spool-picker'), listId = 'spool-picker-list',
   label = 'Presentación guardada', listLabel = 'Presentaciones guardadas',
-  formatRow = item => `${item.material} · ${item.brand?.trim() || 'Sin marca'} · ${item.name}`,
+  formatRow = item => `${item.material} · ${item.brand?.trim() || 'Sin marca'} · ${item.name}${item.filamentColor ? ` · ${item.filamentColor}` : ''}`,
 } = {}) {
   const trigger = document.createElement('button');
   trigger.type = 'button'; trigger.className = 'spool-picker-trigger';
@@ -18,6 +16,7 @@ export function createBrandProfilePicker(select, {
   root.append(trigger, list);
   root.classList.add('spool-picker-enhanced');
   let rows = [];
+  let items = [];
   const close = () => { list.hidden = true; trigger.setAttribute('aria-expanded', 'false'); };
   const open = (index = 0) => {
     if (trigger.disabled || !rows.length) return;
@@ -48,37 +47,39 @@ export function createBrandProfilePicker(select, {
   document.addEventListener('pointerdown', event => { if (!root.contains(event.target)) close(); });
   root.addEventListener('focusout', event => { if (!root.contains(event.relatedTarget)) close(); });
   select.addEventListener('change', () => renderSelection());
-  let colors = new Map();
-  function chip(brand) {
+  function chip(kind, name, color) {
     const node = document.createElement('span');
-    node.className = 'brand-chip'; node.setAttribute('aria-hidden', 'true');
-    const color = colors.get(brand);
+    node.className = `${kind}-chip`;
+    node.title = `${kind === 'brand' ? 'Marca' : 'Filamento'}: ${name}`;
+    node.setAttribute('aria-hidden', 'true');
     if (color) node.style.backgroundColor = color;
-    else node.classList.add('brand-chip-neutral');
+    else node.classList.add(`${kind}-chip-neutral`);
     return node;
+  }
+  function decorate(node, item, text) {
+    node.append(chip('brand', item.brand || 'Sin marca', item.brandColor), document.createTextNode(text));
+    if (item.filamentColorHex) node.append(chip('filament', item.filamentColor, item.filamentColorHex));
   }
   function renderSelection() {
     trigger.replaceChildren();
-    const selected = rows.find(row => row.dataset.id === select.value);
-    if (selected) {
-      const brand = selected.dataset.brand;
-      trigger.append(chip(brand), document.createTextNode(selected.textContent));
-    } else {
+    const selected = items.find(item => item.id === select.value);
+    if (selected) decorate(trigger, selected, formatRow(selected));
+    else {
       const option = select.selectedOptions[0] ?? select.options[0];
-      if (option && option.value) trigger.append(chip(''), document.createTextNode(option.textContent));
+      if (option?.value) trigger.append(chip('brand', 'Sin marca', null), document.createTextNode(option.textContent));
       else trigger.textContent = option?.textContent ?? 'Elige una presentación';
     }
-    trigger.setAttribute('aria-label', `${label}: ${trigger.textContent}`);
+    trigger.setAttribute('aria-label', `${label}: ${trigger.textContent}${selected ? `; Marca: ${selected.brand || 'Sin marca'}; Filamento: ${selected.filamentColor || 'sin color indicado'}` : ''}`);
     for (const row of rows) row.setAttribute('aria-selected', String(row.dataset.id === select.value));
   }
-  function render(items, disabled) {
-    close(); list.replaceChildren(); rows = [];
-    colors = brandColors(items.map(item => item.brand ?? ''));
+  function render(next, disabled) {
+    close(); list.replaceChildren(); rows = []; items = [...next];
     for (const item of items) {
       const row = document.createElement('div');
       row.className = 'spool-picker-option'; row.setAttribute('role', 'option'); row.tabIndex = -1;
-      row.dataset.id = item.id; row.dataset.brand = item.brand ?? '';
-      row.append(chip(item.brand ?? ''), document.createTextNode(formatRow(item)));
+      row.dataset.id = item.id;
+      row.setAttribute('aria-label', `${formatRow(item)}; Marca: ${item.brand || 'Sin marca'}; Filamento: ${item.filamentColor || 'sin color indicado'}`);
+      decorate(row, item, formatRow(item));
       row.addEventListener('click', () => choose(row));
       list.append(row); rows.push(row);
     }

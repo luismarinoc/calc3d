@@ -2,8 +2,12 @@ import { test, expect, signIn, remoteRows } from './supabase-fixture.mjs';
 
 const profile = (id, brand, name, owner_id) => ({ id, owner_id, brand, name, material: 'PETG', purchase_price: 12000,
   net_weight_grams: 1000, revision: 1, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' });
+const brand = (owner_id, id, name, color, aliases) => ({ id, owner_id, name, color, aliases,
+  normalized_name: aliases[0], revision: 1, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' });
 
 test('S1-S2: visible brand chips in every ordered option and selected profile; selection does not save', async ({ page, remote }) => {
+  remote.brands = [brand(remote.user.id, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Zeta', '#123456', ['zeta']),
+    brand(remote.user.id, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Álamo', '#ABCDEF', ['álamo'])];
   remote.profiles = [profile('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Zeta', 'Z', remote.user.id), profile('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Álamo', 'A', remote.user.id),
     profile('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'álamo', 'B', remote.user.id), profile('dddddddd-dddd-4ddd-8ddd-dddddddddddd', '', 'N', remote.user.id)];
   const before = structuredClone(remote.profiles);
@@ -17,12 +21,14 @@ test('S1-S2: visible brand chips in every ordered option and selected profile; s
   await expect(options).toHaveCount(4);
   await expect(options.nth(0)).toContainText('N');
   await expect(options.nth(1)).toContainText('Álamo');
-  await expect(options.nth(2)).toContainText('álamo');
+  await expect(options.nth(2)).toContainText('Álamo');
   await expect(options.nth(3)).toContainText('Zeta');
   const chips = await options.evaluateAll(nodes => nodes.map(node => getComputedStyle(node.querySelector('.brand-chip')).backgroundColor));
   expect(chips[1]).toBe(chips[2]);
   expect(new Set([chips[1], chips[3]]).size).toBe(2);
   expect(chips[0]).not.toBe(chips[1]);
+  expect(chips[1]).toBe('rgb(171, 205, 239)');
+  expect(chips[3]).toBe('rgb(18, 52, 86)');
   await options.nth(3).click();
   await expect(page.locator('#spool-profile')).toHaveValue('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
   await expect(trigger).toContainText('Zeta');
@@ -72,7 +78,7 @@ test('S2: Tab leaves the open list and selected profile is announced', async ({ 
   await trigger.click();
   const options = page.locator('#spool-picker-list').getByRole('option');
   await options.click();
-  await expect(trigger).toHaveAccessibleName('Presentación guardada: PETG · Privada · Original');
+  await expect(trigger).toHaveAccessibleName('Presentación guardada: PETG · Privada · Original; Marca: Privada; Filamento: sin color indicado');
   // Compare with the browser's own next Tab stop from the closed trigger. WebKit may skip buttons.
   await page.keyboard.press('Tab');
   const nextId = await page.evaluate(() => document.activeElement.id);

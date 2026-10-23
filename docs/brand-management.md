@@ -1,13 +1,19 @@
-# Brand registry and profile relation (T1–T2)
+# Marcas y colores de filamento (T1–T3)
 
-A brand is an owner-scoped identity with a stable UUID, an editable name and a representative color. T2 relates existing profiles to that identity and adds independent filament names and optional representative samples. Purchases, quotes and counters retain their original text and snapshots. T3 will add the maintainer, profile controls and visual markers.
+En **Configuración → Marcas**, usa «Nueva marca» o selecciona «Marca guardada» y pulsa «Editar marca». Escribe el nombre, elige el color representativo y pulsa «Guardar marca»; seleccionar o cambiar un campo no guarda nada. Renombrar o recolorear conserva el ID y los nombres anteriores como alias de esa cuenta. En **Configuración → Bobinas**, elige «Marca de la bobina» por identidad; introduce por separado el nombre legible del «Color del filamento». Solo si ese color tiene una muestra representativa, marca «Mostrar muestra del filamento» y elige «Muestra del filamento». Sin muestra, el nombre sigue visible y no se inventa un color. Guardar la bobina es una acción separada.
+
+Las listas de Configuración y Calculadora muestran el nombre y color **actuales de la marca** (indicador redondo) y el nombre de filamento con muestra opcional (indicador cuadrado). Una marca heredada sin color configurado muestra un indicador neutro. Primero se busca el ID de marca asociado; para perfiles heredados sin asociación y compras se comparan alias normalizados dentro de la cuenta. Consultar las listas no escribe perfiles, compras ni cotizaciones. Los importes y textos históricos guardados no cambian con los nombres actuales. Un conflicto de revisión pide recargar antes de guardar otra vez.
+
+## Contrato técnico
+
+A brand is an owner-scoped identity with a stable UUID, editable name and representative color. T2 relates profiles to that identity and adds independent filament names and optional samples. Purchases, quotes and counters retain their original snapshots.
 
 ## Public path
 
 1. Apply `202610230001_calc3d_brands.sql` **after** the spool-profile migration, as the migration owner (not through the app). Existing nonempty brand text from profiles and purchased spools creates one brand per owner and normalized key, with `color: null` until the owner chooses a color.
 2. On an admitted authenticated session, use `createRemoteRepositories(client, session).brands.list()`; entries are detached DTOs. For a brand name lookup, normalize legacy text with `normalizeBrandName(text)` and find that key in the brand's `aliases` array. Never compare another owner's list.
 3. Save with `brands.createBrand({ name, color })` or `brands.updateBrand(id, { name, color }, expectedRevision)`. A save returns `{ ok: true, brand: DTO }`. Conflicts require reloading, not automatic retry.
-4. Apply `202610230002_calc3d_profile_brand_colors.sql` after T1 as the migration owner. The profile list returns `brandId`, `filamentColor` and `filamentColorHex` alongside the original fields. Existing profile IDs, price, weight, revision and timestamps do not change during the association backfill.
+4. Apply `202610230002_calc3d_profile_brand_colors.sql` after T1 as the migration owner. The profile list returns `brandId`, `filamentColor` and `filamentColorHex` alongside the original fields. Existing profile IDs, price, weight, revision and timestamps do not change during the association backfill. The T3 UI reads this registry and projects display copies; no automatic brand creation or hash-color fallback is used.
 
 ## Shapes and normalization
 
@@ -39,4 +45,4 @@ The RPC rejects invalid payload/revision with SQLSTATE `23514`, `Invalid brand`;
 
 ## Verification
 
-`node --test tests/brands.test.mjs tests/supabase-brands-repositories.test.mjs tests/supabase-brands.test.mjs` covers T1. `node --test tests/spool-profiles.test.mjs tests/supabase-repositories.test.mjs tests/profile-brand-colors-repositories.test.mjs tests/supabase-profile-brand-colors.test.mjs` covers T2 with a disposable PostgreSQL cluster. Migrations are local-only; live deployment and UI are out of scope.
+`node --test tests/brands.test.mjs tests/supabase-brands-repositories.test.mjs tests/supabase-brands.test.mjs` covers T1. `node --test tests/spool-profiles.test.mjs tests/supabase-repositories.test.mjs tests/profile-brand-colors-repositories.test.mjs tests/supabase-profile-brand-colors.test.mjs` covers T2 with a disposable PostgreSQL cluster. `node --test tests/brand-display.test.mjs tests/spool-catalog.test.mjs` checks detached T3 display and price identities; `tests/e2e/brand-management.pw.mjs` and the existing picker/browser cases still require browser verification. Migrations are local-only; live deployment is out of scope.

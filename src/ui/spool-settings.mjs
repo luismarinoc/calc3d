@@ -2,6 +2,8 @@ import { validateSpoolProfile } from '../domain/spool-profiles.mjs';
 import { filamentMaterials } from './filament-materials.mjs';
 import { orderSpoolsForDisplay } from './spool-order.mjs';
 import { createBrandProfilePicker } from './brand-profile-picker.mjs';
+import { presentSpools } from './brand-display.mjs';
+import { normalizeBrandName } from '../domain/brands.mjs';
 
 /** Independent settings panel; the caller owns the protected-page lifecycle. */
 export function createSpoolSettings() {
@@ -11,21 +13,28 @@ export function createSpoolSettings() {
   const feedback = document.querySelector('#spool-feedback');
   const failure = document.querySelector('#spool-error');
   const actions = [select, document.querySelector('#edit-spool'), document.querySelector('#new-spool'), ...form.elements];
-  const labels = { name: 'nombre', material: 'material', brand: 'marca', purchasePrice: 'precio de compra', netWeightGrams: 'peso neto' };
+  const labels = { name: 'nombre', material: 'material', purchasePrice: 'precio de compra', netWeightGrams: 'peso neto' };
+  const brandField = form.elements.namedItem('brandId');
+  const filamentField = form.elements.namedItem('filamentColor');
+  const sample = document.querySelector('#spool-showSample');
+  const hexField = form.elements.namedItem('filamentColorHex');
+  sample.addEventListener('change', () => { hexField.disabled = !sample.checked; });
   for (const material of filamentMaterials) document.querySelector('#spool-materials').append(new Option(material, material));
   let source = null;
   let profiles = null;
+  let brands = [];
   let editing = null;
   let pending = false;
   let ownerKey = null;
   function controls(selectedId) {
     failure.hidden = profiles !== null || !failure.textContent;
     for (const control of actions) control.disabled = profiles === null || pending;
+    hexField.disabled = profiles === null || pending || !sample.checked;
     select.replaceChildren();
     if (!profiles) { picker.render([], true); return; }
     select.add(new Option(profiles.length ? 'Elige una presentación' : 'Todavía no hay bobinas guardadas', ''));
-    const ordered = orderSpoolsForDisplay(profiles);
-    for (const item of ordered) select.add(new Option([item.name, item.material, item.brand].filter(Boolean).join(' · '), item.id));
+    const ordered = orderSpoolsForDisplay(presentSpools(profiles, brands));
+    for (const item of ordered) select.add(new Option(item.label, item.id));
     select.value = profiles.some(item => item.id === selectedId) ? selectedId : '';
     picker.render(ordered, pending);
     document.querySelector('#edit-spool').disabled = pending || !select.value;
@@ -45,6 +54,29 @@ export function createSpoolSettings() {
   }
   function populate(item = {}) {
     for (const key of Object.keys(labels)) form.elements.namedItem(key).value = item[key] ?? '';
+    brandField.replaceChildren(new Option('Sin marca', ''));
+    for (const brand of brands) brandField.add(new Option(brand.name, brand.id));
+    const matched = item.brandId ? brands.find(brand => brand.id === item.brandId) :
+      brands.find(brand => brand.aliases.includes(normalizeBrandName(item.brand ?? '')));
+    if (matched) brandField.value = matched.id;
+    else if (item.brand) {
+      brandField.add(new Option(`Marca anterior: ${item.brand}`, 'legacy'));
+      brandField.value = 'legacy';
+    }
+    filamentField.value = item.filamentColor ?? '';
+    sample.checked = !!item.filamentColorHex;
+    hexField.value = item.filamentColorHex ?? '#565c59';
+    hexField.disabled = !sample.checked;
+  }
+  function setBrands(next) {
+    brands = [...next];
+    const selectedBrand = brandField.value;
+    const legacyText = brandField.querySelector('[value="legacy"]')?.textContent;
+    brandField.replaceChildren(new Option('Sin marca', ''));
+    for (const brand of brands) brandField.add(new Option(brand.name, brand.id));
+    if (selectedBrand === 'legacy' && legacyText) brandField.add(new Option(legacyText, 'legacy'));
+    brandField.value = [...brandField.options].some(option => option.value === selectedBrand) ? selectedBrand : '';
+    controls(select.value);
   }
   document.querySelector('#new-spool').addEventListener('click', () => {
     clearError(); editing = null; populate(); form.elements.namedItem('name').focus();
@@ -67,6 +99,11 @@ export function createSpoolSettings() {
         input[key] = Number(field.value);
       } else input[key] = field.value;
     }
+    if (brandField.value === 'legacy' && editing) input.brand = editing.brand;
+    else { input.brandId = brandField.value || null; input.brand = brands.find(brand => brand.id === brandField.value)?.name ?? ''; }
+    input.filamentColor = filamentField.value;
+    input.filamentColorHex = sample.checked ? hexField.value : null;
+    if (sample.checked && !filamentField.value.trim()) { report('El color representativo del filamento requiere un nombre.', filamentField); return; }
     try { validateSpoolProfile(input); }
     catch (error) {
       const key = Object.keys(labels).find(key => error.message.toLowerCase().includes(labels[key])) ?? 'name';
@@ -101,7 +138,8 @@ export function createSpoolSettings() {
   });
   function clear() {
     source = null; profiles = null; editing = null; pending = false; ownerKey = null;
-    form.reset(); feedback.textContent = ''; failure.textContent = 'Comprobando acceso remoto…'; controls();
+    form.reset(); sample.checked = false; hexField.disabled = true; hexField.value = '#565c59';
+    brands = []; populate(); feedback.textContent = ''; failure.textContent = 'Comprobando acceso remoto…'; controls();
   }
   async function load(repository, session, isCurrent) {
     const current = repository;
@@ -120,5 +158,5 @@ export function createSpoolSettings() {
     }
   }
   clear();
-  return { clear, load };
+  return { clear, load, setBrands };
 }

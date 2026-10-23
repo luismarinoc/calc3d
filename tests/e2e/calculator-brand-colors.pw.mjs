@@ -2,8 +2,12 @@ import { test, expect, signIn, remoteQuotes, remoteRows } from './supabase-fixtu
 
 const profile = (id, brand, name, owner_id) => ({ id, owner_id, brand, name, material: 'PETG', purchase_price: 12000,
   net_weight_grams: 1000, revision: 1, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' });
+const brand = (owner_id, id, name, color, aliases) => ({ id, owner_id, name, color, aliases,
+  normalized_name: aliases[0], revision: 1, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' });
 
 test('S1-S2: Calculator exposes colored brands on a visible picker without saving a selection', async ({ page, remote }) => {
+  remote.brands = [brand(remote.user.id, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Zeta', '#123456', ['zeta']),
+    brand(remote.user.id, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Álamo', '#ABCDEF', ['álamo'])];
   remote.profiles = [profile('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Zeta', 'Z', remote.user.id),
     profile('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Álamo', 'A', remote.user.id)];
   await signIn(page);
@@ -37,6 +41,7 @@ test('S1-S2: Calculator exposes colored brands on a visible picker without savin
 });
 
 test('S1-S2: purchase and profile choices retain native identities, ordered labels and live cost', async ({ page, remote }) => {
+  remote.brands = [brand(remote.user.id, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Álamo', '#ABCDEF', ['álamo'])];
   remote.profiles = [profile('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Álamo', 'Z', remote.user.id)];
   remote.spools = [{ id: 'purchase-visual', owner_id: remote.user.id, purchase_id: 'purchase-1', purchase_date: '2025-02-28',
     material: 'PETG', brand: 'Álamo', color: 'Verde', purchase_price: 18000, net_weight_grams: 1000, remaining_grams: 1000 }];
@@ -69,6 +74,8 @@ test('S1-S2: purchase and profile choices retain native identities, ordered labe
 });
 
 test('S1-S2: remembered profile and missing historical purchase show correct visible selection without reprice or save', async ({ page, remote }) => {
+  remote.brands = [brand(remote.user.id, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Zeta', '#123456', ['zeta']),
+    brand(remote.user.id, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Álamo', '#ABCDEF', ['álamo'])];
   remote.profiles = [profile('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Zeta', 'Z', remote.user.id),
     profile('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Álamo', 'A', remote.user.id)];
   await signIn(page);

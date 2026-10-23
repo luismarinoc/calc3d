@@ -2,12 +2,13 @@ import { test as base, expect } from '@playwright/test';
 
 const user = { id: '11111111-1111-4111-8111-111111111111', aud: 'authenticated', email: 'member@example.test', app_metadata: { provider: 'email' }, user_metadata: {}, created_at: '2025-01-01T00:00:00Z' };
 const stamp = '2026-01-01T00:00:00.000Z';
+const brandKey = name => name.trim().replace(/\s+/gu, ' ').toLowerCase().normalize('NFC');
 const states = new WeakMap();
 export const remoteForPage = page => states.get(page);
 export const test = base.extend({
   remote: async ({ page }, use) => {
-    const state = { quotes: [], printers: null, purchases: [], spools: [], profiles: [], number: 0, allowed: true,
-      fail: null, failAfter: null, reads: {}, calls: [], holdQuotes: null, holdProfiles: null, user };
+    const state = { quotes: [], printers: null, purchases: [], spools: [], profiles: [], brands: [], number: 0, allowed: true,
+      fail: null, failAfter: null, reads: {}, calls: [], holdQuotes: null, holdProfiles: null, holdBrands: null, user };
     await page.route('http://127.0.0.1:54321/**', async route => {
       const request = route.request();
       const url = new URL(request.url());
@@ -34,6 +35,31 @@ export const test = base.extend({
         if (state.holdProfiles) await state.holdProfiles;
         return json(visible);
       }
+      if (pathname.endsWith('/rest/v1/calc3d_brands')) {
+        const visible = state.brands.filter(row => row.owner_id === state.user.id);
+        if (state.holdBrands) await state.holdBrands;
+        return json(visible);
+      }
+      if (pathname.endsWith('/rest/v1/rpc/calc3d_save_brand')) {
+        const current = state.brands.find(row => row.id === body.brand_id && row.owner_id === state.user.id);
+        if ((body.brand_id && !current) || body.expected_revision !== (current?.revision ?? 0))
+          return json({ code: '40001', message: 'Brand revision conflict' }, 409);
+        const payload = body.payload;
+        if (!payload || typeof payload.name !== 'string' || !payload.name.trim() ||
+            /[\p{Cc}\p{Cf}]/u.test(payload.name) || [...payload.name.trim()].length > 120 ||
+            typeof payload.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(payload.color))
+          return json({ code: '23514', message: 'Invalid brand' }, 400);
+        const name = payload.name.trim().replace(/\s+/gu, ' ');
+        const key = brandKey(name);
+        if (state.brands.some(row => row.owner_id === state.user.id && row.id !== current?.id && row.aliases.includes(key)))
+          return json({ code: '23505', message: 'Brand name already in use' }, 409);
+        const row = { id: current?.id ?? crypto.randomUUID(), owner_id: state.user.id, name,
+          normalized_name: key, color: payload.color.toUpperCase(),
+          aliases: current ? [...new Set([...current.aliases, key])] : [key],
+          revision: (current?.revision ?? 0) + 1, created_at: current?.created_at ?? stamp, updated_at: stamp };
+        state.brands = current ? state.brands.map(item => item.id === current.id ? row : item) : [...state.brands, row];
+        return json(row);
+      }
       if (pathname.endsWith('/rest/v1/calc3d_purchases')) return json(state.purchases.filter(row => !row.owner_id || row.owner_id === state.user.id));
       if (pathname.endsWith('/rest/v1/calc3d_spools')) return json(state.spools.filter(row => !row.owner_id || row.owner_id === state.user.id));
       if (pathname.endsWith('/rest/v1/rpc/calc3d_save_quote')) {
@@ -53,8 +79,27 @@ export const test = base.extend({
             !Number.isFinite(payload.netWeightGrams) || payload.netWeightGrams <= 0) {
           return json({ code: '23514', message: 'Invalid spool profile' }, 400);
         }
+        const brandId = Object.hasOwn(payload, 'brandId') ? payload.brandId : current?.brand_id ?? null;
+        const selectedBrand = state.brands.find(row => row.id === brandId && row.owner_id === state.user.id);
+        if (brandId !== null && !selectedBrand) return json({ code: '23514', message: 'Invalid spool profile' }, 400);
+        const label = Object.hasOwn(payload, 'brand') ? payload.brand : current?.brand ?? '';
+        const aliasBrand = state.brands.find(row => row.owner_id === state.user.id && row.aliases.includes(brandKey(label)));
+        const resolvedBrand = selectedBrand ?? (Object.hasOwn(payload, 'brandId') ? null : aliasBrand);
+        const suppliedFilament = Object.hasOwn(payload, 'filamentColor');
+        if (suppliedFilament && typeof payload.filamentColor !== 'string')
+          return json({ code: '23514', message: 'Invalid spool profile' }, 400);
+        const filamentColor = suppliedFilament ? payload.filamentColor.trim() : current?.filament_color ?? '';
+        const filamentColorHex = Object.hasOwn(payload, 'filamentColorHex') ? payload.filamentColorHex :
+          (Object.hasOwn(payload, 'filamentColor') && !filamentColor ? null : current?.filament_color_hex ?? null);
+        if (typeof filamentColor !== 'string' || [...filamentColor].length > 120 || /[\p{Cc}\p{Cf}]/u.test(filamentColor) ||
+            (filamentColorHex !== null && (!/^#[0-9a-f]{6}$/i.test(filamentColorHex) ||
+              !Object.hasOwn(payload, 'filamentColor'))) || (!filamentColor && filamentColorHex))
+          return json({ code: '23514', message: 'Invalid spool profile' }, 400);
         const row = { id: current?.id ?? crypto.randomUUID(), owner_id: state.user.id,
-          name: payload.name, material: payload.material, brand: payload.brand,
+          name: payload.name, material: payload.material,
+          brand: resolvedBrand?.name ?? (Object.hasOwn(payload, 'brandId') && brandId === null && !Object.hasOwn(payload, 'brand') ? '' : label),
+          brand_id: resolvedBrand?.id ?? null, filament_color: filamentColor,
+          filament_color_hex: filamentColorHex?.toUpperCase() ?? null,
           purchase_price: payload.purchasePrice, net_weight_grams: payload.netWeightGrams,
           revision: (current?.revision ?? 0) + 1, created_at: current?.created_at ?? stamp, updated_at: stamp };
         state.profiles = current ? state.profiles.map(item => item.id === current.id ? row : item) : [...state.profiles, row];

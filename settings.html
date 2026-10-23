@@ -22,14 +22,26 @@
     </form>
     <p id="settings-feedback" role="status" aria-live="polite"></p>
   </section>
-  <section aria-labelledby="spool-heading"><div class="section-head"><span>03 / Materiales</span><h2 id="spool-heading">Bobinas</h2></div>
+  <section aria-labelledby="brand-heading"><div class="section-head"><span>03 / Marcas</span><h2 id="brand-heading">Marcas</h2></div>
+    <p class="hint">El color de marca representa la marca en las listas; cambiarla no modifica compras ni cálculos anteriores.</p>
+    <p id="brand-error" class="error" role="alert" hidden></p>
+    <div class="brand-actions"><label for="brand-saved">Marca guardada<select id="brand-saved"></select></label><button id="edit-brand" type="button">Editar marca</button><button id="new-brand" type="button">Nueva marca</button></div>
+    <form id="brand-form" novalidate><label for="brand-name">Nombre de marca<input id="brand-name" name="name" type="text" maxlength="120" required></label>
+      <label for="brand-color">Color de marca<input id="brand-color" name="color" type="color" value="#565c59"></label>
+      <button id="save-brand" class="primary" type="submit">Guardar marca</button></form>
+    <p id="brand-feedback" role="status" aria-live="polite"></p>
+  </section>
+  <section aria-labelledby="spool-heading"><div class="section-head"><span>04 / Materiales</span><h2 id="spool-heading">Bobinas</h2></div>
     <p class="hint">Guarda el precio de compra y el peso neto del filamento por presentación, no el peso del carrete. Elegir una bobina no guarda cambios.</p>
     <p id="spool-error" class="error" role="alert" hidden></p>
     <div class="spool-actions"><div class="spool-picker"><label for="spool-profile">Presentación guardada<select id="spool-profile"></select></label></div><button id="edit-spool" type="button">Editar seleccionada</button><button id="new-spool" type="button">Nueva bobina</button></div>
     <form id="spool-form" novalidate>
       <label for="spool-name">Nombre / presentación<input id="spool-name" name="name" type="text" maxlength="120" required></label>
       <label for="spool-material">Material<input id="spool-material" name="material" type="text" list="spool-materials" maxlength="120" required></label><datalist id="spool-materials"></datalist>
-      <label for="spool-brand">Marca (opcional)<input id="spool-brand" name="brand" type="text" maxlength="120"></label>
+      <label for="spool-brandId">Marca de la bobina<select id="spool-brandId" name="brandId"></select></label>
+      <label for="spool-filamentColor">Color del filamento<input id="spool-filamentColor" name="filamentColor" type="text" maxlength="120"></label>
+      <label class="sample-toggle" for="spool-showSample"><input id="spool-showSample" type="checkbox">Mostrar muestra del filamento</label>
+      <label for="spool-filamentColorHex">Muestra del filamento<input id="spool-filamentColorHex" name="filamentColorHex" type="color" value="#565c59" disabled></label>
       <label for="spool-purchasePrice">Precio de compra · CLP<input id="spool-purchasePrice" name="purchasePrice" type="number" inputmode="numeric" min="0" step="1" required></label>
       <label for="spool-netWeightGrams">Peso neto del filamento · g<input id="spool-netWeightGrams" name="netWeightGrams" type="number" inputmode="decimal" min="0.001" step="any" required></label>
       <button id="save-spool" class="primary" type="submit">Guardar bobina</button>

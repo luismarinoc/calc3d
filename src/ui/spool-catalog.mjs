@@ -1,10 +1,13 @@
+import { presentSpools } from './brand-display.mjs';
+
 /** Build a detached owned calculator catalog from validated profile and purchase lists. */
-export function buildSpoolCatalog(purchasedSpools, profiles = []) {
-  return [
+export function buildSpoolCatalog(purchasedSpools, profiles = [], brands = []) {
+  return presentSpools([
     ...profiles.map(profile => ({
       id: `profile:${profile.id}`,
       label: [profile.name, profile.material, profile.brand].filter(Boolean).join(' · '),
-      material: profile.material, brand: profile.brand,
+      name: profile.name, material: profile.material, brand: profile.brand, brandId: profile.brandId ?? null,
+      filamentColor: profile.filamentColor ?? '', filamentColorHex: profile.filamentColorHex ?? null,
       purchasePrice: profile.purchasePrice, netWeightGrams: profile.netWeightGrams,
     })),
     ...purchasedSpools.map((spool) => ({
@@ -20,5 +23,5 @@ export function buildSpoolCatalog(purchasedSpools, profiles = []) {
       netWeightGrams: spool.netWeightGrams,
       initialAcquiredGrams: spool.netWeightGrams,
     })),
-  ];
+  ], brands);
 }
