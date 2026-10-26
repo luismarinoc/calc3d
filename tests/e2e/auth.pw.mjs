@@ -10,6 +10,10 @@ function mockApi(page, { allowed = true, role = 'admin' } = {}) {
     if (url.pathname.endsWith('/auth/v1/token')) return route.fulfill({ json: { access_token: token, refresh_token: 'fake-refresh', token_type: 'bearer', expires_in: 3600, user: identity } });
     if (url.pathname.endsWith('/auth/v1/user')) return route.fulfill({ json: identity });
     if (url.pathname.endsWith('/rest/v1/rpc/calc3d_access_status')) return route.fulfill({ json: { allowed, role: allowed ? role : null, email: allowed ? identity.email : null } });
+    if (url.pathname.endsWith('/rest/v1/rpc/calc3d_claim_invitation') && !allowed) {
+      calls.push(['calc3d_claim_invitation', body]);
+      return route.fulfill({ status: 400, json: { code: '23514', message: 'Invitation is not pending' } });
+    }
     if (url.pathname.endsWith('/rest/v1/calc3d_members')) return route.fulfill({ json: [{ email: identity.email, role: 'admin', active: true }, { email: 'member@example.test', role: 'member', active: true }] });
     if (url.pathname.endsWith('/rest/v1/rpc/calc3d_invite_user') || url.pathname.endsWith('/rest/v1/rpc/calc3d_set_user_active')) {
       calls.push([url.pathname.split('/').pop(), body]);
@@ -44,11 +48,14 @@ test('login error and valid but uninvited session cannot enter app', async ({ pa
   await signIn(page, { succeeds: false });
   await expect(page.getByRole('alert')).toHaveText('Correo o contraseña incorrectos.');
   await page.unrouteAll();
-  mockApi(page, { allowed: false });
+  const calls = mockApi(page, { allowed: false });
   await page.getByLabel('Contraseña').fill('fake-password');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByText('Acceso pendiente o desactivado.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Salir y cambiar de cuenta' })).toBeVisible();
+  await expect(page).toHaveURL('/login.html');
+  expect(calls.length).toBeGreaterThan(0);
+  expect(calls.every(([name, args]) => name === 'calc3d_claim_invitation' && Object.keys(args).length === 0)).toBe(true);
 });
 
 test('admin invitation/deactivation via authenticated RPC; cannot deactivate self', async ({ page }) => {

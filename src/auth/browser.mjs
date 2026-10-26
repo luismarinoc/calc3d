@@ -20,7 +20,7 @@ export function loginDestination(pathname = window.location.pathname) {
   return destinations.has(pathname) ? `/login.html?next=${encodeURIComponent(pathname)}` : '/login.html';
 }
 export async function requireAccess(options = {}) {
-  const result = await accessService.requireAccess(options);
+  const result = Object.keys(options).length ? await accessService.requireAccess(options) : await accessService.admitOnLogin();
   if (!result.session || !result.access?.allowed) window.location.assign(loginDestination());
   return result;
 }

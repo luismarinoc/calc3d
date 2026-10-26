@@ -7,7 +7,7 @@ const states = new WeakMap();
 export const remoteForPage = page => states.get(page);
 export const test = base.extend({
   remote: async ({ page }, use) => {
-    const state = { quotes: [], printers: null, purchases: [], spools: [], profiles: [], brands: [], number: 0, allowed: true,
+    const state = { quotes: [], printers: null, purchases: [], spools: [], profiles: [], brands: [], number: 0, allowed: true, pending: false,
       fail: null, failAfter: null, reads: {}, calls: [], holdQuotes: null, holdProfiles: null, holdBrands: null, holdArchive: null, user };
     await page.route('http://127.0.0.1:54321/**', async route => {
       const request = route.request();
@@ -21,6 +21,12 @@ export const test = base.extend({
       if (pathname.endsWith('/auth/v1/user')) return json(state.user);
       if (pathname.endsWith('/auth/v1/logout')) return route.fulfill({ status: 204, body: '' });
       if (pathname.endsWith('/rest/v1/rpc/calc3d_access_status')) return json({ allowed: state.allowed, role: state.allowed ? 'member' : null, email: state.allowed ? state.user.email : null });
+      if (pathname.endsWith('/rest/v1/rpc/calc3d_claim_invitation')) {
+        if (!state.pending) return json({ code: '23514', message: 'Invitation is not pending' }, 400);
+        state.pending = false;
+        state.allowed = true;
+        return json({ email: state.user.email, role: 'member', active: true, created_at: stamp });
+      }
       if (state.fail && pathname.includes(state.fail)) return json({ message: 'Network denied' }, 403);
       if (state.failAfter && pathname.includes(state.failAfter.path) && state.reads[pathname] > state.failAfter.after) return json({ message: 'Network denied' }, 403);
       if (pathname.endsWith('/rest/v1/calc3d_quotes')) {

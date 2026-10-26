@@ -7,23 +7,33 @@ const denied = document.querySelector('#denied-actions');
 const google = document.querySelector('#google-login');
 const form = document.querySelector('#password-form');
 let checking = false;
+let revision = 0;
+let queued = false;
 function error(message) { errorBox.textContent = message; errorBox.hidden = false; }
 function busy(active) { google.disabled = active; form.querySelector('button').disabled = active; }
 async function check() {
-  if (checking) return;
+  if (checking) { queued = true; return; }
   checking = true;
+  const token = revision;
   busy(true);
   status.textContent = 'Comprobando acceso…';
   try {
-    const { session, access } = await accessService.requireAccess();
+    const { session, access } = await accessService.admitOnLogin();
+    if (token !== revision) return;
     if (session && access?.allowed) { window.location.replace('/'); return; }
     denied.hidden = !session;
     actions.hidden = !!session;
     status.textContent = session ? 'Acceso pendiente o desactivado.' : 'Inicia sesión para continuar.';
   } catch {
-    error('No pudimos comprobar tu acceso. Revisa tu conexión e inténtalo de nuevo.');
-    status.textContent = 'No se pudo comprobar el acceso.';
-  } finally { busy(false); checking = false; }
+    if (token === revision) {
+      error('No pudimos comprobar tu acceso. Revisa tu conexión e inténtalo de nuevo.');
+      status.textContent = 'No se pudo comprobar el acceso.';
+    }
+  } finally {
+    checking = false;
+    if (queued || token !== revision) { queued = false; void check(); }
+    else busy(false);
+  }
 }
 google.addEventListener('click', async () => {
   busy(true); errorBox.hidden = true;
@@ -48,5 +58,5 @@ document.querySelector('#change-account').addEventListener('click', async () => 
   actions.hidden = false;
   await check();
 });
-onAccessChange(check);
-check();
+onAccessChange(() => { revision++; void check(); });
+void check();

@@ -22,6 +22,29 @@ export function createAccessService(client) {
     if (adminOnly && access.role !== 'admin') return { client, session, access: { ...access, allowed: false } };
     return { client, session, access };
   }
+  // Admission bootstrap only: a denied confirmed account may have a pending invite.
+  // Neither the claim row nor its success grants access; only a fresh status does.
+  async function admitOnLogin() {
+    const initial = await requireAccess();
+    if (!initial.session || initial.access?.allowed) return initial;
+    const sameSession = async () => {
+      const { data, error } = await client.auth.getSession();
+      if (error) throw error;
+      return data?.session?.user?.id === initial.session.user?.id &&
+        data?.session?.access_token === initial.session.access_token;
+    };
+    if (!await sameSession()) return { client, session: null, access: null };
+    const claim = await client.rpc('calc3d_claim_invitation');
+    if (!await sameSession()) return { client, session: null, access: null };
+    if (claim.error) {
+      if (claim.error.code === '23514' && claim.error.message === 'Invitation is not pending') return initial;
+      throw claim.error;
+    }
+    if (!normalizeRow(claim.data)) throw new Error('No se pudo aceptar la invitación.');
+    const result = await requireAccess();
+    if (!await sameSession()) return { client, session: null, access: null };
+    return result;
+  }
   async function admin() {
     const result = await requireAccess({ adminOnly: true });
     if (!result.access?.allowed) throw denied();
@@ -54,5 +77,5 @@ export function createAccessService(client) {
     if (!row) throw new Error('No se pudo cambiar el acceso.');
     return row;
   }
-  return { client, requireAccess, listMembers, inviteUser, setUserActive, signOut: () => client.auth.signOut() };
+  return { client, requireAccess, admitOnLogin, listMembers, inviteUser, setUserActive, signOut: () => client.auth.signOut() };
 }

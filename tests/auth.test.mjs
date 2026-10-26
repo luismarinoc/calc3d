@@ -24,6 +24,13 @@ test('missing session and failed admission never allow access', async () => {
   await assert.rejects(failed.service.requireAccess(), /offline/);
 });
 
+test('ordinary denied and admin-only checks never claim an invitation', async () => {
+  const f = fixture({ status: { allowed: false, role: null, email: null } });
+  assert.equal((await f.service.requireAccess()).access.allowed, false);
+  await assert.rejects(f.service.listMembers(), /administrador/i);
+  assert.deepEqual(f.calls.map(([name]) => name), ['calc3d_access_status', 'calc3d_access_status']);
+});
+
 test('member cannot list, invite or deactivate; rejected actions do not call write RPCs', async () => {
   const f = fixture({ status: { allowed: true, role: 'member', email: 'member@example.test' } });
   await assert.rejects(f.service.listMembers(), /administrador/i);
