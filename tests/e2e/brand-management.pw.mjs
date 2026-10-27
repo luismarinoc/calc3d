@@ -28,6 +28,8 @@ test('S1-S2: Marcas is separate; explicit create, color change and rename preser
   await page.goto('/settings.html');
   const section = page.getByRole('region', { name: 'Marcas' });
   await expect(section).toBeVisible();
+  await expect(page.locator('main')).toHaveJSProperty('inert', false);
+  await expect(section.getByRole('button', { name: 'Guardar marca' })).toBeEnabled();
   expect(await remoteRows(page, 'brands')).toEqual([]);
   expect(saves(remote)).toEqual([]);
   await section.getByLabel('Nombre de marca').fill('Mi Marca');
