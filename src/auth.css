@@ -35,6 +35,10 @@ summary { cursor: pointer; color: var(--accent); padding: 12px 0; }
 .member { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 14px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
 .member > div { display: grid; gap: 3px; min-width: 0; }
 .member .secondary { flex-shrink: 0; }
+.request-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.audit-entry { display: grid; gap: 3px; padding: 14px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.audit-entry span { color: var(--muted); }
+#audit-more { margin-top: 18px; }
 @media (max-width: 560px) { .member { align-items: flex-start; flex-direction: column; } .auth-top nav { gap: 8px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
 }

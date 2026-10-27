@@ -20,7 +20,8 @@ export const test = base.extend({
       if (pathname.endsWith('/auth/v1/token')) return json({ access_token: 'fake.browser.test', refresh_token: 'fake-refresh', token_type: 'bearer', expires_in: 3600, user: state.user });
       if (pathname.endsWith('/auth/v1/user')) return json(state.user);
       if (pathname.endsWith('/auth/v1/logout')) return route.fulfill({ status: 204, body: '' });
-      if (pathname.endsWith('/rest/v1/rpc/calc3d_access_status')) return json({ allowed: state.allowed, role: state.allowed ? 'member' : null, email: state.allowed ? state.user.email : null });
+      if (pathname.endsWith('/rest/v1/rpc/calc3d_access_status') || pathname.endsWith('/rest/v1/rpc/calc3d_record_access')) return json({ allowed: state.allowed, role: state.allowed ? 'member' : null, email: state.allowed ? state.user.email : null });
+      if (pathname.endsWith('/rest/v1/rpc/calc3d_request_access')) return json({ state: 'revoked', request: null });
       if (pathname.endsWith('/rest/v1/rpc/calc3d_claim_invitation')) {
         if (!state.pending) return json({ code: '23514', message: 'Invitation is not pending' }, 400);
         state.pending = false;

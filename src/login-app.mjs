@@ -18,12 +18,15 @@ async function check() {
   busy(true);
   status.textContent = 'Comprobando acceso…';
   try {
-    const { session, access } = await accessService.admitOnLogin();
+    const { session, access, request } = await accessService.admitOnLogin();
     if (token !== revision) return;
     if (session && access?.allowed) { window.location.replace('/'); return; }
     denied.hidden = !session;
     actions.hidden = !!session;
-    status.textContent = session ? 'Acceso pendiente o desactivado.' : 'Inicia sesión para continuar.';
+    status.textContent = !session ? 'Inicia sesión para continuar.' : ({
+      pending: 'Solicitud pendiente de aprobación.', rejected: 'Solicitud rechazada.',
+      revoked: 'Acceso desactivado.', approved: 'Aprobación pendiente de verificación.',
+    }[request?.state] ?? 'Acceso no autorizado.');
   } catch {
     if (token === revision) {
       error('No pudimos comprobar tu acceso. Revisa tu conexión e inténtalo de nuevo.');
@@ -51,6 +54,9 @@ form.addEventListener('submit', async event => {
   await check();
 });
 document.querySelector('#change-account').addEventListener('click', async () => {
+  revision++;
+  denied.hidden = true;
+  status.textContent = 'Cerrando sesión…';
   busy(true);
   const { error: failure } = await accessService.signOut();
   if (failure) { error('No se pudo cerrar la sesión. Inténtalo otra vez.'); busy(false); return; }

@@ -1,14 +1,14 @@
 # Aceptar invitaciones en el inicio de sesión
 
-Una cuenta confirmada con invitación pendiente puede entrar sin intervención manual: al iniciar sesión, el cliente consulta `calc3d_access_status()`, intenta explícitamente `calc3d_claim_invitation()` **solo si el acceso está denegado**, y vuelve a consultar el estado. Únicamente el segundo estado `{allowed, role, email}` puede admitirla; la fila devuelta por el claim nunca autoriza por sí sola.
+Una cuenta confirmada con invitación pendiente puede entrar sin intervención manual: en el bootstrap autenticado, el cliente consulta `calc3d_access_status()`, intenta `calc3d_claim_invitation()` **solo si el acceso está denegado**, y vuelve a consultar el estado. Si no hay invitación pendiente, solicita acceso mediante `calc3d_request_access()` sin conceder admisión. `calc3d_record_access()` registra la decisión del servidor; solo el estado fresco posterior `{allowed, role, email}` puede admitirla. Las filas de claim o solicitud nunca autorizan por sí solas.
 
 ## Casos y límites
 
 | Caso | Resultado |
 |---|---|
-| Sin sesión o miembro/administrador admitido | No se llama al claim. |
+| Sin sesión | No se llama a ningún RPC. Miembro/administrador admitido: no se llama al claim ni a la solicitud, pero se registra la evaluación de acceso. |
 | Invitación pendiente confirmada | Claim seguido de una nueva consulta de acceso; entrar solo si está admitida. |
-| Revocado, sin invitación, invitación inactiva | `23514` con mensaje exacto `Invitation is not pending`: sigue denegado, sin mostrar éxito. |
+| Revocado o rechazado | `23514` con mensaje exacto `Invitation is not pending` permite consultar el estado de solicitud existente sin reactivarlo; sigue denegado. Una cuenta nueva queda pendiente. |
 | Error inesperado de red, permisos o servidor | Se muestra el error genérico de verificación existente; no se convierte en denegación normal. |
 | Cambio de sesión durante el intento | La comprobación antigua no puede autorizar la sesión nueva. |
 

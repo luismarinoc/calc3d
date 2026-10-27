@@ -16,10 +16,9 @@ test('missing session and failed admission never allow access', async () => {
   const absent = fixture({ session: null });
   assert.deepEqual(await absent.service.requireAccess(), { client: absent.client, session: null, access: null });
   assert.deepEqual(absent.calls, []);
-  for (const status of [{ allowed: false, role: null, email: null }, null]) {
-    const f = fixture({ status });
-    assert.equal((await f.service.requireAccess()).access?.allowed, false);
-  }
+  const f = fixture({ status: { allowed: false, role: null, email: null } });
+  assert.equal((await f.service.requireAccess()).access?.allowed, false);
+  await assert.rejects(fixture({ status: null }).service.requireAccess(), /Respuesta de acceso inválida/);
   const failed = fixture({ error: new Error('offline') });
   await assert.rejects(failed.service.requireAccess(), /offline/);
 });

@@ -16,7 +16,7 @@ Llamar como `authenticated`, con identidad resuelta por `auth.uid()` y `auth.use
 
 ## Flujo y fallos para la interfaz
 
-1. Al autenticar, llamar `calc3d_request_access()`. Si devuelve `pending`, mostrar «Solicitud pendiente» y mantener bloqueada la app. Si devuelve `rejected`, mostrar «Solicitud rechazada» sin reintentar la creación. No sustituir la verificación existente `calc3d_access_status()` para datos de negocio.
+1. En el bootstrap autenticado, comprobar primero `calc3d_access_status()` y la posible invitación explícita. Si sigue denegado, llamar `calc3d_request_access()` sin argumentos. `pending` muestra «Solicitud pendiente», `rejected` «Solicitud rechazada» y `revoked` «Acceso desactivado»; nunca desbloquear por estas filas. Registrar luego la decisión con `calc3d_record_access()` y comprobar nuevamente el estado de acceso. Las operaciones ordinarias siguen siendo solo lectura de acceso.
 2. Mostrar `calc3d_list_access_requests()` únicamente en Usuarios → Solicitudes para administradores. La lista incluye historial; filtrar `status = 'pending'` para la bandeja.
 3. Para aprobar o rechazar, enviar `request_id`, `decision = 'approved' | 'rejected'` y la `revision` observada. El resultado revisado tiene `revision` incrementada y `reviewed_at` establecido. SQLSTATE `40001` / `Access request revision conflict` requiere recargar la lista, nunca reenviar a ciegas. Identidad alterada (`23514` / `Access request identity changed`) o pertenencia en conflicto (`23514` / `Access request membership conflict`) requieren resolución administrativa fuera de este flujo.
 
@@ -24,4 +24,4 @@ La aprobación exige que el UID original todavía exista, esté confirmado y sea
 
 ## Límite operativo
 
-La migración no captura IP ni país: mostrar «No disponible». No registra eventos de auditoría ni ofrece evidencia de OAuth real o de despliegue; T2/T3 agregan el registro y la interfaz. La validación de UID/email se realiza con una lectura coherente de Auth después de bloquear filas **solo de Calc3D**, sin bloquear la tabla Auth compartida; una actualización Auth concurrente posterior al snapshot debe tratarse con los chequeos de admisión UID existentes al usar la aplicación.
+La migración de solicitudes no captura IP ni país: mostrar «No disponible». El registro de acceso y la interfaz se describen en [Auditoría](./activity-audit.md) y [Uso de Usuarios](./access-audit.md). No hay evidencia de OAuth real ni de despliegue por las pruebas locales. La validación de UID/email se realiza con una lectura coherente de Auth después de bloquear filas **solo de Calc3D**, sin bloquear la tabla Auth compartida; una actualización Auth concurrente posterior al snapshot debe tratarse con los chequeos de admisión UID existentes al usar la aplicación.

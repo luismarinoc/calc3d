@@ -15,7 +15,8 @@ function fixture({ session = { user: { id: 'first' }, access_token: 'first-token
     rpc: async name => {
       calls.push(name);
       await onRpc(name);
-      if (name === 'calc3d_claim_invitation') { claimed = true; return claim; }
+      if (name === 'calc3d_claim_invitation') { claimed = !claim.error; return claim; }
+      if (name === 'calc3d_request_access') return { data: { state: 'revoked', request: null }, error: null };
       return { data: claimed ? afterClaim : status, error: null };
     },
   };
@@ -25,23 +26,23 @@ function fixture({ session = { user: { id: 'first' }, access_token: 'first-token
 test('explicit bootstrap claims pending invitation once and independently re-reads admission', async () => {
   const f = fixture();
   assert.equal((await f.service.admitOnLogin()).access?.allowed, true);
-  assert.deepEqual(f.calls, ['calc3d_access_status', 'calc3d_claim_invitation', 'calc3d_access_status']);
+  assert.deepEqual(f.calls, ['calc3d_access_status', 'calc3d_claim_invitation', 'calc3d_access_status', 'calc3d_record_access', 'calc3d_access_status']);
   assert.equal((await f.service.requireAccess()).access?.allowed, true);
-  assert.deepEqual(f.calls.slice(3), ['calc3d_access_status']);
+  assert.deepEqual(f.calls.slice(5), ['calc3d_access_status']);
 });
 
 test('no session and already admitted member/admin never claim', async () => {
   for (const status of [null, admitted, { allowed: true, role: 'admin', email: 'admin@example.test' }]) {
     const f = fixture({ session: status ? { user: { id: 'first' }, access_token: 'first-token' } : null, status });
     assert.equal((await f.service.admitOnLogin()).access?.allowed ?? false, !!status);
-    assert.deepEqual(f.calls, status ? ['calc3d_access_status'] : []);
+    assert.deepEqual(f.calls, status ? ['calc3d_access_status', 'calc3d_record_access', 'calc3d_access_status'] : []);
   }
 });
 
 test('no-pending is denial, not successful claim; unexpected failures propagate', async () => {
   const noPending = fixture({ claim: { data: null, error: { code: '23514', message: 'Invitation is not pending' } } });
   assert.equal((await noPending.service.admitOnLogin()).access.allowed, false);
-  assert.deepEqual(noPending.calls, ['calc3d_access_status', 'calc3d_claim_invitation']);
+  assert.deepEqual(noPending.calls, ['calc3d_access_status', 'calc3d_claim_invitation', 'calc3d_request_access', 'calc3d_record_access', 'calc3d_access_status']);
   for (const error of [{ code: '23514', message: 'Ambiguous Calc3D member identity' }, { code: '42501', message: 'Permission denied' }, new Error('offline')]) {
     const f = fixture({ claim: { data: null, error } });
     await assert.rejects(f.service.admitOnLogin(), failure => failure === error);
@@ -55,10 +56,11 @@ test('empty successful claim response cannot be presented as accepted', async ()
 });
 
 test('claim response is not authority: denied or malformed status remains denied', async () => {
-  for (const afterClaim of [pending, null, { allowed: true, role: 'owner', email: 'invite@example.test' }]) {
-    const f = fixture({ afterClaim });
-    assert.equal((await f.service.admitOnLogin()).access.allowed, false);
-    assert.deepEqual(f.calls, ['calc3d_access_status', 'calc3d_claim_invitation', 'calc3d_access_status']);
+  const f = fixture({ afterClaim: pending });
+  assert.equal((await f.service.admitOnLogin()).access.allowed, false);
+  assert.deepEqual(f.calls, ['calc3d_access_status', 'calc3d_claim_invitation', 'calc3d_access_status', 'calc3d_request_access', 'calc3d_record_access', 'calc3d_access_status']);
+  for (const afterClaim of [null, { allowed: true, role: 'owner', email: 'invite@example.test' }]) {
+    await assert.rejects(fixture({ afterClaim }).service.admitOnLogin(), /Respuesta de acceso inválida/);
   }
 });
 
