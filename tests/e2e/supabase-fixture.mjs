@@ -152,6 +152,12 @@ export const test = base.extend({
   },
 });
 export { expect };
+/** Wait for the public purchase page to finish admission and its remote read before typing. */
+export async function waitForPurchaseReady(page) {
+  await expect(page.locator('main')).toHaveJSProperty('inert', false);
+  await expect(page.locator('.account-nav')).toBeVisible();
+  await expect(page.locator('#purchase-save')).toBeEnabled();
+}
 export const signedInEmptyTest = test.extend({
   authenticated: [async ({ page, remote }, use) => { await signIn(page, { withProfile: false }); await use(); }, { auto: true }],
 });

@@ -1,4 +1,4 @@
-import { test, expect, signIn, remoteQuotes } from './supabase-fixture.mjs';
+import { test, expect, signIn, remoteQuotes, waitForPurchaseReady } from './supabase-fixture.mjs';
 
 test('all three pages redirect anonymous visitors to login', async ({ page, remote }) => {
   for (const path of ['/', '/settings.html', '/purchases.html']) {
@@ -35,6 +35,7 @@ test('printer save/activate and purchase acquired spool persist across reloads',
   await page.reload();
   await expect(page.locator('#active-printer')).toHaveValue(id);
   await page.goto('/purchases.html');
+  await waitForPurchaseReady(page);
   await page.locator('[name="date"]').fill('2025-02-28');
   await page.locator('[name="name"]').fill('Taller Sur');
   for (const [name, value] of Object.entries({ material: 'PLA', brand: 'Sur', color: 'Azul', quantity: '1', netWeightGrams: '1000', purchasePrice: '18000' })) await page.locator(`.purchase-line [name="${name}"]`).fill(value);
@@ -121,6 +122,7 @@ test('quote refresh failure after committed RPC retains numbered success warning
 test('purchase refresh failure after committed RPC retains purchase success warning', async ({ page, remote }) => {
   await signIn(page);
   await page.goto('/purchases.html');
+  await waitForPurchaseReady(page);
   await page.locator('[name="date"]').fill('2025-02-28');
   await page.locator('[name="name"]').fill('Taller');
   for (const [name, value] of Object.entries({ material: 'PLA', brand: 'Sur', color: 'Azul', quantity: '2', netWeightGrams: '1000', purchasePrice: '18000' })) await page.locator(`.purchase-line [name="${name}"]`).fill(value);

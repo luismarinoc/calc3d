@@ -1,4 +1,4 @@
-import { signedInTest as test, expect, remotePurchases } from './supabase-fixture.mjs';
+import { signedInTest as test, expect, remotePurchases, waitForPurchaseReady } from './supabase-fixture.mjs';
 
 async function fillLine(page, index, values) {
   const line = page.locator('.purchase-line').nth(index);
@@ -25,6 +25,7 @@ test('explicit purchase, immutable history and per-spool inventory across reload
   await expect(page.getByRole('note')).toContainText('todavía no descuenta impresiones/consumos');
   await expect(page.locator('#purchase-history')).toContainText('Todavía no hay compras');
   await expect(page.locator('#purchase-inventory')).toContainText('después de guardar');
+  await waitForPurchaseReady(page);
   await page.screenshot({ path: info.outputPath('initial.png'), fullPage: true });
   await complete(page);
   await expect(page.locator('#purchase-preview')).toContainText(/3 bobinas · Total 58[.]?000 CLP/);
@@ -59,6 +60,7 @@ test('explicit purchase, immutable history and per-spool inventory across reload
 
 test('invalid drafts focus errors and never create extra purchases', async ({ page }) => {
   await page.goto('/purchases.html');
+  await waitForPurchaseReady(page);
   await complete(page);
   for (const [name, value, message] of [
     ['date', '', 'Fecha de compra inválida'],
@@ -85,6 +87,7 @@ test('remote read failure disables saving without altering protected records', a
 
 test('denied writes require retry without false records or clearing draft', async ({ page, remote }) => {
   await page.goto('/purchases.html');
+  await waitForPurchaseReady(page);
   await complete(page);
   remote.fail = '/rpc/calc3d_save_purchase';
   await page.locator('#purchase-save').click();

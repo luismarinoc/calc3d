@@ -1,4 +1,4 @@
-import { signedInTest as test, expect, remoteQuotes, remotePurchases } from './supabase-fixture.mjs';
+import { signedInTest as test, expect, remoteQuotes, remotePurchases, waitForPurchaseReady } from './supabase-fixture.mjs';
 
 const material = page => page.locator('#result-content .result-row').filter({ has: page.getByText('Material', { exact: true }) });
 
@@ -6,6 +6,7 @@ test('public purchase to calculator, quote snapshot and reload without inventory
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/purchases.html');
+  await waitForPurchaseReady(page);
   await page.locator('[name="date"]').fill('2025-02-28');
   await page.locator('[name="name"]').fill('Proveedor Sur');
   const line = page.locator('.purchase-line').first();
