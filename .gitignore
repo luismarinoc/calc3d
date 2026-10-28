@@ -1,4 +1,5 @@
 node_modules/
+dist/
 .cache/
 playwright-report/
 test-results/
@@ -6,3 +7,6 @@ test-results/
 .env.*
 !.env.example
 .DS_Store
+
+# Private agent configuration and MCP credentials.
+/.pi/

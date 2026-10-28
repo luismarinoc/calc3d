@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#202321">
+  <title>Calc3D · Iniciar sesión</title>
+  <link rel="stylesheet" href="./src/auth.css">
+  <link rel="stylesheet" href="./src/login-styles.css">
+  <script type="module" src="./src/login-app.mjs"></script>
+</head>
+<body class="login-page">
+  <header class="auth-top">
+    <a class="brand" href="./index.html">calc<span>3D</span></a>
+    <span>Acceso al taller</span>
+  </header>
+  <main class="auth-shell">
+    <div class="login-intro" aria-hidden="true">
+      <span class="login-intro-index">CALC3D / TALLER</span>
+      <div class="login-intro-mark">3D<span>.</span></div>
+      <p>Tu taller, tus costos.</p>
+      <span class="login-intro-line"></span>
+    </div>
+    <section class="auth-card" aria-labelledby="login-heading">
+      <p class="eyebrow">CALC3D / ACCESO</p>
+      <h1 id="login-heading">Bienvenido al taller.</h1>
+      <p class="subtle">Entra con una cuenta autorizada por el administrador.</p>
+      <p id="login-status" role="status" aria-live="polite">Comprobando sesión…</p>
+      <p id="login-error" role="alert" hidden></p>
+      <div id="login-actions">
+        <button id="google-login" class="primary" type="button">Continuar con Google</button>
+        <details>
+          <summary>Entrar con correo y contraseña</summary>
+          <form id="password-form">
+            <label for="email">Correo<input id="email" name="email" type="email" autocomplete="username" required></label>
+            <label for="password">Contraseña<input id="password" name="password" type="password" autocomplete="current-password" required></label>
+            <button class="secondary" type="submit">Entrar</button>
+          </form>
+        </details>
+      </div>
+      <div id="denied-actions" hidden>
+        <p>Tu sesión está activa, pero este correo aún no tiene invitación o su acceso fue desactivado. Pide autorización al administrador.</p>
+        <button id="change-account" class="secondary" type="button">Salir y cambiar de cuenta</button>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

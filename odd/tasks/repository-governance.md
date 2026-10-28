@@ -1,5 +1,5 @@
 # Repository PR and automatic release controls
-Objective: prepare PR checks and automatic version-PR releases for github.com/luismarinoc/calc3d. Status: local implementation/recheck/commits complete; user authorized public bootstrap and main protections. Remote activation in progress; do not claim checks or protection passed yet.
+Objective: prepare PR checks and automatic version-PR releases for github.com/luismarinoc/calc3d. Status: public bootstrap/main protections active, actual CI passed, bootstrap release skipped; independent remote verification passed. Future version-PR publication not exercised.
 Branch: feat/print3d-management; delivery_strategy=auto-chain, chain_strategy=feature-branch-chain, inherited user choice. Test runner: node --test tests/*.test.mjs; Playwright available. Risk: items 2 and 5 (repository guards, workflow permissions and CI/release environment).
 
 ## Specs
@@ -7,7 +7,7 @@ Branch: feat/print3d-management; delivery_strategy=auto-chain, chain_strategy=fe
 S1 — Target repository.
 User: "Listo, crea un repositorio con el mismo nombre de la carpeta."
 User selection: "Público".
-Check: target is github.com/luismarinoc/calc3d, created by job-4 exit 0. Local project has no configured remote; do not infer another destination.
+Check: target is github.com/luismarinoc/calc3d, created by job-4 exit 0. Local origin is https://github.com/luismarinoc/calc3d.git after authorized bootstrap; do not infer another destination.
 
 S2 — PR and release control.
 User: "Necesito que este repositorio tenga control de PR y de release."
@@ -28,12 +28,12 @@ Check: keep this document and its full Engram mirror under odd/repository-govern
 
 ## Tasks
 
-T1 | S1-S5 | route: delegated/context backstop | status: done locally and independently verified | commit: efa7bda | Prepared CI, release guards/tests including equal-version success skip, PR template and activation guide; no remote activation. S1 target remains empty; S2-S4 prepared, not active; S5 status and evidence recorded; full mirror maintained by parent.
+T1 | S1-S5 | route: delegated/context backstop | status: done locally and independently verified | commit: efa7bda | Prepared CI, release guards/tests including equal-version success skip, PR template and activation guide; no remote activation. Initial local preparation verified, then authorized activation completed in T4-T6. S5 status/evidence and full mirror maintained by parent.
 T2 | S2-S4 | route: independent gentle-ai-verify / Risk items 2,5 | status: done locally | commit: efa7bda | Independently verify workflow permissions, release eligibility/idempotency and local tests; parent spot check; no live release.
 T3 | S5 | route: inline | status: done locally | commit: 75b0593 | Implementation efa7bda and scope/evidence75b0593 saved locally; final tracking update follows. Parent refreshes/reads full Engram mirror2721. Coherent implementation382insertions/1deletion, tests/docs retained. No publication.
-T4 | S1-S4 | route: parent / remote activation | status: in progress | commit: pending bootstrap | User authorized public code/docs upload, main bootstrap, PR required including admins, strict Node tests/Browser tests,0outside approvals,no force-push/deletion. No initial release. Execute only for github.com/luismarinoc/calc3d.
-T5 | S2-S4 | route: parent / actual CI | status: pending | commit: none | Wait for bootstrap GitHub CI conclusion; verify expected Node/browser checks and skipped release, no release created. A failure is not a pass and cannot be retried automatically.
-T6 | S1-S5 | route: independent verifier / Risk items2,5 then parent evidence | status: pending | commit: none | Read active protections/default branch/checks/releases independently and record evidence/full mirror. No additional remote mutations or releases.
+T4 | S1-S4 | route: parent / remote activation | status: done (active; independently verified) | commit: 48c5782 | Public main/bootstrap/default branch/protections applied to github.com/luismarinoc/calc3d; PR required including admins, strict Node tests/Browser tests,0outside approvals,no force-push/deletion. No initial release.
+T5 | S2-S4 | route: parent / actual CI | status: done | commit: 48c5782 | Actual CI39512874793 completed success for exact bootstrapSHA: Node tests/Browser tests success, Version release skipped, releases[]. No retry.
+T6 | S1-S5 | route: independent verifier / Risk items2,5 then parent evidence | status: done | commit: 59fd872 | Verifier mvhapb0z-a-zckj confirmed actual settings/default mainSHA/CI/release suppression with5read-only queries, all exit0; no blocker. Final local docs/evidence and full Engram mirror updated; do not bypass main protection to publish these later docs.
 
 ## Log
 
@@ -82,3 +82,12 @@ Commit efa7bda, ci(governance): gate version releases on reviewed merges and pas
 
 L15 — Explicit public bootstrap/protection authorization:
 User answered "si" to: subir prototipo/documentación a repositorio público luismarinoc/calc3d; crear main mediante carga inicial; exigir PR y pruebas exitosas incluso administradores; bloquear force-push/eliminación;0aprobaciones externas obligatorias para mantenimiento individual. Bootstrap no genera release; futuras publicaciones automáticas solo vía PR de versión. Consent saved2726. Fresh job-6 exited0: target public/empty/default branch empty/ADMIN, Actions enabled all. Parent source tree clean at cad8dad before this tracking update; known credential-pattern scan across8commits passed and no .env/tool-cache tracked (not a universal secret guarantee). Authorize adding local origin and uploading reviewed code plus this authorization log; no force/overwrite of existing remote history. Record exact uploaded SHA and actual outcomes after commands; no GitHub actions have run at this checkpoint.
+
+L16 — Authorized upload and protection application:
+job-7 git push origin HEAD:refs/heads/main exited0, new remote main points to48c5782feea01353a2a2ccfcff923ad065a839f3. No force push. job-8 exited0: default branch setmain; main protection API returned enforce_admins.enabled=true, strict required contexts Node tests/Browser tests, required_pull_request_reviews with0outside approvals, allow_force_pushes=false, allow_deletions=false. No other remote settings/branches changed. Bootstrap CI run39512874793 at https://github.com/luismarinoc/calc3d/actions/runs/39512874793 is in_progress for exactuploadedSHA. job-9 runs gh run watch --exit-status then captures jobs/release list; no automatic retries. Do not call CI/release suppression passed until result. Parent will independently verify active settings after write; remote release publication itself is not exercised. README/docs activation text in uploaded snapshot describes preactivation state; final local evidence updated here, later doc publication must follow protected PR process.
+
+L17 — Actual bootstrap CI passed:
+job-9 exited0: gh run watch39512874793 --exit-status succeeded; run completed for uploaded48c5782 with Node tests success, Browser tests success, Version release skipped (no steps). gh release list returned[]. Thus first public bootstrap did not publish a release and real CI executed successfully. GitHub emitted advisory that ubuntu-latest is migrating to Ubuntu26; not a failure, no environment change warranted. No manual release/tag, PR or merge performed. Assessment for actual remote protection activation escalated Risk item2 and requires independent read-only verification; next verifier inspects actual main/default/protections/run/releases. This verifies configuration and bootstrap suppression, not an end-to-end future version-PR release creation.
+
+L18 — Independent activation verification passed and closure:
+Verifier mvhapb0z-a-zckj executed5fresh target-bound read-only queries, all exit0: public luismarinoc/calc3d defaultmain; mainSHA48c5782feea01353a2a2ccfcff923ad065a839f3; PR review rule count0/enforce_adminstrue/strict contexts exactly Node tests and Browser tests/forcepushfalse/deletefalse; run39512874793 completed success on thatSHA with both checks success and Version release skipped; releases[]. No blocker. Browser tests app_id:null is an advisory, no extra binding requested. No forbidden push/merge/future release was exercised, no scratch. Original local27tests and remote bootstrap CI passed; physical devices and end-to-end future version publication remain unverified, intentionally not triggered. Parent updates README/activation guide locally to reflect actual state; later documentation upload must use authorized protected PR, not direct main push. Full application still incomplete (inventory/purchases/reports/auth/database not implemented). Final evidence/docs committed locally as59fd872; parent structural activation-doc check and git diff --check passed, then full mirror read back before completed reply. This later documentation commit remains local on feat/print3d-management; origin/main is48c5782. Do not push to protected main or create a documentation PR without its own authorization. Risk items2,5 independently verified for local and activated settings; no release created.

@@ -1,0 +1,50 @@
+:root { color-scheme: dark; --bg: #202321; --panel: #292d2a; --line: #454a45; --text: #f2f0e8; --muted: #b9beb8; --accent: #dcb98c; --error: #ffd2c8; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.purchases * { box-sizing: border-box; }
+.purchases { margin: 0; background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
+.purchases button, .purchases input, .purchases textarea { font: inherit; }
+.purchases button { cursor: pointer; }
+.purchases button:disabled { opacity: .55; cursor: not-allowed; }
+.purchases :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.purchases a { color: var(--accent); }
+.purchase-top { padding: 1rem max(1.25rem, calc((100vw - 1200px) / 2)); display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-bottom: 1px solid var(--line); font-size: .88rem; }
+.purchase-top a { min-height: 44px; display: inline-flex; align-items: center; }
+.purchase-top strong { color: var(--accent); }
+.purchase-shell { max-width: 1200px; padding: clamp(1.25rem, 4vw, 3.5rem); margin: auto; }
+.purchase-intro { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 3rem; align-items: end; margin-bottom: 2rem; }
+.purchase-intro h1 { font-size: clamp(2rem, 4vw, 3.4rem); letter-spacing: -.05em; line-height: 1.12; max-width: 16ch; margin: .5rem 0 1rem; }
+.purchase-intro h1 em { color: var(--accent); font-style: normal; }
+.purchase-intro p { margin: 0; color: var(--muted); }
+.purchase-intro .overline, .section-title span { font-size: .75rem; letter-spacing: .13em; font-weight: 700; color: var(--accent); }
+.intro-aside { border-top: 1px solid var(--accent); padding-top: 1rem; }
+.purchase-notice { border-left: 3px solid var(--accent); padding: 1rem 1.2rem; background: #30342f; margin: 0 0 3rem; }
+.purchase-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(2rem, 5vw, 5rem); }
+.purchase-grid > * { min-width: 0; }
+.section-title { border-top: 1px solid var(--line); padding-top: 1rem; margin-bottom: 1.4rem; }
+.section-title h2 { font-size: 1.5rem; letter-spacing: -.025em; margin: .25rem 0 0; }
+.line-title { margin-top: 2.5rem; }
+.purchase-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem 1rem; }
+.purchases label { display: flex; flex-direction: column; gap: .4rem; font-weight: 570; font-size: .92rem; min-width: 0; }
+.purchases input, .purchases textarea { width: 100%; min-width: 0; min-height: 48px; background: #303531; color: var(--text); border: 1px solid #666e65; border-radius: 6px; padding: .65rem .8rem; }
+.purchases input[aria-invalid=true] { border-color: var(--error); }
+.purchases textarea { resize: vertical; }
+.purchases .muted, .purchases .empty { color: var(--muted); font-size: .9rem; }
+.purchase-line { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; padding: 1rem 0; min-width: 0; }
+.purchase-line legend { color: var(--accent); font-weight: 700; padding: 0 .5rem 0 0; }
+.purchases button { min-height: 48px; border-radius: 6px; padding: .65rem 1rem; font-weight: 650; }
+.purchases .secondary { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+.remove-line { margin-top: 1rem; }
+.notes-label { margin: 1.8rem 0; }
+.purchases .primary { background: var(--accent); color: #242824; border: 0; width: 100%; margin-top: 1rem; }
+.purchases button:not(:disabled):active { transform: translateY(1px); }
+.purchases .error { color: var(--error); }
+#purchase-preview { border-top: 1px solid var(--line); padding-top: 1rem; color: var(--accent); font-weight: 650; }
+#purchase-feedback { color: var(--accent); min-height: 1.5em; }
+.saved section + section { margin-top: 3.5rem; }
+.saved-item { border-top: 1px solid var(--line); padding: 1rem 0; }
+.saved-item h3 { font-size: 1rem; margin: 0 0 .4rem; }
+.saved-item p { color: var(--muted); margin: .35rem 0; font-size: .88rem; }
+.saved-item ul { padding-left: 1.25rem; margin: .7rem 0; font-size: .88rem; }
+.saved-item li { margin-bottom: .5rem; }
+.saved-item .total { color: var(--accent); font-weight: 700; }
+@media (max-width: 900px) { .purchase-grid { grid-template-columns: 1fr; } .purchase-intro { gap: 1.5rem; } }
+@media (max-width: 600px) { .purchase-intro, .purchase-fields { grid-template-columns: 1fr; } .purchase-intro h1 { font-size: 2.15rem; } .purchase-top { padding: .7rem 1.25rem; } }

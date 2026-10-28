@@ -1,0 +1,5 @@
+# Purchase browser-test readiness
+
+The shared `waitForPurchaseReady(page)` helper is test-only. After navigating to purchases, tests wait for the public page to leave its inert admission state, display the account navigation, and enable Save after the remote purchase/spool reads. They then type and assert the original validation, denial, committed-write, inventory, and quote behavior.
+
+The controlled current-browser probe showed that filling the supplier while `main.inert` was true returned without retaining its value; after the held initial read was released and the page became ready, filling retained the value. The existing full browser run had five purchase-related Chromium failures. This supports a preparation fix, not a claim about which auth event occurred or a production regression. The baseline runtime probe did not run because Vite's intentional `.cache` deny blocked its parked worktree; baseline behavior remains unverified. Read-denial cases intentionally do not wait for Save to become enabled.

@@ -1,0 +1,50 @@
+@scope (:root:has(.auth-shell)) {
+:root { color-scheme: dark; --bg: #202321; --panel: #292d2a; --line: #454a45; --text: #f2f0e8; --muted: #b9beb8; --accent: #dcb98c; --error: #ffd2c8; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.45; }
+button, input { font: inherit; }
+a { color: var(--accent); }
+button { cursor: pointer; min-height: 44px; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+[hidden] { display: none !important; }
+.auth-top { min-height: 56px; padding: 8px max(20px, calc((100vw - 1050px) / 2)); display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); color: var(--muted); }
+.brand { color: var(--text); text-decoration: none; font-size: 21px; font-weight: 800; letter-spacing: -.06em; }
+.brand span { color: var(--accent); }
+.auth-top nav { display: flex; align-items: center; gap: 18px; }
+.auth-shell { max-width: 520px; margin: min(13vh, 120px) auto 40px; padding: 0 20px; }
+.users-shell { max-width: 930px; margin-top: 48px; }
+.auth-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: clamp(20px, 5vw, 38px); margin-bottom: 18px; }
+.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .1em; color: var(--accent); }
+h1 { font-size: clamp(27px, 5vw, 38px); line-height: 1.16; letter-spacing: -.035em; margin: 12px 0; }
+h2 { font-size: 19px; margin: 0 0 16px; }
+.subtle, #login-status, #users-status, .member span { color: var(--muted); }
+#login-error, #users-error { color: var(--error); }
+form { display: grid; gap: 14px; }
+label { display: grid; gap: 6px; font-weight: 600; }
+input { width: 100%; min-height: 44px; border: 1px solid #666e65; border-radius: 6px; background: #303531; color: var(--text); padding: 9px 12px; }
+.primary, .secondary { border-radius: 6px; padding: 9px 16px; font-weight: 700; }
+.primary { width: 100%; background: var(--accent); color: #242824; border: 0; }
+.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.primary:not(:disabled):active, .secondary:not(:disabled):active { transform: scale(.97); }
+.text-button { background: transparent; color: var(--accent); border: 0; }
+details { margin-top: 18px; }
+summary { cursor: pointer; color: var(--accent); padding: 12px 0; }
+#denied-actions { border-left: 3px solid var(--accent); padding: 2px 0 8px 18px; }
+.users-heading { margin-bottom: 22px; }
+.member { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 14px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.member > div { display: grid; gap: 3px; min-width: 0; }
+.member .secondary { flex-shrink: 0; }
+.request-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.audit-entry { display: grid; gap: 3px; padding: 14px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.audit-entry span { color: var(--muted); }
+#audit-more { margin-top: 18px; }
+@media (max-width: 560px) { .member { align-items: flex-start; flex-direction: column; } .auth-top nav { gap: 8px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+}
+.access-banner { background: #303531; color: #ffd2c8; padding: 12px 20px; text-align: center; }
+.account-nav { display: inline-flex; align-items: center; gap: 12px; margin-inline-start: auto; font-size: 12px; }
+.account-nav span { overflow: hidden; text-overflow: ellipsis; max-width: 180px; white-space: nowrap; }
+.account-nav a { color: inherit; }
+.account-nav button { background: transparent; color: inherit; border: 1px solid currentColor; border-radius: 4px; padding: 5px 10px; cursor: pointer; }
+@media (max-width: 720px) { .account-nav span { display: none; } }

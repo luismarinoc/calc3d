@@ -18,6 +18,16 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - name: Expose PostgreSQL server tools
+        run: |
+          for initdb in /usr/lib/postgresql/*/bin/initdb; do
+            if [ -x "$initdb" ] && [ -x "${initdb%/initdb}/pg_ctl" ]; then
+              printf '%s\n' "${initdb%/initdb}" >> "$GITHUB_PATH"
+              exit 0
+            fi
+          done
+          echo 'PostgreSQL server tools (initdb and pg_ctl) are required' >&2
+          exit 1
       - run: npm test
   browser-tests:
     name: Browser tests

@@ -6,45 +6,69 @@
   <meta name="theme-color" content="#202321">
   <title>Calc3D · Calculadora de impresión 3D</title>
   <link rel="stylesheet" href="./src/styles.css">
+  <link rel="stylesheet" href="./src/ui/brand-profile-picker.css">
+  <link rel="stylesheet" href="./src/auth.css">
   <script type="module" src="./src/app.mjs"></script>
 </head>
 <body>
-  <header class="topbar"><a class="brand" href="#inicio">calc<span>3D</span></a><span>Estudio de costos · Chile</span></header>
+  <header class="topbar"><a class="brand" href="#inicio">calc<span>3D</span></a><a href="./purchases.html">Compras e inventario de prueba</a><a href="./settings.html">Configuración · Bobinas e impresoras</a><span>Estudio de costos · Chile</span></header>
   <main id="inicio" class="shell">
-    <div class="intro"><p class="eyebrow">TALLER / ESTIMACIÓN</p><h1>Calcula con claridad.<br><em>Decide qué guardar.</em></h1><p>Simula el costo de una impresión y, si es una venta, su precio. Nada se registra hasta que presiones Guardar.</p></div>
-    <p class="notice" role="note">Prototipo: datos de prueba guardados solo en este navegador; sin base de datos ni usuarios reales. No registra compras ni descuenta inventario.</p>
-    <div class="workspace">
+    <div class="intro"><h1>Calculadora de impresión 3D</h1><p>Estimación en vivo. Solo Guardar registra una copia.</p></div>
+    <div class="tabs" role="tablist" aria-label="Vistas de la calculadora">
+      <button id="calculator-tab" type="button" role="tab" aria-controls="calculator-panel" aria-selected="true" tabindex="0">Calculadora</button>
+      <button id="history-tab" type="button" role="tab" aria-controls="history-panel" aria-selected="false" tabindex="-1">Historial</button>
+    </div>
+    <div id="calculator-panel" role="tabpanel" aria-labelledby="calculator-tab" class="workspace">
       <form id="quote-form" novalidate>
+        <input id="calculationMode" name="calculationMode" type="hidden" value="reference">
+        <div id="legacy-notice" class="historical-notice" role="note" hidden>
+          <p>Esta copia usa el cálculo histórico en CLP enteros. Editarla no cambia el registro guardado.</p>
+          <button id="start-current" type="button">Iniciar cálculo actual</button>
+        </div>
+        <div class="material-column">
         <section aria-labelledby="work-heading"><div class="section-head"><span>01 / Trabajo</span><h2 id="work-heading">Punto de partida</h2></div>
           <div class="fields"><label class="wide" for="title">Nombre del trabajo<input id="title" name="title" type="text" maxlength="120" required value="Soporte de escritorio · ejemplo"></label>
-          <label for="purpose">Propósito<select id="purpose" name="purpose"><option value="sale">Venta</option><option value="internal">Uso interno / personal</option></select></label>
-          <p class="hint wide">El trabajo familiar o de regalo requiere definir su política de cobro; todavía no está disponible.</p></div>
+          <div class="row-pair purpose-pair"><label for="purpose">Propósito<select id="purpose" name="purpose" aria-describedby="work-help"><option value="sale">Venta</option><option value="internal">Uso interno / personal</option><option value="gift">Regalo</option></select></label>
+          <div id="client-details" class="client-details"><button id="client-toggle" type="button" aria-expanded="false" aria-controls="client-fields">Datos del cliente (opcional)</button><div id="client-fields" class="client-fields" hidden>
+            <label for="client-name">Cliente o empresa<input id="client-name" type="text" maxlength="120" autocomplete="organization"></label>
+            <label for="client-phone">Teléfono<input id="client-phone" type="tel" maxlength="30" autocomplete="tel" placeholder="+56 9 1234 5678"></label>
+            <label for="client-email">Correo<input id="client-email" type="email" maxlength="254" autocomplete="email" placeholder="nombre@ejemplo.cl"></label>
+            <small>Opcionales; se guardan solo al pulsar Guardar. Teléfono como texto.</small>
+          </div></div></div>
+          <p class="hint wide work-help" id="work-help">Opcionales vacíos = cero. Regalo no es venta; cobro familiar sin definir.</p></div>
         </section>
-        <section aria-labelledby="material-heading"><div class="section-head"><span>02 / Material</span><h2 id="material-heading">Bobina y consumo</h2></div>
-          <div class="fields"><label class="wide" for="spoolId">Bobina ficticia de ejemplo<select id="spoolId" name="spoolId"></select></label>
-          <label for="purchasePrice">Precio de compra · CLP<input id="purchasePrice" name="purchasePrice" type="number" inputmode="decimal" min="0" step="any" required></label>
-          <label for="netWeightGrams">Peso neto · g<input id="netWeightGrams" name="netWeightGrams" type="number" inputmode="decimal" min="0.001" step="any" required></label>
-          <label class="wide" for="grams">Gramos consumidos · g<input id="grams" name="grams" type="number" inputmode="decimal" min="0" step="any" required value="74"><small>Incluye soportes, purga y desperdicio estimado.</small></label></div>
+        <section aria-labelledby="material-heading"><div class="fields"><div class="material-start"><div class="section-head"><span>02 / Material</span><h2 id="material-heading">Bobina y consumo</h2></div>
+          <label class="wide" for="spoolId">Bobina de prueba</label><div class="spool-picker calculator-spool-picker"><select id="spoolId" name="spoolId" aria-describedby="spool-info"></select></div></div>
+          <p class="hint wide" id="spool-info" aria-live="polite"></p>
+          <p class="error wide" id="purchase-catalog-error" role="status" hidden>Las compras de prueba no se pueden leer; no se modificaron sus datos. <a href="./purchases.html">Revisar compras</a></p>
+          <label class="wide" for="grams">Gramos consumidos · g<input id="grams" name="grams" type="number" inputmode="decimal" min="0" step="any" required value="74" aria-describedby="grams-note"></label><small class="grams-help" id="grams-note">Incluye soportes, purga y desperdicio estimado.</small></div>
         </section>
+        </div>
         <section aria-labelledby="machine-heading"><div class="section-head"><span>03 / Producción</span><h2 id="machine-heading">Tiempo y energía</h2></div>
-          <div class="fields"><label for="hours">Horas<input id="hours" name="hours" type="number" inputmode="numeric" min="0" step="1" required value="3"></label>
-          <label for="minutes">Minutos · 0–59<input id="minutes" name="minutes" type="number" inputmode="numeric" min="0" max="59" step="1" required value="25"></label>
-          <label for="watts">Potencia estimada · W<input id="watts" name="watts" type="number" inputmode="decimal" min="0" step="any" required value="145"></label>
-          <label for="electricityPricePerKwh">Tarifa eléctrica · CLP/kWh<input id="electricityPricePerKwh" name="electricityPricePerKwh" type="number" inputmode="decimal" min="0" step="any" required value="215"></label></div>
-          <details><summary>Agregar otros costos de producción</summary><div class="fields detail-fields">
-            <label for="depreciationPerHour">Depreciación · CLP/h<input id="depreciationPerHour" name="depreciationPerHour" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
-            <label for="maintenancePerHour">Mantención · CLP/h<input id="maintenancePerHour" name="maintenancePerHour" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
-            <label for="laborMinutes">Tiempo de trabajo · min<input id="laborMinutes" name="laborMinutes" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
-            <label for="laborRatePerHour">Tarifa de trabajo · CLP/h<input id="laborRatePerHour" name="laborRatePerHour" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
-            <label class="wide" for="extraProductionCost">Otros costos de producción · CLP<input id="extraProductionCost" name="extraProductionCost" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
-          </div></details>
+          <div class="fields"><div class="row-pair time-pair"><label for="hours">Horas<input id="hours" name="hours" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="3"></label>
+          <label for="minutes">Minutos · 0–59<input id="minutes" name="minutes" type="number" inputmode="numeric" min="0" max="59" step="1" placeholder="0" value="25"></label></div>
+          <label class="wide" for="printerProfile">Impresora instalada<select id="printerProfile" name="printerProfile" aria-describedby="profile-note"></select></label><small id="profile-note" class="printer-help">Selecciona otra impresora para esta copia o <a href="./settings.html">configura una impresora</a>.</small>
+          <span id="printer-name-current" hidden></span>
+          <input id="watts" name="watts" type="hidden" value="130"><input id="electricityPricePerKwh" name="electricityPricePerKwh" type="hidden" value="215"></div>
+          <div id="reference-expenses" class="fields reference-fields"><input id="replacementCost" name="replacementCost" type="hidden" value="220000"><input id="replacementLifetimeHours" name="replacementLifetimeHours" type="hidden" value="4320">
+            <label class="wide" for="errorPercent">Imprevistos · % de material, electricidad y desgaste<input id="errorPercent" name="errorPercent" type="number" inputmode="decimal" min="0" step="any" value="5"></label></div>
+          <!-- Retain historical component values without exposing obsolete draft controls. -->
+          <div id="legacy-depreciation" hidden><input id="depreciationPerHour" name="depreciationPerHour" type="hidden" value=""></div>
+          <input id="maintenancePerHour" name="maintenancePerHour" type="hidden" value="">
+          <input id="laborMinutes" name="laborMinutes" type="hidden" value="">
+          <input id="laborRatePerHour" name="laborRatePerHour" type="hidden" value="">
+          <div class="fields detail-fields production-extras">
+            <label class="wide" for="extraProductionCost">Otros costos de producción · CLP<input id="extraProductionCost" name="extraProductionCost" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
+          </div>
         </section>
-        <fieldset id="commercial"><legend>04 / Precio de venta</legend><p class="hint">Ganancia sobre costo (markup), no margen. Descuento y recargo porcentuales se calculan por separado sobre el precio base.</p>
-          <div class="fields"><label class="wide" for="markupPercent">Ganancia sobre costo · %<input id="markupPercent" name="markupPercent" type="number" inputmode="decimal" min="0" step="any" value="35"></label>
-          <label for="discountType">Descuento · tipo<select id="discountType" name="discountType"><option value="percent">Porcentaje (%)</option><option value="amount">Monto (CLP)</option></select></label>
-          <label for="discountValue">Descuento · valor<input id="discountValue" name="discountValue" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
-          <label for="surchargeType">Recargo · tipo<select id="surchargeType" name="surchargeType"><option value="percent">Porcentaje (%)</option><option value="amount">Monto (CLP)</option></select></label>
-          <label for="surchargeValue">Recargo · valor<input id="surchargeValue" name="surchargeValue" type="number" inputmode="decimal" min="0" step="any" value="0"></label></div>
+        <fieldset id="commercial"><legend>04 / Precio de venta</legend><p class="hint commercial-help" id="commercial-help">Multiplicador del costo, no margen. En el cálculo anterior se usa ganancia sobre costo (%). Descuento y recargo porcentuales se calculan por separado sobre el precio base.</p>
+          <div class="fields"><label class="wide" id="reference-multiplier" for="multiplierPreset">Multiplicador de venta<select id="multiplierPreset" name="multiplierPreset" aria-describedby="commercial-help"><option value="2">×2</option><option value="2.5">×2.5</option><option value="3">×3</option><option value="3.5">×3.5</option><option value="4">×4</option><option value="5">×5</option><option value="custom">Personalizado</option></select></label>
+          <label class="wide" id="custom-multiplier" for="customMultiplier" hidden>Multiplicador personalizado<input id="customMultiplier" name="customMultiplier" type="number" inputmode="decimal" min="0.001" step="any" value="2"></label>
+          <label class="wide" id="legacy-markup" for="markupPercent">Ganancia sobre costo · %<input id="markupPercent" name="markupPercent" type="number" inputmode="decimal" min="0" step="any" value="35"></label>
+          <div class="row-pair discount-pair"><label for="discountType">Descuento · tipo<select id="discountType" name="discountType" aria-describedby="commercial-help"><option value="percent">Porcentaje (%)</option><option value="amount">Monto (CLP)</option></select></label>
+          <label for="discountValue">Descuento · valor<input id="discountValue" name="discountValue" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label></div>
+          <div class="row-pair surcharge-pair"><label for="surchargeType">Recargo · tipo<select id="surchargeType" name="surchargeType" aria-describedby="commercial-help"><option value="percent">Porcentaje (%)</option><option value="amount">Monto (CLP)</option></select></label>
+          <label for="surchargeValue">Recargo · valor<input id="surchargeValue" name="surchargeValue" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label></div></div>
         </fieldset>
         <p id="internal-note" class="hint" hidden>Uso interno: sin precio de venta, ganancia ni ajustes comerciales. Los valores comerciales se reinician al cambiar de propósito.</p>
         <p id="form-error" class="error" role="alert" hidden></p>
@@ -54,7 +78,7 @@
         <div id="result-content" aria-live="polite"></div><p class="hint">Valores estimados en CLP. No incluye IVA ni representa venta realizada o consumo real.</p>
       </aside>
     </div>
-    <section class="history" aria-labelledby="history-heading"><div class="section-head"><span>REGISTROS LOCALES</span><h2 id="history-heading">Cálculos de prueba guardados</h2></div><p id="history-error" class="error" role="alert" hidden></p><div id="history-list"></div></section>
+    <section id="history-panel" role="tabpanel" aria-labelledby="history-tab" class="history" hidden><div class="section-head"><span>REGISTROS DE TU CUENTA</span><h2 id="history-heading">Cálculos de prueba guardados</h2></div><p id="history-error" class="error" role="alert" hidden></p><div id="history-list"></div></section>
   </main>
 </body>
 </html>

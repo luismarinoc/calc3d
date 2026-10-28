@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#202321">
+  <title>Calc3D · Usuarios</title>
+  <link rel="stylesheet" href="./src/users.css">
+  <script type="module" src="./src/users-app.mjs"></script>
+</head>
+<body class="users-page">
+<header class="users-topbar">
+  <a class="brand" href="./index.html">calc<span>3D</span></a>
+  <nav aria-label="Navegación principal"><a href="./index.html">Calculadora</a><button id="signout" class="text-button" type="button">Cerrar sesión</button></nav>
+</header>
+<main class="users-shell">
+  <header class="users-heading">
+    <p class="eyebrow">ADMINISTRACIÓN / ACCESO</p>
+    <h1>Usuarios</h1>
+    <p class="subtle">Administra quién puede entrar a Calc3D. Cada usuario accede solo a sus propios registros.</p>
+  </header>
+  <p id="users-status" role="status" aria-live="polite">Comprobando permisos…</p>
+  <p id="users-error" role="alert" hidden></p>
+  <div id="admin-content" hidden>
+    <section class="users-panel invite-panel" aria-labelledby="invite-heading">
+      <div class="section-head"><span>01 / NUEVO ACCESO</span><h2 id="invite-heading">Autorizar correo</h2></div>
+      <p id="invite-help" class="subtle">La persona podrá entrar con ese correo. No se envía un correo ni se crea una cuenta automáticamente.</p>
+      <form id="invite-form">
+        <label for="invited-email">Correo electrónico<input id="invited-email" name="email" type="email" maxlength="254" autocomplete="off" required placeholder="persona@ejemplo.cl" aria-describedby="invite-help"></label>
+        <button class="primary" type="submit">Autorizar usuario</button>
+      </form>
+    </section>
+    <div class="access-grid">
+      <section class="users-panel" aria-labelledby="members-heading">
+        <div class="section-head"><span>02 / USUARIOS</span><h2 id="members-heading">Usuarios autorizados</h2></div>
+        <p class="subtle">Activa o desactiva el acceso. No puedes desactivar tu propia cuenta.</p>
+        <div id="members-list" class="members-list"></div>
+      </section>
+      <section class="users-panel" aria-labelledby="requests-heading">
+        <div class="section-head"><span>03 / POR REVISAR</span><h2 id="requests-heading">Solicitudes de acceso</h2></div>
+        <p class="subtle">Revisa las cuentas que solicitaron entrar a Calc3D.</p>
+        <p id="requests-status" role="status" aria-live="polite">Cargando solicitudes…</p>
+        <p id="requests-error" role="alert" hidden></p>
+        <div id="requests-list" class="members-list"></div>
+      </section>
+    </div>
+    <section class="users-panel audit-panel" aria-labelledby="audit-heading">
+      <div class="section-head"><span>04 / HISTORIAL</span><h2 id="audit-heading">Auditoría</h2></div>
+      <p class="subtle">Decisiones de acceso y cambios confirmados durante los últimos 180 días.</p>
+      <details class="audit-help"><summary>Qué incluye este historial</summary><p class="subtle">No incluye fallos de Google, cada clic ni operaciones revertidas. IP y país solo aparecen si existe una fuente validada.</p></details>
+      <p id="audit-status" role="status" aria-live="polite">Cargando actividad…</p>
+      <p id="audit-error" role="alert" hidden></p>
+      <div id="audit-list" class="members-list"></div>
+      <button id="audit-more" class="secondary" type="button" hidden>Cargar más</button>
+    </section>
+  </div>
+</main>
+</body>
+</html>
