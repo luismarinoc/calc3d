@@ -8,6 +8,9 @@ test('S1-S3: save a presentation, reload, edit the same revision and retain cust
   remote.brands = [ownedBrand(remote, 'Marca propia')];
   await page.goto('/settings.html');
   await expect(page.getByRole('heading', { name: 'Bobinas' })).toBeVisible();
+  await expect(page.locator('main')).toHaveJSProperty('inert', false);
+  await expect(page.locator('.account-nav')).toBeVisible();
+  await expect(page.locator('#save-spool')).toBeEnabled();
   await expect(page.locator('#spool-purchasePrice')).toBeEmpty();
   await expect(page.locator('#spool-netWeightGrams')).toBeEmpty();
   await page.locator('#spool-name').fill('PLA 750 g');
