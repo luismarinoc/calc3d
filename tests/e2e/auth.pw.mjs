@@ -73,6 +73,27 @@ test('admin invitation/deactivation via authenticated RPC; cannot deactivate sel
   expect(calls).toEqual([['calc3d_invite_user', { invited_email: 'new@example.test' }], ['calc3d_set_user_active', { member_email: 'member@example.test', enabled: false }]]);
 });
 
+test('Users shares the calculator theme without scoped CSS and stays readable on narrow screens', async ({ page }) => {
+  mockApi(page);
+  await signIn(page);
+  await page.goto('/users.html');
+  await expect(page.locator('#admin-content')).toBeVisible();
+  const css = await page.locator('link[rel="stylesheet"]').evaluateAll(async links =>
+    (await Promise.all(links.map(link => fetch(link.href).then(response => response.text())))).join('\n'));
+  expect(css).not.toContain('@scope');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(32, 35, 33)');
+  await expect(page.getByRole('heading', { name: 'Usuarios', exact: true })).toHaveCSS('font-size', '21px');
+  await expect(page.getByRole('heading', { name: 'Usuarios autorizados', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Solicitudes de acceso', exact: true })).toBeVisible();
+  await expect(page.getByText('No se envía un correo ni se crea una cuenta automáticamente.')).toBeVisible();
+  const help = page.locator('.audit-help');
+  await expect(help).not.toHaveAttribute('open', '');
+  await help.locator('summary').click();
+  await expect(help.getByText(/No incluye fallos de Google/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: `test-results/users-${test.info().project.name}.png`, fullPage: true });
+});
+
 test('member cannot fetch or change Users list', async ({ page }) => {
   const calls = mockApi(page, { role: 'member' });
   await signIn(page);
