@@ -9,6 +9,10 @@
 
 Los valores son **precios públicos anunciados en CLP**, no importes efectivamente pagados. El peso corresponde al filamento neto verificado. Precios y disponibilidad pueden cambiar.
 
+## Colores del filamento
+
+El 29 de octubre de 2026 se completaron los nombres de color de las **71 presentaciones importadas**: 53 verificados en el campo Color de su ficha y 18 declarados explícitamente en el título del producto, siempre con coincidencia exacta de SKU. La lectura posterior confirmó los 71 colores y conservó precios, pesos, marcas, muestras existentes, las dos presentaciones personales y el historial. No se inventaron muestras HEX ni se agregaron productos. Recargá Configuración y pulsa **Editar seleccionada** para cargar el dato actualizado; la consulta de bobinas también lee los colores al abrirse.
+
 ## Cobertura y límites
 
 Se recorrieron las 30 páginas enlazadas y 1.145 fichas descubiertas. El recolector produjo 92 candidatas y 1.053 exclusiones por falta de stock, datos faltantes, accesorios, condiciones especiales u otros motivos que pueden superponerse. Recorrer todas las fichas no certifica compatibilidad de cada producto.
