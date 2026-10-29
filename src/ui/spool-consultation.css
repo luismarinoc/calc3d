@@ -17,5 +17,7 @@
 .consultation-row > div:first-child { overflow-wrap: anywhere; }
 .consultation-row span { color: var(--muted); }
 .consultation-prices { text-align: right; flex: none; }
+.consultation-product-link { display: inline-flex; align-items: center; justify-content: center; flex: none; min-height: 44px; padding: 8px 12px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); text-align: center; text-decoration: none; }
+.consultation-product-link:hover, .consultation-product-link:focus-visible { text-decoration: underline; }
 @media (max-width: 760px) { .consultation-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 480px) { #spool-consultation { width: 100%; height: 100dvh; max-height: 100dvh; max-width: 100%; margin: 0; border-radius: 0; padding: 20px 16px; } .consultation-controls { grid-template-columns: 1fr 1fr; } .consultation-controls label:first-child { grid-column: 1 / -1; } .consultation-head { flex-wrap: wrap; } .consultation-row { align-items: start; } .consultation-prices { white-space: nowrap; } }
+@media (max-width: 480px) { #spool-consultation { width: 100%; height: 100dvh; max-height: 100dvh; max-width: 100%; margin: 0; border-radius: 0; padding: 20px 16px; } .consultation-controls { grid-template-columns: 1fr 1fr; } .consultation-controls label:first-child { grid-column: 1 / -1; } .consultation-head { flex-wrap: wrap; } .consultation-row { align-items: start; } .consultation-prices { white-space: nowrap; } .consultation-row { flex-wrap: wrap; } .consultation-product-link { width: 100%; } }

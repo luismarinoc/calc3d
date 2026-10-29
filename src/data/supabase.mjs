@@ -31,6 +31,10 @@ const validProfileId = value => typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const invalidProfile = () => { throw new Error('Respuesta remota inválida del perfil de bobina.'); };
 const CONTROL_PROFILE = /[\p{Cc}\p{Cf}]/u;
+// The DB constraint is authoritative; omit malformed remote metadata rather than rendering a destination.
+const OFFICIAL_PRODUCT = /^https:\/\/www\.todotoner\.cl\/impresoras\/impresoras-3d\/filamentos\/[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*\/?$/;
+const safeSourceUrl = value => typeof value === 'string' && value.length <= 2048 &&
+  value === value.trim() && !CONTROL_PROFILE.test(value) && OFFICIAL_PRODUCT.test(value);
 const archiveTime = row => {
   const time = row.archived_at === undefined ? null : row.archived_at;
   if (time !== null && (typeof time !== 'string' || !Number.isFinite(Date.parse(time)))) {
@@ -68,6 +72,7 @@ const profile = row => {
       (typeof filamentColorHex !== 'string' || !/^#[0-9A-F]{6}$/.test(filamentColorHex))) ||
       (!filamentColor && filamentColorHex)) invalidProfile();
   return { id: row.id, ...data, brandId, filamentColor, filamentColorHex,
+    ...(safeSourceUrl(row.source_url) ? { sourceUrl: row.source_url } : {}),
     revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at, archivedAt: archiveTime(row) };
 };
 
@@ -217,7 +222,7 @@ export function createRemoteRepositories(client, session, accessService = create
   const spoolProfiles = {
     async list() {
       return copy((await read('calc3d_spool_profiles',
-        'id,name,material,brand,brand_id,filament_color,filament_color_hex,purchase_price,net_weight_grams,revision,created_at,updated_at,archived_at')).map(profile));
+        'id,name,material,brand,brand_id,filament_color,filament_color_hex,source_url,purchase_price,net_weight_grams,revision,created_at,updated_at,archived_at')).map(profile));
     },
     async createProfile(input) {
       const payload = validateSpoolProfile(input);
