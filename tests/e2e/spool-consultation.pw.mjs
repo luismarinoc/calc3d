@@ -9,6 +9,48 @@ const profile = (remote, id, name, material, brandId, price, weight, color = '')
   revision: 1, created_at: stamp, updated_at: stamp });
 const ids = ['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'];
 
+test('verified product link opens exact supplier page in new tab without changing consultation, draft or account data', async ({ page, remote }) => {
+  const url = 'https://www.todotoner.cl/impresoras/impresoras-3d/filamentos/tpu-1kg-negro';
+  remote.profiles = [ { ...profile(remote, ids[0], 'TPU Negro', 'TPU', null, 12000, 1000), source_url: url },
+    profile(remote, ids[1], 'Sin enlace', 'PLA', null, 9000, 500) ];
+  await page.context().route('https://www.todotoner.cl/**', route => route.fulfill({ status: 200, body: '<title>Producto verificado</title>', contentType: 'text/html' }));
+  await page.goto('/settings.html');
+  await expect(page.locator('#save-spool')).toBeEnabled();
+  await page.locator('#spool-name').fill('Borrador sin cambios');
+  const before = await remoteRows(page, 'spool_profiles');
+  const writes = () => remote.calls.filter(call => /\/rpc\/calc3d_(save|archive)/.test(call.pathname));
+  const count = writes().length;
+  await page.getByRole('button', { name: 'Consultar bobinas' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Consultar bobinas' });
+  const link = dialog.getByRole('link', { name: 'Ver producto: TPU Negro' });
+  await expect(link).toHaveAttribute('href', url);
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(dialog.locator('.consultation-row').filter({ hasText: 'Sin enlace' }).getByRole('link')).toHaveCount(0);
+  const popupPromise = page.waitForEvent('popup');
+  await link.click();
+  const popup = await popupPromise;
+  await expect(popup).toHaveURL(url);
+  await expect(page).toHaveURL(/\/settings.html$/);
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('#spool-name')).toHaveValue('Borrador sin cambios');
+  expect(await remoteRows(page, 'spool_profiles')).toEqual(before);
+  expect(writes()).toHaveLength(count);
+  await popup.close();
+  remote.user = { ...remote.user, id: '22222222-2222-4222-8222-222222222222', email: 'second@example.test' };
+  const error = await page.evaluate(async () => {
+    const { client } = await import('/src/auth/browser.mjs');
+    return (await client.auth.signInWithPassword({ email: 'second@example.test', password: 'fake-password' })).error?.message ?? null;
+  });
+  expect(error).toBeNull();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.locator('#spool-consultation a[href]')).toHaveCount(0);
+  await expect(page.locator('#save-spool')).toBeEnabled();
+  await page.getByRole('button', { name: 'Consultar bobinas' }).click();
+  await expect(dialog.getByText('Todavía no hay bobinas guardadas.')).toBeVisible();
+  await expect(dialog.getByRole('link')).toHaveCount(0);
+});
+
 test('consultation searches and compares saved prices locally without changing the draft or records', async ({ page, remote }, testInfo) => {
   remote.brands = [brand(remote, ids[0], 'Marca Uno'), brand(remote, ids[1], 'Marca Dos')];
   remote.profiles = [profile(remote, ids[0], 'Seda 500 g', 'PLA', ids[0], 9000, 500, 'Azul'),

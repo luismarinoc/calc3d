@@ -4,6 +4,10 @@ En **Configuración → Marcas**, usa «Nueva marca» o selecciona «Marca guard
 
 Las listas de Configuración y Calculadora muestran el nombre y color **actuales de la marca** (indicador redondo) y el nombre de filamento con muestra opcional (indicador cuadrado). Una marca heredada sin color configurado muestra un indicador neutro. Primero se busca el ID de marca asociado; para perfiles heredados sin asociación y compras se comparan alias normalizados dentro de la cuenta. Consultar las listas no escribe perfiles, compras ni cotizaciones. Los importes y textos históricos guardados no cambian con los nombres actuales. Un conflicto de revisión pide recargar antes de guardar otra vez.
 
+## Paleta actual del catálogo
+
+El 29 de octubre de 2026 se asignaron **10 colores diferentes a las 10 marcas existentes** de la cuenta del catálogo. Son identificadores visuales de la aplicación, no una declaración de colores oficiales de los fabricantes. La comprobación posterior confirmó que no se repiten y conservó nombres, IDs, alias, bobinas, precios y registros históricos. El color de marca sigue siendo independiente del nombre y de la muestra del filamento.
+
 ## Contrato técnico
 
 A brand is an owner-scoped identity with a stable UUID, editable name and representative color. T2 relates profiles to that identity and adds independent filament names and optional samples. Purchases, quotes and counters retain their original snapshots.

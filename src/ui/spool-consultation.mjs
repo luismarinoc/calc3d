@@ -55,6 +55,16 @@ export function createSpoolConsultation() {
       perKg.textContent = `CLP ${clp.format(item.purchasePrice * 1000 / item.netWeightGrams)}/kg`;
       prices.append(purchase, perKg);
       row.append(details, prices);
+      if (item.sourceUrl) {
+        const link = document.createElement('a');
+        link.className = 'consultation-product-link';
+        link.href = item.sourceUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'Ver producto';
+        link.setAttribute('aria-label', `Ver producto: ${item.name}`);
+        row.append(link);
+      }
       list.append(row);
     }
   }
