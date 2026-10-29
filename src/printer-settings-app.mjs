@@ -4,6 +4,7 @@ import { demoPrinter } from './domain/printer-settings.mjs';
 import { printerProfiles, customPrinter } from './ui/printer-profiles.mjs';
 import { createSpoolSettings } from './ui/spool-settings.mjs';
 import { createBrandSettings } from './ui/brand-settings.mjs';
+import { createSpoolConsultation } from './ui/spool-consultation.mjs';
 
 let repository;
 let state = null;
@@ -15,6 +16,7 @@ const form = document.querySelector('#printer-form');
 const feedback = document.querySelector('#settings-feedback');
 const failure = document.querySelector('#settings-error');
 const spoolSettings = createSpoolSettings();
+const spoolConsultation = createSpoolConsultation();
 const brandSettings = createBrandSettings(brands => spoolSettings.setBrands(brands));
 const model = form.elements.namedItem('modelId');
 for (const profile of printerProfiles) model.add(new Option(profile.name, profile.id));
@@ -115,10 +117,11 @@ window.addEventListener('pageshow', (event) => {
 showState();
 await protectPage({ onClear: () => {
   repository = null; state = null; editing = null; pending = false; form.reset(); feedback.textContent = '';
-  failure.textContent = 'Comprobando acceso remoto…'; showState(); spoolSettings.clear(); brandSettings.clear();
+  failure.textContent = 'Comprobando acceso remoto…'; showState(); spoolConsultation.clear(); spoolSettings.clear(); brandSettings.clear();
 }, onReady: async ({ client, session }, isCurrent) => {
   const source = createRemoteRepositories(client, session);
   repository = source;
+  spoolConsultation.connect(source, isCurrent);
   await Promise.all([brandSettings.load(source, isCurrent), spoolSettings.load(source, session, isCurrent), (async () => {
     try {
       const loaded = await source.printers.load();
