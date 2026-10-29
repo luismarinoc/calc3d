@@ -1,0 +1,21 @@
+.consultation-intro { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+#open-spool-consultation, #close-spool-consultation { min-height: 44px; padding: 8px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; color: var(--text); cursor: pointer; }
+#open-spool-consultation:disabled { opacity: .55; cursor: default; }
+#spool-consultation { box-sizing: border-box; width: min(920px, calc(100% - 32px)); max-height: calc(100dvh - 40px); padding: 24px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text); }
+#spool-consultation::backdrop { background: rgba(0, 0, 0, .65); }
+.consultation-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.consultation-head h2 { margin: 0; }
+.consultation-head p { margin: 8px 0 20px; color: var(--muted); }
+.consultation-head button { flex: none; }
+.consultation-controls { display: grid; grid-template-columns: minmax(180px, 2fr) repeat(3, minmax(120px, 1fr)); gap: 12px; }
+.consultation-controls label { min-width: 0; }
+.consultation-controls input, .consultation-controls select { width: 100%; }
+#consultation-status { min-height: 1.4em; margin: 20px 0 8px; color: var(--muted); }
+.consultation-list { list-style: none; padding: 0; margin: 0; }
+.consultation-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); }
+.consultation-row > div { display: grid; gap: 5px; min-width: 0; }
+.consultation-row > div:first-child { overflow-wrap: anywhere; }
+.consultation-row span { color: var(--muted); }
+.consultation-prices { text-align: right; flex: none; }
+@media (max-width: 760px) { .consultation-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { #spool-consultation { width: 100%; height: 100dvh; max-height: 100dvh; max-width: 100%; margin: 0; border-radius: 0; padding: 20px 16px; } .consultation-controls { grid-template-columns: 1fr 1fr; } .consultation-controls label:first-child { grid-column: 1 / -1; } .consultation-head { flex-wrap: wrap; } .consultation-row { align-items: start; } .consultation-prices { white-space: nowrap; } }
