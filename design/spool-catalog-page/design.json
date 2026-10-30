@@ -1,0 +1,28 @@
+{
+  "title": "Consultar bobinas en una página",
+  "brief": "Página propia con búsqueda instantánea por coincidencia parcial (LU), sin quitar marca/material/orden. Preservar formularios, datos y referencias pendientes.",
+  "feature": "odd/tasks/todotoner-complete-filaments.md",
+  "artboards": [
+    {
+      "file": "01-search-first.html",
+      "title": "Búsqueda al frente",
+      "tradeoff": "Búsqueda amplia y filtros horizontales. Comparación rápida y adaptación a celular.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "02-filter-workspace.html",
+      "title": "Filtros a un lado",
+      "tradeoff": "Filtros siempre visibles junto a los resultados. Más control, menos ancho para comparar.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "03-brand-groups.html",
+      "title": "Agrupado por marca",
+      "tradeoff": "Exploración por marca con búsqueda global. Más contexto, menos densidad comparativa.",
+      "width": 1440,
+      "height": 1000
+    }
+  ]
+}
