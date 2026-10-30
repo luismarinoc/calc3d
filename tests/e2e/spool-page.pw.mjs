@@ -177,3 +177,80 @@ test('page remains usable without horizontal overflow and clear restores filters
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:testInfo.outputPath(`spool-page-${testInfo.project.name}.png`),fullPage:true});
 });
+
+
+test('material choices use base polymers without case or chemical-description duplicates', async ({page,remote}) => {
+  remote.profiles=[profile(remote,ids[0],'PETG claro','Petg',null,12000),
+    profile(remote,ids[1],'PETG oscuro','PETG (Polietileno Tereftalato Glicolado)',null,13000),
+    profile(remote,ids[2],'PLA mejorado','PLA+',null,14000)];
+  await page.goto('/spools.html');
+  await expect(page.locator('.consultation-row')).toHaveCount(3);
+  const material=page.getByRole('combobox',{name:'Material',exact:true});
+  await expect(material.locator('option')).toHaveText(['Todos los materiales','PETG','PLA']);
+  const before=JSON.stringify(remote.calls);
+  await material.selectOption('PETG');
+  await expect(page.locator('.consultation-row')).toHaveCount(2);
+  expect(JSON.stringify(remote.calls)).toBe(before);
+});
+
+function fillLargeCatalog(remote) {
+  const id=n=>n.toString(16).padStart(8,'0')+'-1111-4111-8111-111111111111';
+  remote.profiles=Array.from({length:1127},(_,i)=>profile(remote,id(i+1),
+    (i<874?'PLA Plus natural ':'PETG oscuro ')+i,i<874?'PLA':'PETG',null,10000+i,'Negro'));
+  remote.supplierReferences=Array.from({length:44},(_,i)=>({...pending(remote),id:id(i+5000),
+    name:'PETG pendiente '+i,material:'PETG',supplier_sku:'REF-'+i}));
+}
+
+test('large catalogs keep typing responsive and retain all matching rows', async ({page,remote}) => {
+  fillLargeCatalog(remote);
+  await page.addInitScript(()=>{
+    window.searchWork=[];window.largestPaint=0;let active=null;
+    const create=Document.prototype.createElement;
+    Document.prototype.createElement=function(...args){if(active)active.created++;return create.apply(this,args);};
+    const add=EventTarget.prototype.addEventListener;
+    EventTarget.prototype.addEventListener=function(type,callback,...rest){
+      if(type==='input'&&this.id==='consultation-search'&&typeof callback==='function'){
+        return add.call(this,type,function(...args){active={value:this.value,created:0};
+          try{return callback.apply(this,args);}finally{window.searchWork.push(active);active=null;}},...rest);
+      }
+      return add.call(this,type,callback,...rest);
+    };
+  });
+  await page.goto('/spools.html');
+  const rows=page.locator('.consultation-row');
+  await expect(rows).toHaveCount(1171);
+  await page.evaluate(()=>new MutationObserver(records=>{
+    const count=records.flatMap(r=>[...r.addedNodes]).filter(n=>n.matches?.('.consultation-row')).length;
+    window.largestPaint=Math.max(window.largestPaint,count);
+  }).observe(document.querySelector('#consultation-list'),{childList:true}));
+  const before=JSON.stringify([remote.calls,remote.profiles,remote.supplierReferences,remote.number]);
+  await page.getByRole('searchbox',{name:'Buscar bobinas'}).focus();
+  await page.keyboard.type('pla',{delay:20});
+  await expect(rows).toHaveCount(874);
+  const work=await page.evaluate(()=>window.searchWork);
+  expect(work.map(x=>x.value)).toEqual(['p','pl','pla']);
+  expect(work.every(x=>x.created===0)).toBe(true);
+  expect(await page.evaluate(()=>window.largestPaint)).toBeLessThanOrEqual(32);
+  expect(JSON.stringify([remote.calls,remote.profiles,remote.supplierReferences,remote.number])).toBe(before);
+  await page.getByRole('button',{name:'Limpiar filtros'}).click();
+  await expect(rows).toHaveCount(1171);
+});
+
+test('queued large result paints are discarded when the account changes', async ({page,remote}) => {
+  fillLargeCatalog(remote);
+  await page.goto('/spools.html');
+  await expect(page.locator('.consultation-row')).toHaveCount(1171);
+  await page.getByRole('searchbox',{name:'Buscar bobinas'}).fill('pla');
+  remote.user={...remote.user,id:'22222222-2222-4222-8222-222222222222',email:'second@example.test'};
+  await page.evaluate(async()=>{
+    const {client}=await import('/src/auth/browser.mjs');
+    await client.auth.signInWithPassword({email:'second@example.test',password:'fake-password'});
+  });
+  await expect(page.locator('#consultation-status')).toContainText('Todavía no hay');
+  await page.evaluate(()=>new Promise(resolve=>{
+    let frames=0;const next=()=>++frames===3?resolve():requestAnimationFrame(next);requestAnimationFrame(next);
+  }));
+  await expect(page.locator('.consultation-row')).toHaveCount(0);
+  await expect(page.locator('#consultation-list a')).toHaveCount(0);
+  await expect(page.locator('#consultation-color option')).toHaveCount(1);
+});
