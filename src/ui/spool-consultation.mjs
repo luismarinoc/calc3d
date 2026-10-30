@@ -33,7 +33,8 @@ export function createSpoolConsultation() {
       (!material.value || item.material === material.value) &&
       key([item.brand, item.material, item.name, item.filamentColor].join(' ')).includes(query));
     visible.sort((a, b) => {
-      const price = a.purchasePrice - b.purchasePrice;
+      const price = (a.kind === 'pending-reference' ? a.referencePriceClp ?? -1 : a.purchasePrice) -
+        (b.kind === 'pending-reference' ? b.referencePriceClp ?? -1 : b.purchasePrice);
       return (sort.value === 'price-asc' ? price : sort.value === 'price-desc' ? -price : 0) ||
         collator.compare(a.name, b.name) || collator.compare(a.id, b.id);
     });
@@ -45,14 +46,16 @@ export function createSpoolConsultation() {
       const title = document.createElement('strong');
       title.textContent = `${item.brand || 'Sin marca'} · ${item.name}`;
       const description = document.createElement('span');
-      description.textContent = `${item.material}${item.filamentColor ? ` · ${item.filamentColor}` : ''} · ${weight.format(item.netWeightGrams)} g`;
+      const pending = item.kind === 'pending-reference';
+      description.textContent = `${item.material}${item.filamentColor ? ` · ${item.filamentColor}` : ''} · ${pending ? 'Peso por confirmar' : `${weight.format(item.netWeightGrams)} g`}`;
       details.append(title, description);
       const prices = document.createElement('div');
       prices.className = 'consultation-prices';
       const purchase = document.createElement('strong');
-      purchase.textContent = `CLP ${clp.format(item.purchasePrice)}`;
+      purchase.textContent = pending ? (item.referencePriceClp === null ? 'Precio de referencia no disponible' :
+        `Referencia CLP ${clp.format(item.referencePriceClp)}`) : `CLP ${clp.format(item.purchasePrice)}`;
       const perKg = document.createElement('span');
-      perKg.textContent = `CLP ${clp.format(item.purchasePrice * 1000 / item.netWeightGrams)}/kg`;
+      perKg.textContent = pending ? 'No cotizable' : `CLP ${clp.format(item.purchasePrice * 1000 / item.netWeightGrams)}/kg`;
       prices.append(purchase, perKg);
       row.append(details, prices);
       if (item.sourceUrl) {
@@ -86,9 +89,10 @@ export function createSpoolConsultation() {
     items = []; error = false; loading = true;
     dialog.showModal(); search.focus(); render();
     try {
-      const [profiles, brands] = await Promise.all([current.spoolProfiles.list(), current.brands.list()]);
+      const [profiles, references, brands] = await Promise.all([
+        current.spoolProfiles.list(), current.supplierReferences.list(), current.brands.list()]);
       if (token !== generation || source !== current || !isCurrent()) return;
-      items = presentSpools(profiles.filter(profile => !profile.archivedAt), brands);
+      items = presentSpools([...profiles.filter(profile => !profile.archivedAt), ...references], brands);
       const usedBrands = [...new Set(items.map(item => item.brand).filter(Boolean))].sort(collator.compare);
       for (const name of usedBrands) brand.add(option(name, name));
       for (const name of [...new Set(items.map(item => item.material))].sort(collator.compare)) material.add(option(name, name));

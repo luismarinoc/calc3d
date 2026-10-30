@@ -9,6 +9,57 @@ const profile = (remote, id, name, material, brandId, price, weight, color = '')
   revision: 1, created_at: stamp, updated_at: stamp });
 const ids = ['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'];
 
+test('pending supplier reference remains visible but never supplies a cost or quote choice', async ({ page, remote }) => {
+  const url = 'https://www.todotoner.cl/impresoras/impresoras-3d/filamentos/pla-pendiente';
+  remote.supplierReferences = [{ id: ids[2], owner_id: remote.user.id, name: 'PLA Pendiente', material: 'PLA',
+    brand: 'Marca Uno', brand_id: null, filament_color: 'Azul', reference_price_clp: 11990,
+    source_url: url, supplier_sku: 'PEND-1', pending_reasons: ['Peso neto sin confirmar'],
+    provenance: { source: 'supplier' } }];
+  await page.goto('/settings.html');
+  await expect(page.locator('#save-spool')).toBeEnabled();
+  await page.getByRole('button', { name: 'Consultar bobinas' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Consultar bobinas' });
+  const row = dialog.locator('.consultation-row').filter({ hasText: 'PLA Pendiente' });
+  await expect(row).toContainText('Peso por confirmar');
+  await expect(row).toContainText('No cotizable');
+  await expect(row).toContainText('CLP 11.990');
+  await expect(row).not.toContainText('/kg');
+  await expect(row.getByRole('link')).toHaveAttribute('href', url);
+  await expect(dialog.locator('.consultation-row')).toHaveCount(1);
+  await expect(dialog.locator('#consultation-material option')).toContainText(['Todos los materiales', 'PLA']);
+  await expect(page.locator('#spool-profile option')).not.toContainText('PLA Pendiente');
+});
+
+test('pending read errors are visible and an owner switch clears pending rows and filters', async ({ page, remote }) => {
+  remote.supplierReferences = [{ id: ids[2], owner_id: remote.user.id, name: 'Solo primer dueño', material: 'PLA',
+    brand: 'Marca Antigua', brand_id: null, filament_color: '', reference_price_clp: null,
+    source_url: 'https://www.todotoner.cl/impresoras/impresoras-3d/filamentos/pla-pendiente',
+    supplier_sku: null, pending_reasons: ['Peso por confirmar'], provenance: { source: 'supplier' } }];
+  await page.goto('/settings.html');
+  await expect(page.locator('#save-spool')).toBeEnabled();
+  remote.fail = '/rest/v1/calc3d_supplier_references';
+  await page.getByRole('button', { name: 'Consultar bobinas' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Consultar bobinas' });
+  await expect(dialog.getByText('No se pudieron leer las bobinas. Cierra y vuelve a intentar.')).toBeVisible();
+  remote.fail = null;
+  await dialog.getByRole('button', { name: 'Cerrar consulta' }).click();
+  await page.getByRole('button', { name: 'Consultar bobinas' }).click();
+  await expect(dialog).toContainText('Solo primer dueño');
+  await dialog.getByLabel('Buscar bobinas').fill('Solo primer dueño');
+  remote.user = { ...remote.user, id: '22222222-2222-4222-8222-222222222222', email: 'second@example.test' };
+  const error = await page.evaluate(async () => {
+    const { client } = await import('/src/auth/browser.mjs');
+    return (await client.auth.signInWithPassword({ email: 'second@example.test', password: 'fake-password' })).error?.message ?? null;
+  });
+  expect(error).toBeNull();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.locator('#spool-consultation #consultation-search')).toHaveValue('');
+  await expect(page.locator('#spool-consultation #consultation-brand option')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Consultar bobinas' }).click();
+  await expect(dialog.getByText('Todavía no hay bobinas guardadas.')).toBeVisible();
+  await expect(dialog).not.toContainText('Solo primer dueño');
+});
+
 test('verified product link opens exact supplier page in new tab without changing consultation, draft or account data', async ({ page, remote }) => {
   const url = 'https://www.todotoner.cl/impresoras/impresoras-3d/filamentos/tpu-1kg-negro';
   remote.profiles = [ { ...profile(remote, ids[0], 'TPU Negro', 'TPU', null, 12000, 1000), source_url: url },
