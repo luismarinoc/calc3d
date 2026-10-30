@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "chosen": "01-search-first.html",
+  "handoffs": {
+    "01-search-first.html": {
+      "status": "implemented",
+      "queued": false,
+      "sentAt": "2026-10-30T14:05:35.154Z",
+      "startedAt": "2026-10-30T14:07:01.557Z",
+      "implementedAt": "2026-10-30T14:29:54.780Z",
+      "feature": "odd/tasks/todotoner-complete-filaments.md",
+      "note": "Página independiente spools.html implementada. LU filtra en vivo y combina marca/material/orden. 186 Node + build + 396 navegador aprobados; 12 layouts omitidos preexistentes. Revisión independiente desktop/phone aprobada. Formularios y cálculos sin cambios. Aún no publicada.",
+      "previewUrl": "http://127.0.0.1:5173/spools.html"
+    }
+  }
+}
