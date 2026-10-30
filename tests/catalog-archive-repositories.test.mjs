@@ -10,10 +10,16 @@ const profile = { id, name: 'PLA', material: 'PLA', brand: 'Acme', brand_id: id,
   filament_color: 'Azul', filament_color_hex: '#123456', purchase_price: 12000,
   net_weight_grams: 1000, revision: 2, archived_at: null, created_at: stamp, updated_at: stamp };
 function harness() {
-  let session = { user: { id } }, allowed = true, reply = null;
+  let session = { user: { id }, access_token: 'fixture-owner-token' }, allowed = true, reply = null;
   const calls = [];
   const client = { from: table => ({ select: columns => {
-    calls.push([table, columns]); return Promise.resolve({ data: [table === 'calc3d_brands' ? brand : profile], error: null });
+    calls.push([table, columns]);
+    const result = { data: [table === 'calc3d_brands' ? brand : profile],
+      ...(table === 'calc3d_spool_profiles' ? { count: 1 } : {}), error: null };
+    return { eq(column, value) { assert.equal(table, 'calc3d_spool_profiles');
+      assert.equal(column, 'owner_id'); assert.equal(value, id); return this; },
+    setHeader(name, value) { assert.equal(name, 'Authorization'); assert.equal(value, 'Bearer fixture-owner-token'); return this; },
+    then(resolve, reject) { return Promise.resolve(result).then(resolve, reject); } };
   } }), rpc: async (name, args) => { calls.push([name, args]); return { data: reply, error: null }; } };
   const repo = createRemoteRepositories(client, session, { requireAccess: async () => ({ session, access: { allowed } }) });
   return { repo, calls, respond: value => { reply = value; }, switchOwner: () => { session = { user: { id: '22222222-2222-4222-8222-222222222222' } }; }, deny: () => { allowed = false; } };

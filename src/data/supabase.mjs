@@ -110,6 +110,7 @@ export function createRemoteRepositories(client, session, accessService = create
     const result = await accessService.requireAccess();
     if (result.session?.user?.id !== owner) throw new Error('La cuenta cambió; vuelve a iniciar sesión.');
     if (!result.access?.allowed) throw new Error('Acceso denegado o desactivado. Vuelve a iniciar sesión.');
+    return result.session;
   }
   const read = async (table, columns, order) => {
     await guard();
@@ -221,8 +222,50 @@ export function createRemoteRepositories(client, session, accessService = create
   }
   const spoolProfiles = {
     async list() {
-      return copy((await read('calc3d_spool_profiles',
-        'id,name,material,brand,brand_id,filament_color,filament_color_hex,source_url,purchase_price,net_weight_grams,revision,created_at,updated_at,archived_at')).map(profile));
+      const columns = 'id,name,material,brand,brand_id,filament_color,filament_color_hex,source_url,purchase_price,net_weight_grams,revision,created_at,updated_at,archived_at';
+      const incomplete = () => { throw new Error('No se pudo cargar el catálogo completo de bobinas. Recarga e intenta nuevamente.'); };
+      const profileToken = async () => {
+        const token = (await guard())?.access_token;
+        if (typeof token !== 'string' || !token || /\s/u.test(token)) incomplete();
+        return token;
+      };
+      const firstToken = await profileToken();
+      const first = await client.from('calc3d_spool_profiles').select(columns, { count: 'exact' })
+        .eq('owner_id', owner).setHeader('Authorization', `Bearer ${firstToken}`);
+      await guard();
+      const data = rows(first);
+      const total = first.count;
+      if (!Number.isSafeInteger(total) || total < data.length ||
+          data.some(row => row?.owner_id !== undefined && row.owner_id !== owner)) incomplete();
+      if (total === data.length) return copy(data.map(profile));
+
+      // Keep the original server prefix/order; walk the entire owner-visible ID space to
+      // recover missing rows even when the un-ordered initial prefix has no known cursor.
+      const seen = new Set(data.map(row => row.id));
+      if (seen.size !== data.length) incomplete();
+      let cursor = null;
+      while (seen.size < total) {
+        const pageToken = await profileToken();
+        let query = client.from('calc3d_spool_profiles').select(columns).eq('owner_id', owner)
+          .order('id', { ascending: true }).limit(500).setHeader('Authorization', `Bearer ${pageToken}`);
+        if (cursor !== null) query = query.gt('id', cursor);
+        const response = await query;
+        await guard();
+        const page = rows(response);
+        if (!page.length) incomplete();
+        for (let i = 0; i < page.length; i++) {
+          if (!validProfileId(page[i]?.id) || (page[i].owner_id !== undefined && page[i].owner_id !== owner) ||
+              (i ? page[i].id <= page[i - 1].id :
+            cursor !== null && page[i].id <= cursor)) incomplete();
+        }
+        cursor = page.at(-1).id;
+        for (const row of page) if (!seen.has(row.id)) {
+          seen.add(row.id);
+          data.push(row);
+          if (seen.size > total) incomplete();
+        }
+      }
+      return copy(data.map(profile));
     },
     async createProfile(input) {
       const payload = validateSpoolProfile(input);

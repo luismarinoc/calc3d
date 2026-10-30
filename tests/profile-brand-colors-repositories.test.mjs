@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { validateSpoolProfile } from '../src/domain/spool-profiles.mjs';
 import { createRemoteRepositories } from '../src/data/supabase.mjs';
 
-const owner = { user: { id: '11111111-1111-4111-8111-111111111111' } };
+const owner = { user: { id: '11111111-1111-4111-8111-111111111111' }, access_token: 'fixture-owner-token' };
 const id = '22222222-2222-4222-8222-222222222222';
 const brandId = '33333333-3333-4333-8333-333333333333';
 const input = { name: 'PLA', material: 'PLA', brand: 'Legacy', purchasePrice: 12, netWeightGrams: 1000 };
@@ -13,7 +13,10 @@ const row = { id, name: 'PLA', material: 'PLA', brand: 'Legacy', brand_id: brand
 function harness() {
   let session = owner, allowed = true, response = row;
   const calls = [];
-  const client = { from: () => ({ select: columns => { calls.push(columns); return Promise.resolve({ data: [row], error: null }); } }),
+  const client = { from: () => ({ select: columns => { calls.push(columns);
+    return { eq(column, value) { assert.equal(column, 'owner_id'); assert.equal(value, owner.user.id); return this; },
+      setHeader(name, value) { assert.equal(name, 'Authorization'); assert.equal(value, 'Bearer fixture-owner-token'); return this; },
+      then(resolve, reject) { return Promise.resolve({ data: [row], count: 1, error: null }).then(resolve, reject); } }; } }),
     rpc: async (name, args) => { calls.push(args); return { data: response, error: null }; } };
   const access = { requireAccess: async () => ({ session, access: { allowed } }) };
   return { repo: createRemoteRepositories(client, owner, access), calls,

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRemoteRepositories } from '../src/data/supabase.mjs';
 
-const owner = { user: { id: '11111111-1111-4111-8111-111111111111' } };
+const owner = { user: { id: '11111111-1111-4111-8111-111111111111' }, access_token: 'fixture-owner-token' };
 function harness() {
   const calls = [];
   const responses = new Map();
@@ -106,7 +106,9 @@ function profileHarness() {
       assert.equal(table, 'calc3d_spool_profiles');
       return { select(columns) {
         calls.push([table, columns]);
-        return { then(resolve, reject) { const result = { data: stored, error: null }; afterCall(); return Promise.resolve(result).then(resolve, reject); } };
+        return { eq(column, value) { assert.equal(column, 'owner_id'); assert.equal(value, owner.user.id); return this; },
+          setHeader(name, value) { assert.equal(name, 'Authorization'); assert.equal(value, 'Bearer fixture-owner-token'); return this; },
+          then(resolve, reject) { const result = { data: stored, count: stored.length, error: null }; afterCall(); return Promise.resolve(result).then(resolve, reject); } };
       } };
     },
     async rpc(name, args) {
@@ -140,6 +142,165 @@ test('profile list maps selected columns, controlled numeric conversion and deta
     h.setStored([invalid]);
     await assert.rejects(h.repo.spoolProfiles.list(), /remota inválida/i);
   }
+});
+
+const catalogId = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+const catalogRow = n => ({ ...profileRow(), id: catalogId(n), name: `Filamento ${n}`, brand_id: owner.user.id,
+  filament_color: 'Azul', filament_color_hex: '#123456', source_url:
+    `https://www.todotoner.cl/impresoras/impresoras-3d/filamentos/filamento-${n}`,
+  archived_at: n === 2 ? '2026-01-03T00:00:00Z' : null, revision: n === 2 ? 4 : 1 });
+function cappedCatalog({ size = 1092, cap = 1000, onResponse = () => {}, page = () => null } = {}) {
+  const stored = Array.from({ length: size }, (_, n) => catalogRow(n + 1));
+  const calls = []; let session = owner; let writes = 0; let counter = 7;
+  const client = {
+    from(table) {
+      assert.equal(table, 'calc3d_spool_profiles');
+      return { select(columns, options) {
+        const query = { cursor: null, pageSize: null, ownerFilter: null, authorization: null,
+          setHeader(name, value) { assert.equal(name, 'Authorization'); this.authorization = value; return this; },
+          eq(column, value) { assert.equal(column, 'owner_id'); this.ownerFilter = value; return this; },
+          gt(column, value) { assert.equal(column, 'id'); this.cursor = value; return this; },
+          order(column, options) { assert.equal(column, 'id'); assert.deepEqual(options, { ascending: true }); return this; },
+          limit(value) { this.pageSize = value; return this; },
+          then(resolve, reject) {
+            calls.push({ columns, options, cursor: this.cursor, limit: this.pageSize, ownerFilter: this.ownerFilter,
+              authorization: this.authorization });
+            const setJWT = id => { session = id === owner.user.id ? owner :
+              { user: { id }, access_token: 'fixture-other-token' }; };
+            const effectiveOwner = this.authorization?.startsWith('Bearer fixture-owner-token') ? owner.user.id : session.user.id;
+            const result = page(this, calls.length, stored, setJWT, effectiveOwner) ??
+              (this.ownerFilter && effectiveOwner !== this.ownerFilter ? { data: [], count: 0, error: null } :
+                { data: (this.cursor ? stored.filter(row => row.id > this.cursor) : stored)
+                  .slice(0, Math.min(cap, this.pageSize ?? cap)), count: stored.length, error: null });
+            onResponse(calls.length, () => setJWT(catalogId(9000)), () => setJWT(owner.user.id),
+              () => { session = { ...owner, access_token: 'fixture-owner-token-rotated' }; });
+            return Promise.resolve(result).then(resolve, reject);
+          },
+        }; return query;
+      } };
+    },
+    rpc() { writes++; counter++; throw Error('unexpected write'); },
+  };
+  const access = { requireAccess: async () => ({ session, access: { allowed: true } }) };
+  return { repo: createRemoteRepositories(client, owner, access), stored, calls,
+    get writes() { return writes; }, get counter() { return counter; } };
+}
+
+test('capped public profile list returns every field and URL without duplicates or writes', async () => {
+  const h = cappedCatalog();
+  const result = await h.repo.spoolProfiles.list();
+  assert.equal(result.length, 1092);
+  assert.equal(new Set(result.map(row => row.id)).size, 1092);
+  assert.deepEqual(result.map(row => row.id), h.stored.map(row => row.id));
+  assert.deepEqual(result[1], { id: catalogId(2), name: 'Filamento 2', material: 'PLA+', brand: '',
+    brandId: owner.user.id, filamentColor: 'Azul', filamentColorHex: '#123456',
+    sourceUrl: h.stored[1].source_url, purchasePrice: 0, netWeightGrams: 0.5,
+    revision: 4, createdAt: h.stored[1].created_at, updatedAt: h.stored[1].updated_at,
+    archivedAt: h.stored[1].archived_at });
+  assert.equal(h.writes, 0); assert.equal(h.counter, 7);
+  assert.deepEqual(h.stored, Array.from({ length: 1092 }, (_, n) => catalogRow(n + 1)));
+});
+
+test('small profile list preserves server order, full projection and one query', async () => {
+  const h = cappedCatalog({ size: 3, page: (query, call, stored) =>
+    ({ data: [stored[2], stored[0], stored[1]], count: 3, error: null }) });
+  const result = await h.repo.spoolProfiles.list();
+  assert.deepEqual(result.map(row => row.id), [catalogId(3), catalogId(1), catalogId(2)]);
+  assert.equal(result[2].sourceUrl, h.stored[1].source_url);
+  assert.equal(result[2].archivedAt, h.stored[1].archived_at);
+  assert.equal(result[2].revision, 4);
+  assert.equal(h.calls.length, 1); assert.equal(h.writes, 0); assert.equal(h.counter, 7);
+  assert.equal(h.calls[0].ownerFilter, owner.user.id);
+});
+
+test('account switch after first protected response rejects before next page request', async () => {
+  const h = cappedCatalog({ onResponse: (call, switchOwner) => { if (call === 1) switchOwner(); } });
+  await assert.rejects(h.repo.spoolProfiles.list(), { message: 'La cuenta cambió; vuelve a iniciar sesión.' });
+  assert.equal(h.calls.length, 1); assert.equal(h.writes, 0); assert.equal(h.counter, 7);
+  assert.equal(h.stored.length, 1092);
+  const later = cappedCatalog({ onResponse: (call, switchOwner) => { if (call === 2) switchOwner(); } });
+  await assert.rejects(later.repo.spoolProfiles.list(), { message: 'La cuenta cambió; vuelve a iniciar sesión.' });
+  assert.equal(later.calls.length, 2); assert.equal(later.writes, 0); assert.equal(later.counter, 7);
+});
+
+test('each page uses the current validated A token after refresh, not the creation token', async () => {
+  const h = cappedCatalog({ onResponse(call, switchOwner, restoreOwner, rotateToken) {
+    if (call === 1) rotateToken();
+  } });
+  assert.equal((await h.repo.spoolProfiles.list()).length, 1092);
+  assert.equal(h.calls[0].authorization, 'Bearer fixture-owner-token');
+  assert.ok(h.calls.slice(1).every(call => call.authorization === 'Bearer fixture-owner-token-rotated'));
+  assert.equal(h.writes, 0); assert.equal(h.counter, 7);
+});
+
+test('A-B-A initial empty result binds the validated A credential and returns real A profiles', async () => {
+  const h = cappedCatalog({ size: 3,
+    page(query, call, stored, setJWT) {
+      setJWT(catalogId(9000)); // The global client switches to B only while this request runs.
+      const effectiveOwner = query.authorization === 'Bearer fixture-owner-token' ? owner.user.id : catalogId(9000);
+      return { data: effectiveOwner === owner.user.id ? stored : [], count: effectiveOwner === owner.user.id ? 3 : 0, error: null };
+    },
+    onResponse(call, switchOwner, restoreOwner) { restoreOwner(); },
+  });
+  assert.deepEqual((await h.repo.spoolProfiles.list()).map(row => row.id), h.stored.map(row => row.id));
+  assert.equal(h.calls.length, 1);
+  assert.equal(h.calls[0].ownerFilter, owner.user.id);
+  assert.equal(h.calls[0].authorization, 'Bearer fixture-owner-token');
+  assert.equal(h.writes, 0); assert.equal(h.counter, 7);
+  assert.deepEqual(h.stored, Array.from({ length: 3 }, (_, n) => catalogRow(n + 1)));
+  const empty = cappedCatalog({ size: 0 });
+  assert.deepEqual(await empty.repo.spoolProfiles.list(), []);
+  assert.equal(empty.calls.length, 1); assert.equal(empty.calls[0].authorization, 'Bearer fixture-owner-token');
+  assert.equal(empty.writes, 0); assert.equal(empty.counter, 7);
+});
+
+test('A-B-A JWT race during a page uses A-bound credential, never B rows', async () => {
+  const h = cappedCatalog({
+    page: (query, call, stored, setJWT) => {
+      if (call !== 2) return null;
+      setJWT(catalogId(9000));
+      if (query.authorization === 'Bearer fixture-owner-token') return null; // A-bound request reads A rows.
+      if (query.ownerFilter === owner.user.id) return { data: [], error: null }; // B cannot read A-filtered rows.
+      return { data: stored.slice(1000).map(row => ({ ...row, name: `B ${row.name}` })), error: null };
+    },
+    onResponse: (call, switchOwner, restoreOwner) => { if (call === 2) restoreOwner(); },
+  });
+  const result = await h.repo.spoolProfiles.list();
+  assert.deepEqual(result.map(row => row.id), h.stored.map(row => row.id));
+  assert.equal(result[1000].name, h.stored[1000].name);
+  assert.ok(h.calls.length >= 2);
+  assert.ok(h.calls.every(call => call.ownerFilter === owner.user.id &&
+    call.authorization === 'Bearer fixture-owner-token'));
+  assert.equal(h.writes, 0); assert.equal(h.counter, 7);
+  assert.deepEqual(h.stored, Array.from({ length: 1092 }, (_, n) => catalogRow(n + 1)));
+});
+
+test('smaller server pages continue; replay, empty, errors and missing counts never report completion', async () => {
+  const small = cappedCatalog({ cap: 37 });
+  assert.equal((await small.repo.spoolProfiles.list()).length, 1092);
+  assert.ok(small.calls.length > 2);
+  for (const page of [
+    (query, call, stored) => call === 3 ? { data: [stored[0]], count: stored.length, error: null } :
+      call === 2 ? { data: [stored[0]], count: stored.length, error: null } : null,
+    (query, call, stored) => call === 2 ? { data: [], count: stored.length, error: null } : null,
+    (query, call, stored) => call === 2 ? { data: null, count: stored.length, error: new Error('Backend denied') } : null,
+    (query, call, stored) => call === 2 ? { data: [{ ...stored[1000], owner_id: catalogId(9000) }], error: null } : null,
+  ]) {
+    const h = cappedCatalog({ page });
+    await assert.rejects(h.repo.spoolProfiles.list());
+    assert.ok(h.calls.length === 2 || h.calls.length === 3);
+    assert.equal(h.writes, 0); assert.equal(h.counter, 7);
+    assert.equal(h.stored.length, 1092);
+  }
+  const unknown = cappedCatalog({ page: (query, call, stored) =>
+    call === 1 ? { data: stored.slice(0, 1000), count: null, error: null } : null });
+  await assert.rejects(unknown.repo.spoolProfiles.list());
+  assert.equal(unknown.calls.length, 1);
+  assert.equal(unknown.writes, 0); assert.equal(unknown.counter, 7);
+  const inconsistent = cappedCatalog({ size: 1092, page: (query, call, stored) =>
+    call === 1 ? { data: stored.slice(0, 1000), count: stored.length + 1, error: null } : null });
+  await assert.rejects(inconsistent.repo.spoolProfiles.list(), /catálogo completo/);
+  assert.equal(inconsistent.writes, 0); assert.equal(inconsistent.counter, 7);
 });
 
 test('create/update send normalized payload and CAS args, verify returned ID/revision, and detach records', async () => {
