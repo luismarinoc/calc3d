@@ -12,6 +12,6 @@ export default defineConfig(({ mode }) => {
     define: { 'import.meta.env.SUPABASE_URL': JSON.stringify(url), 'import.meta.env.SUPABASE_ANON_KEY': JSON.stringify(key) },
     server: { host: '127.0.0.1', fs: { strict: true, deny: ['.env', '.env.*', '**/.pi/**', '**/.engram*/**', '**/.cache/**', '**/.git/**'] } },
     preview: { host: '127.0.0.1' },
-    build: { rollupOptions: { input: Object.fromEntries(['index', 'purchases', 'settings', 'login', 'users'].map(name => [name, resolve(import.meta.dirname, `${name}.html`)])) } },
+    build: { rollupOptions: { input: Object.fromEntries(['index', 'purchases', 'settings', 'spools', 'login', 'users'].map(name => [name, resolve(import.meta.dirname, `${name}.html`)])) } },
   };
 });

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="es-CL">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#202321"><title>Calc3D · Consultar bobinas</title><link rel="stylesheet" href="./src/styles.css"><link rel="stylesheet" href="./src/ui/spool-consultation.css"><link rel="stylesheet" href="./src/auth.css"><script type="module" src="./src/spools-app.mjs"></script></head>
+<body class="catalog-page">
+<header class="topbar"><a class="brand" href="./index.html">calc<span>3D</span></a><nav aria-label="Navegación principal"><a href="./index.html">Calculadora</a><a href="./settings.html">Configuración</a></nav></header>
+<main class="shell catalog-shell">
+  <header class="catalog-heading"><div><p class="catalog-eyebrow">CATÁLOGO DE MATERIALES</p><h1>Consultar bobinas</h1><p>Buscá y compará tus presentaciones. Escribí una parte del nombre, marca, material o color.</p></div><button id="consultation-refresh" type="button" disabled>Actualizar lista</button></header>
+  <search class="consultation-controls" aria-label="Buscar y filtrar bobinas">
+    <label class="catalog-search" for="consultation-search">Buscar bobinas<input id="consultation-search" type="search" aria-label="Buscar bobinas" placeholder="Por ejemplo: LU, PLA, negro…" autocomplete="off" aria-describedby="consultation-search-help" disabled><small id="consultation-search-help">Los resultados cambian mientras escribís. Se mantienen los filtros elegidos.</small></label>
+    <label for="consultation-brand">Marca<select id="consultation-brand" disabled><option value="">Todas las marcas</option></select></label>
+    <label for="consultation-material">Material<select id="consultation-material" disabled><option value="">Todos los materiales</option></select></label>
+    <label for="consultation-sort">Ordenar por<select id="consultation-sort" disabled><option value="name">Presentación</option><option value="price-asc">Precio: menor a mayor</option><option value="price-desc">Precio: mayor a menor</option></select></label>
+  </search>
+  <div class="catalog-results-head"><p id="consultation-status" role="status" aria-live="polite">Comprobando acceso…</p><button id="consultation-clear" type="button" disabled>Limpiar filtros</button></div>
+  <div class="catalog-columns" aria-hidden="true"><span>Presentación</span><span>Precio guardado</span><span>Comparación por kg</span><span>Origen</span></div>
+  <ul id="consultation-list" class="consultation-list" aria-label="Bobinas encontradas"></ul>
+  <p class="catalog-note">Solo consulta. Los precios guardados no son precios en tiempo real ni stock propio. Las referencias con peso por confirmar no muestran CLP/kg ni se pueden cotizar.</p>
+</main>
+</body></html>
