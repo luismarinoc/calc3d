@@ -33,8 +33,19 @@ const invalidProfile = () => { throw new Error('Respuesta remota inválida del p
 const CONTROL_PROFILE = /[\p{Cc}\p{Cf}]/u;
 // The DB constraint is authoritative; omit malformed remote metadata rather than rendering a destination.
 const OFFICIAL_PRODUCT = /^https:\/\/www\.todotoner\.cl\/impresoras\/impresoras-3d\/filamentos\/[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*\/?$/;
+const VERIFIED_PRODUCT_ALIASES = new Set([
+  'https://www.todotoner.cl/impresoras/impresoras-3d/filamentos/pla-mate-creality-verde-Palta-1kg',
+  'https://www.todotoner.cl/filamento/pla-plus/filamentos-pla-arcoiris-1kg-ender-filamentos',
+  'https://www.todotoner.cl/filamento-pla-mate-lila-1kg-con-bobina-plastica-esun-filamentos',
+  'https://www.todotoner.cl/filamento-pla-hyper-alta-velocidad-amarillo-1kg-todotonercl-filamentos-1',
+  'https://www.todotoner.cl/filamento-pla-hyper-alta-velocidad-azul-1kg-todotonercl-filamentos-1',
+  'https://www.todotoner.cl/filamento-pla-lite-azul-1kg-bambu-lab-filamentos',
+  'https://www.todotoner.cl/filamento-petg-gris-texturizado-anycubic-filamentos',
+  'https://www.todotoner.cl/filamento-petg-cafe-oscuro-anycubic-filamentos',
+]);
 const safeSourceUrl = value => typeof value === 'string' && value.length <= 2048 &&
-  value === value.trim() && !CONTROL_PROFILE.test(value) && OFFICIAL_PRODUCT.test(value);
+  value === value.trim() && !CONTROL_PROFILE.test(value) &&
+  (OFFICIAL_PRODUCT.test(value) || VERIFIED_PRODUCT_ALIASES.has(value));
 const archiveTime = row => {
   const time = row.archived_at === undefined ? null : row.archived_at;
   if (time !== null && (typeof time !== 'string' || !Number.isFinite(Date.parse(time)))) {
@@ -76,6 +87,28 @@ const profile = row => {
     revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at, archivedAt: archiveTime(row) };
 };
 
+const invalidReference = () => { throw new Error('Respuesta remota inválida de la referencia pendiente.'); };
+const supplierReference = row => {
+  if (!row || !validProfileId(row.id) || !safeSourceUrl(row.source_url) ||
+      !Number.isSafeInteger(row.reference_price_clp) && row.reference_price_clp !== null ||
+      row.reference_price_clp !== null && (row.reference_price_clp < 0 || row.reference_price_clp >= Number.MAX_SAFE_INTEGER) ||
+      (row.brand_id !== null && !validProfileId(row.brand_id)) ||
+      !Array.isArray(row.pending_reasons) || !row.pending_reasons.length ||
+      !row.pending_reasons.every(reason => typeof reason === 'string' && reason.trim() === reason && reason.length > 0 && reason.length <= 2000 && !CONTROL_PROFILE.test(reason)) ||
+      !row.provenance || typeof row.provenance !== 'object' || Array.isArray(row.provenance) ||
+      !Object.keys(row.provenance).length ||
+      (row.supplier_sku !== null && (typeof row.supplier_sku !== 'string' || !row.supplier_sku ||
+        row.supplier_sku !== row.supplier_sku.trim() || CONTROL_PROFILE.test(row.supplier_sku) || row.supplier_sku.length > 120))) invalidReference();
+  for (const value of [row.name, row.material, row.brand, row.filament_color]) {
+    if (typeof value !== 'string' || value !== value.trim() || [...value].length > 120 || CONTROL_PROFILE.test(value)) invalidReference();
+  }
+  if (!row.name || !row.material) invalidReference();
+  return { id: row.id, name: row.name, material: row.material, brand: row.brand,
+    brandId: row.brand_id, filamentColor: row.filament_color, referencePriceClp: row.reference_price_clp,
+    sourceUrl: row.source_url, supplierSku: row.supplier_sku, pendingReasons: [...row.pending_reasons],
+    provenance: copy(row.provenance), quotable: false, kind: 'pending-reference' };
+};
+
 const invalidBrand = () => { throw new Error('Respuesta remota inválida de la marca.'); };
 const brand = row => {
   if (!row || !validProfileId(row.id) || !Number.isSafeInteger(row.revision) || row.revision <= 0 ||
@@ -110,6 +143,7 @@ export function createRemoteRepositories(client, session, accessService = create
     const result = await accessService.requireAccess();
     if (result.session?.user?.id !== owner) throw new Error('La cuenta cambió; vuelve a iniciar sesión.');
     if (!result.access?.allowed) throw new Error('Acceso denegado o desactivado. Vuelve a iniciar sesión.');
+    return result.session;
   }
   const read = async (table, columns, order) => {
     await guard();
@@ -219,10 +253,59 @@ export function createRemoteRepositories(client, session, accessService = create
     }
     return brand(row);
   }
+  // Scoped to the two owner catalog readers; generic read() keeps its existing contract.
+  async function ownedCompleteRead(table, columns) {
+    const incomplete = () => { throw new Error('No se pudo cargar el catálogo completo de bobinas. Recarga e intenta nuevamente.'); };
+    const readToken = async () => {
+      const token = (await guard())?.access_token;
+      if (typeof token !== 'string' || !token || /\s/u.test(token)) incomplete();
+      return token;
+    };
+    const firstToken = await readToken();
+    const first = await client.from(table).select(columns, { count: 'exact' })
+      .eq('owner_id', owner).setHeader('Authorization', `Bearer ${firstToken}`);
+    await guard();
+    const data = rows(first);
+    const total = first.count;
+    if (!Number.isSafeInteger(total) || total < data.length ||
+        data.some(row => row?.owner_id !== undefined && row.owner_id !== owner)) incomplete();
+    if (total === data.length) return data;
+    const seen = new Set(data.map(row => row.id));
+    if (seen.size !== data.length) incomplete();
+    let cursor = null;
+    while (seen.size < total) {
+      const pageToken = await readToken();
+      let query = client.from(table).select(columns).eq('owner_id', owner)
+        .order('id', { ascending: true }).limit(500).setHeader('Authorization', `Bearer ${pageToken}`);
+      if (cursor !== null) query = query.gt('id', cursor);
+      const response = await query;
+      await guard();
+      const page = rows(response);
+      if (!page.length) incomplete();
+      for (let i = 0; i < page.length; i++) {
+        if (!validProfileId(page[i]?.id) || (page[i].owner_id !== undefined && page[i].owner_id !== owner) ||
+            (i ? page[i].id <= page[i - 1].id :
+          cursor !== null && page[i].id <= cursor)) incomplete();
+      }
+      cursor = page.at(-1).id;
+      for (const row of page) if (!seen.has(row.id)) {
+        seen.add(row.id);
+        data.push(row);
+        if (seen.size > total) incomplete();
+      }
+    }
+    return data;
+  }
+  const supplierReferences = {
+    async list() {
+      return copy((await ownedCompleteRead('calc3d_supplier_references',
+        'id,name,material,brand,brand_id,filament_color,reference_price_clp,source_url,supplier_sku,pending_reasons,provenance')).map(supplierReference));
+    },
+  };
   const spoolProfiles = {
     async list() {
-      return copy((await read('calc3d_spool_profiles',
-        'id,name,material,brand,brand_id,filament_color,filament_color_hex,source_url,purchase_price,net_weight_grams,revision,created_at,updated_at,archived_at')).map(profile));
+      const columns = 'id,name,material,brand,brand_id,filament_color,filament_color_hex,source_url,purchase_price,net_weight_grams,revision,created_at,updated_at,archived_at';
+      return copy((await ownedCompleteRead('calc3d_spool_profiles', columns)).map(profile));
     },
     async createProfile(input) {
       const payload = validateSpoolProfile(input);
@@ -264,6 +347,7 @@ export function createRemoteRepositories(client, session, accessService = create
   }
   return {
     spoolProfiles,
+    supplierReferences,
     brands,
     quotes: {
       async list() { return copy((await read('calc3d_quotes', 'id,saved_at,number,client,title,spool_id,form,input,result', 'saved_at')).map(quote)); },
