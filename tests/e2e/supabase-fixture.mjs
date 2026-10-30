@@ -8,7 +8,7 @@ const states = new WeakMap();
 export const remoteForPage = page => states.get(page);
 export const test = base.extend({
   remote: async ({ page }, use) => {
-    const state = { quotes: [], printers: null, purchases: [], spools: [], profiles: [], brands: [], number: 0, allowed: true, pending: false,
+    const state = { quotes: [], printers: null, purchases: [], spools: [], profiles: [], supplierReferences: [], brands: [], number: 0, allowed: true, pending: false,
       fail: null, failAfter: null, reads: {}, calls: [], holdQuotes: null, holdProfiles: null, holdBrands: null, holdArchive: null, user };
     await page.route('http://127.0.0.1:54321/**', async route => {
       const request = route.request();
@@ -48,6 +48,21 @@ export const test = base.extend({
         if (state.holdProfiles) await state.holdProfiles;
         const filtered = url.searchParams.get('id')?.match(/^gt\.(.+)$/);
         const ordered = filtered ? visible.filter(row => row.id > filtered[1]).sort((a, b) => a.id.localeCompare(b.id)) : visible;
+        const limited = url.searchParams.has('limit') ? ordered.slice(0, Number(url.searchParams.get('limit'))) : ordered;
+        const counted = request.headers()['prefer']?.includes('count=exact');
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(limited),
+          headers: counted ? { 'Content-Range': limited.length ? `0-${limited.length - 1}/${visible.length}` : `*/${visible.length}`,
+            'Access-Control-Expose-Headers': 'Content-Range' } : {} });
+      }
+      if (pathname.endsWith('/rest/v1/calc3d_supplier_references')) {
+        const authorization = request.headers()['authorization'];
+        const requestOwner = authorization === 'Bearer fake.browser.test' ? user.id :
+          authorization === 'Bearer fake.browser.test.other' ? otherUserId : state.user.id;
+        const ownerFilter = url.searchParams.get('owner_id');
+        const visible = state.supplierReferences.filter(row => row.owner_id === requestOwner &&
+          (!ownerFilter || ownerFilter === `eq.${row.owner_id}`));
+        const cursor = url.searchParams.get('id')?.match(/^gt\.(.+)$/)?.[1];
+        const ordered = cursor ? visible.filter(row => row.id > cursor).sort((a, b) => a.id.localeCompare(b.id)) : visible;
         const limited = url.searchParams.has('limit') ? ordered.slice(0, Number(url.searchParams.get('limit'))) : ordered;
         const counted = request.headers()['prefer']?.includes('count=exact');
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(limited),

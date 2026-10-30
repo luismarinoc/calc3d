@@ -4,12 +4,7 @@
 <body>
 <header class="topbar"><a class="brand" href="./index.html">calc<span>3D</span></a><a href="./index.html">Volver a la calculadora</a><span>Estudio de costos · Chile</span></header>
 <main class="shell settings-shell">
-  <div class="intro consultation-intro"><h1>Configuración</h1><button id="open-spool-consultation" type="button" disabled>Consultar bobinas</button></div>
-  <dialog id="spool-consultation" aria-labelledby="consultation-title">
-    <div class="consultation-head"><div><h2 id="consultation-title">Consultar bobinas</h2><p>Precios de compra guardados por presentación; no son precios en tiempo real ni stock disponible.</p></div><button id="close-spool-consultation" type="button">Cerrar consulta</button></div>
-    <div class="consultation-controls"><label for="consultation-search">Buscar bobinas<input id="consultation-search" type="search" placeholder="Marca, material, presentación o color"></label><label for="consultation-brand">Marca<select id="consultation-brand"></select></label><label for="consultation-material">Material<select id="consultation-material"></select></label><label for="consultation-sort">Ordenar por<select id="consultation-sort"><option value="name">Presentación</option><option value="price-asc">Precio: menor a mayor</option><option value="price-desc">Precio: mayor a menor</option></select></label></div>
-    <p id="consultation-status" role="status" aria-live="polite"></p><ul id="consultation-list" class="consultation-list"></ul>
-  </dialog>
+  <div class="intro consultation-intro"><h1>Configuración</h1><a class="consultation-link" href="./spools.html">Consultar bobinas</a></div>
   <p class="notice" role="note">Las impresoras se guardan en tu cuenta al pulsar Guardar. Elegir un modelo no guarda nada.</p>
   <p id="settings-error" class="error" role="alert" hidden></p>
   <section aria-labelledby="installed-heading"><div class="section-head"><span>01 / Instaladas</span><h2 id="installed-heading">Elegir impresora para próximos cálculos</h2></div>

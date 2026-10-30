@@ -1,23 +1,56 @@
 .consultation-intro { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-#open-spool-consultation, #close-spool-consultation { min-height: 44px; padding: 8px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; color: var(--text); cursor: pointer; }
-#open-spool-consultation:disabled { opacity: .55; cursor: default; }
-#spool-consultation { box-sizing: border-box; width: min(920px, calc(100% - 32px)); max-height: calc(100dvh - 40px); padding: 24px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text); }
-#spool-consultation::backdrop { background: rgba(0, 0, 0, .65); }
-.consultation-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
-.consultation-head h2 { margin: 0; }
-.consultation-head p { margin: 8px 0 20px; color: var(--muted); }
-.consultation-head button { flex: none; }
-.consultation-controls { display: grid; grid-template-columns: minmax(180px, 2fr) repeat(3, minmax(120px, 1fr)); gap: 12px; }
-.consultation-controls label { min-width: 0; }
-.consultation-controls input, .consultation-controls select { width: 100%; }
-#consultation-status { min-height: 1.4em; margin: 20px 0 8px; color: var(--muted); }
+.consultation-link, .catalog-page button, .consultation-product-link { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; color: var(--text); text-decoration: none; font: inherit; }
+.consultation-link:hover, .consultation-product-link:hover { border-color: var(--accent); color: var(--accent); }
+.catalog-page .topbar { min-height: 54px; flex-wrap: wrap; }
+.catalog-page .topbar > nav:not(.account-nav) { display: flex; gap: 16px; }
+.catalog-page .topbar a { min-height: 44px; display: inline-flex; align-items: center; }
+.catalog-shell { padding-top: 24px; padding-bottom: 40px; }
+.catalog-heading { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 24px; }
+.catalog-heading h1 { font-size: 27px; margin: 6px 0 12px; }
+.catalog-heading p { color: var(--muted); margin: 0; max-width: 75ch; }
+.catalog-heading .catalog-eyebrow { color: var(--accent); font-size: 11px; letter-spacing: .08em; font-weight: 700; }
+.catalog-heading button { flex: none; }
+.consultation-controls { display: grid; grid-template-columns: minmax(260px, 2fr) repeat(3, minmax(130px, 1fr)); gap: 12px; align-items: start; padding: 20px 0; border-block: 1px solid var(--line); }
+.catalog-search input { font-size: 16px; }
+.consultation-controls small { font-weight: 400; font-size: 12px; line-height: 1.45; }
+.catalog-results-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 0; }
+#consultation-status { color: var(--muted); min-height: 1.45em; margin: 0; }
+.catalog-results-head button { flex: none; }
+.catalog-columns, .consultation-row { display: grid; grid-template-columns: minmax(240px, 2fr) minmax(140px, 1fr) minmax(150px, 1fr) 132px; gap: 20px; align-items: center; }
+.catalog-columns { padding: 12px 0; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.catalog-columns > span:not(:first-child) { text-align: right; }
 .consultation-list { list-style: none; padding: 0; margin: 0; }
-.consultation-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); }
-.consultation-row > div { display: grid; gap: 5px; min-width: 0; }
-.consultation-row > div:first-child { overflow-wrap: anywhere; }
-.consultation-row span { color: var(--muted); }
-.consultation-prices { text-align: right; flex: none; }
-.consultation-product-link { display: inline-flex; align-items: center; justify-content: center; flex: none; min-height: 44px; padding: 8px 12px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); text-align: center; text-decoration: none; }
-.consultation-product-link:hover, .consultation-product-link:focus-visible { text-decoration: underline; }
-@media (max-width: 760px) { .consultation-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 480px) { #spool-consultation { width: 100%; height: 100dvh; max-height: 100dvh; max-width: 100%; margin: 0; border-radius: 0; padding: 20px 16px; } .consultation-controls { grid-template-columns: 1fr 1fr; } .consultation-controls label:first-child { grid-column: 1 / -1; } .consultation-head { flex-wrap: wrap; } .consultation-row { align-items: start; } .consultation-prices { white-space: nowrap; } .consultation-row { flex-wrap: wrap; } .consultation-product-link { width: 100%; } }
+.consultation-row { padding: 20px 0; border-top: 1px solid var(--line); }
+.consultation-row > div { display: grid; gap: 6px; min-width: 0; }
+.consultation-details { overflow-wrap: anywhere; }
+.consultation-details > strong { font-size: 14px; }
+.consultation-row span { color: var(--muted); font-size: 12px; }
+.consultation-brand-label { display: flex; align-items: center; gap: 6px; font-weight: 650; }
+.consultation-brand-label::before { content: ''; width: 8px; height: 8px; border-radius: 4px; background: var(--brand-color, var(--muted)); flex: none; }
+.consultation-purchase, .consultation-comparison { text-align: right; font-variant-numeric: tabular-nums; }
+.consultation-origin { justify-items: end; }
+.consultation-product-link { font-size: 12px; padding-inline: 12px; }
+.catalog-note { color: var(--muted); font-size: 12px; max-width: 75ch; margin: 24px 0 0; }
+@media (max-width: 1050px) {
+  .consultation-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .catalog-search { grid-column: 1 / -1; }
+  .catalog-columns { display: none; }
+  .consultation-row { grid-template-columns: minmax(0, 2fr) minmax(140px, 1fr) minmax(150px, 1fr); }
+  .consultation-origin { grid-column: 1 / -1; justify-items: start; }
+}
+@media (max-width: 600px) {
+  .catalog-shell { padding: 20px 16px 32px; }
+  .catalog-heading { display: grid; gap: 16px; }
+  .catalog-heading h1 { font-size: 21px; }
+  .catalog-heading button { justify-self: start; }
+  .consultation-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .consultation-controls label:last-child { grid-column: 1 / -1; }
+  .catalog-results-head { align-items: start; }
+  .catalog-results-head button { padding-inline: 10px; }
+  .consultation-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+  .consultation-details { grid-column: 1 / -1; }
+  .consultation-purchase { text-align: left; }
+  .consultation-comparison { text-align: right; }
+  .consultation-origin { justify-items: stretch; }
+}
+@media (prefers-reduced-motion: reduce) { .catalog-page { scroll-behavior: auto; } }
