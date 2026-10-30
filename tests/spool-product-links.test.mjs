@@ -25,12 +25,16 @@ const portAvailable = () => new Promise((resolve, reject) => {
 
 test('public profile projection selects verified URLs and omits unsafe or absent metadata; legacy fields remain', async () => {
   let selected;
-  const client = { from: () => ({ select(columns) { selected = columns; return Promise.resolve({ data: [row, { ...row, id: admin, source_url: product },
+  const client = { from: () => ({ select(columns) { selected = columns; const result = { data: [row, { ...row, id: admin, source_url: product },
     { ...row, id: '22222222-2222-4222-8222-222222222222', source_url: 'javascript:alert(1)' },
     { ...row, id: '33333333-3333-4333-8333-333333333333', source_url: 'https://www.todotoner.cl@evil.test/impresoras/impresoras-3d/filamentos/x' },
     { ...row, id: '44444444-4444-4444-8444-444444444444', source_url: `${product}\n` },
-    { ...row, id: '55555555-5555-4555-8555-555555555555', source_url: `${product}\r` }] }); } }) };
-  const access = { requireAccess: async () => ({ session: { user: { id: member } }, access: { allowed: true } }) };
+    { ...row, id: '55555555-5555-4555-8555-555555555555', source_url: `${product}\r` }], count: 6 }; return {
+    eq(column, value) { assert.equal(column, 'owner_id'); assert.equal(value, member); return this; },
+    setHeader(name, value) { assert.equal(name, 'Authorization'); assert.equal(value, 'Bearer fixture-owner-token'); return this; },
+    then(resolve, reject) { return Promise.resolve(result).then(resolve, reject); },
+  }; } }) };
+  const access = { requireAccess: async () => ({ session: { user: { id: member }, access_token: 'fixture-owner-token' }, access: { allowed: true } }) };
   const profiles = await createRemoteRepositories(client, { user: { id: member } }, access).spoolProfiles.list();
   assert.match(selected, /(?:^|,)source_url(?:,|$)/);
   assert.deepEqual(profiles.map(p => p.sourceUrl), [undefined, product, undefined, undefined, undefined, undefined]);

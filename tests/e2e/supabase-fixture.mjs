@@ -1,5 +1,6 @@
 import { test as base, expect } from '@playwright/test';
 
+const otherUserId = '22222222-2222-4222-8222-222222222222';
 const user = { id: '11111111-1111-4111-8111-111111111111', aud: 'authenticated', email: 'member@example.test', app_metadata: { provider: 'email' }, user_metadata: {}, created_at: '2025-01-01T00:00:00Z' };
 const stamp = '2026-01-01T00:00:00.000Z';
 const brandKey = name => name.trim().replace(/\s+/gu, ' ').toLowerCase().normalize('NFC');
@@ -17,7 +18,7 @@ export const test = base.extend({
       state.calls.push({ pathname, body });
       state.reads[pathname] = (state.reads[pathname] ?? 0) + 1;
       const json = (value, status = 200) => route.fulfill({ status, json: value });
-      if (pathname.endsWith('/auth/v1/token')) return json({ access_token: 'fake.browser.test', refresh_token: 'fake-refresh', token_type: 'bearer', expires_in: 3600, user: state.user });
+      if (pathname.endsWith('/auth/v1/token')) return json({ access_token: state.user.id === user.id ? 'fake.browser.test' : 'fake.browser.test.other', refresh_token: 'fake-refresh', token_type: 'bearer', expires_in: 3600, user: state.user });
       if (pathname.endsWith('/auth/v1/user')) return json(state.user);
       if (pathname.endsWith('/auth/v1/logout')) return route.fulfill({ status: 204, body: '' });
       if (pathname.endsWith('/rest/v1/rpc/calc3d_access_status') || pathname.endsWith('/rest/v1/rpc/calc3d_record_access')) return json({ allowed: state.allowed, role: state.allowed ? 'member' : null, email: state.allowed ? state.user.email : null });
@@ -38,9 +39,20 @@ export const test = base.extend({
       }
       if (pathname.endsWith('/rest/v1/calc3d_printer_settings')) return json(state.printers && state.printers.owner_id === state.user.id ? [state.printers] : []);
       if (pathname.endsWith('/rest/v1/calc3d_spool_profiles')) {
-        const visible = state.profiles.filter(row => row.owner_id === state.user.id);
+        const ownerFilter = url.searchParams.get('owner_id');
+        const authorization = request.headers()['authorization'];
+        const requestOwner = authorization === 'Bearer fake.browser.test' ? user.id :
+          authorization === 'Bearer fake.browser.test.other' ? otherUserId : state.user.id;
+        const visible = state.profiles.filter(row => row.owner_id === requestOwner &&
+          (!ownerFilter || ownerFilter === `eq.${row.owner_id}`));
         if (state.holdProfiles) await state.holdProfiles;
-        return json(visible);
+        const filtered = url.searchParams.get('id')?.match(/^gt\.(.+)$/);
+        const ordered = filtered ? visible.filter(row => row.id > filtered[1]).sort((a, b) => a.id.localeCompare(b.id)) : visible;
+        const limited = url.searchParams.has('limit') ? ordered.slice(0, Number(url.searchParams.get('limit'))) : ordered;
+        const counted = request.headers()['prefer']?.includes('count=exact');
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(limited),
+          headers: counted ? { 'Content-Range': limited.length ? `0-${limited.length - 1}/${visible.length}` : `*/${visible.length}`,
+            'Access-Control-Expose-Headers': 'Content-Range' } : {} });
       }
       if (pathname.endsWith('/rest/v1/calc3d_brands')) {
         const visible = state.brands.filter(row => row.owner_id === state.user.id);
