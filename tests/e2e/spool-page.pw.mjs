@@ -42,6 +42,36 @@ test('S10 LU filters instantly and preserves brand, material and price order wit
   await expect(page.getByRole('status').filter({hasText:'No hay bobinas'})).toBeVisible();
 });
 
+test('color composes locally with brand, material, search and price order', async ({page,remote}) => {
+  remote.brands=[brand(remote,ids[0],'Marca Uno'),brand(remote,ids[1],'Marca Dos')];
+  remote.profiles=[profile(remote,ids[0],'PLA Plus claro','PLA',ids[0],15000,'Azul claro'),
+    profile(remote,ids[1],'PLA Plus intenso','PLA',ids[0],10000,'AZÚL CLARO'),
+    profile(remote,ids[2],'PLA Plus verde','PLA',ids[0],8000,'Verde'),
+    profile(remote,'dddddddd-dddd-4ddd-8ddd-dddddddddddd','PLA Plus sin color','PLA',ids[0],7000)];
+  await page.goto('/spools.html');
+  const rows=page.locator('.consultation-row');
+  await expect(rows).toHaveCount(4);
+  const before=JSON.stringify(remote.calls);
+  await page.getByRole('combobox',{name:'Marca',exact:true}).selectOption('Marca Uno');
+  await page.getByRole('combobox',{name:'Material',exact:true}).selectOption('PLA');
+  await page.getByRole('combobox',{name:'Ordenar por',exact:true}).selectOption('price-asc');
+  await page.getByRole('searchbox',{name:'Buscar bobinas'}).fill('plus');
+  const color=page.getByRole('combobox',{name:'Color',exact:true});
+  await expect(color).toBeVisible({timeout:1000});
+  await color.selectOption({label:'Azul claro'});
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText('PLA Plus intenso');
+  await expect(rows.nth(1)).toContainText('PLA Plus claro');
+  await expect(color.locator('option')).toHaveCount(3);
+  expect(JSON.stringify(remote.calls)).toBe(before);
+  await page.getByRole('button',{name:'Actualizar lista'}).click();
+  await expect(rows).toHaveCount(2);
+  await expect(color).toHaveValue('azul claro');
+  await expect(page.getByRole('searchbox',{name:'Buscar bobinas'})).toHaveValue('plus');
+  await expect(page.getByRole('combobox',{name:'Ordenar por',exact:true})).toHaveValue('price-asc');
+  expect(remote.calls.filter(call=>/\/rpc\/calc3d_(save|archive)/.test(call.pathname))).toHaveLength(0);
+});
+
 const pending = remote => ({id:ids[2],owner_id:remote.user.id,name:'PLA Plus pendiente',material:'PLA',
   brand:'Marca Uno',brand_id:null,filament_color:'Azul',reference_price_clp:11990,
   source_url:'https://www.todotoner.cl/impresoras/impresoras-3d/filamentos/pla-pendiente',
@@ -58,7 +88,10 @@ test('pending rows retain links and reference price but no weight-based cost or 
   await expect(row).not.toContainText('/kg');
   await expect(row.getByRole('button')).toHaveCount(0);
   await page.getByRole('searchbox',{name:'Buscar bobinas'}).fill('LU');
+  const before=JSON.stringify(remote.calls);
+  await page.getByRole('combobox',{name:'Color',exact:true}).selectOption({label:'Azul'});
   await expect(row).toHaveCount(1);
+  expect(JSON.stringify(remote.calls)).toBe(before);
   await expect(row.getByRole('link')).toHaveAttribute('target','_blank');
   await expect(row.getByRole('link')).toHaveAttribute('rel','noopener noreferrer');
   expect(remote.calls.filter(c=>/\/rpc\/calc3d_(save|archive)/.test(c.pathname))).toHaveLength(0);
@@ -75,6 +108,7 @@ test('failed pending load is explicit, refresh recovers, and account switch remo
   await expect(page.locator('.consultation-row')).toHaveCount(1);
   await page.getByRole('searchbox',{name:'Buscar bobinas'}).fill('LU');
   await page.getByRole('combobox',{name:'Marca',exact:true}).selectOption('Marca Uno');
+  await page.getByRole('combobox',{name:'Color',exact:true}).selectOption({label:'Azul'});
   remote.user={...remote.user,id:'22222222-2222-4222-8222-222222222222',email:'second@example.test'};
   const error=await page.evaluate(async()=>{
     const {client}=await import('/src/auth/browser.mjs');
@@ -84,6 +118,8 @@ test('failed pending load is explicit, refresh recovers, and account switch remo
   await expect(page.locator('#consultation-status')).toContainText('Todavía no hay');
   await expect(page.getByRole('searchbox',{name:'Buscar bobinas'})).toHaveValue('');
   await expect(page.locator('#consultation-brand option')).toHaveCount(1);
+  await expect(page.locator('#consultation-color option')).toHaveCount(1);
+  await expect(page.locator('#consultation-color')).toHaveValue('');
   await expect(page.locator('.consultation-row')).toHaveCount(0);
   await expect(page.locator('#consultation-list a')).toHaveCount(0);
 });
@@ -130,11 +166,14 @@ test('page remains usable without horizontal overflow and clear restores filters
   remote.profiles=[profile(remote,ids[0],'PLA Plus presentación de nombre largo para comparar bobinas sin superposición','PLA',ids[0],19990,'Azul claro')];
   await page.goto('/spools.html');
   await expect(page.locator('.consultation-row')).toHaveCount(1);
+  await page.getByRole('combobox',{name:'Color',exact:true}).selectOption({label:'Azul claro'});
   await page.getByRole('searchbox',{name:'Buscar bobinas'}).fill('nada coincide');
   await expect(page.locator('.consultation-row')).toHaveCount(0);
   await page.getByRole('button',{name:'Limpiar filtros'}).click();
   await expect(page.locator('.consultation-row')).toHaveCount(1);
   await expect(page.getByRole('searchbox',{name:'Buscar bobinas'})).toHaveValue('');
+  await expect(page.getByRole('combobox',{name:'Color',exact:true})).toHaveValue('');
+  await expect(page.getByRole('searchbox',{name:'Buscar bobinas'})).toBeFocused();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await page.screenshot({path:`test-results/spool-page-${testInfo.project.name}.png`,fullPage:true});
+  await page.screenshot({path:testInfo.outputPath(`spool-page-${testInfo.project.name}.png`),fullPage:true});
 });

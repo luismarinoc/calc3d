@@ -5,12 +5,13 @@ export function createSpoolConsultation() {
   const search = document.querySelector('#consultation-search');
   const brand = document.querySelector('#consultation-brand');
   const material = document.querySelector('#consultation-material');
+  const color = document.querySelector('#consultation-color');
   const sort = document.querySelector('#consultation-sort');
   const list = document.querySelector('#consultation-list');
   const status = document.querySelector('#consultation-status');
   const refresh = document.querySelector('#consultation-refresh');
   const reset = document.querySelector('#consultation-clear');
-  const controls = [search, brand, material, sort, refresh, reset];
+  const controls = [search, brand, material, color, sort, refresh, reset];
   const clp = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 });
   const weight = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 2 });
   const collator = new Intl.Collator('es-CL', { sensitivity: 'base', numeric: true });
@@ -26,13 +27,22 @@ export function createSpoolConsultation() {
     search.value = '';
     brand.replaceChildren(option('Todas las marcas', ''));
     material.replaceChildren(option('Todos los materiales', ''));
+    color.replaceChildren(option('Todos los colores', ''));
     sort.value = 'name';
   }
-  function setOptions(previousBrand = '', previousMaterial = '') {
+  function setOptions(previousBrand = '', previousMaterial = '', previousColor = '') {
     brand.replaceChildren(option('Todas las marcas', ''));
     material.replaceChildren(option('Todos los materiales', ''));
+    color.replaceChildren(option('Todos los colores', ''));
     for (const name of [...new Set(items.map(item => item.brand).filter(Boolean))].sort(collator.compare)) brand.add(option(name, name));
     for (const name of [...new Set(items.map(item => item.material))].sort(collator.compare)) material.add(option(name, name));
+    const colors = new Map();
+    for (const item of items) {
+      const label = String(item.filamentColor ?? '').trim();
+      if (label && !colors.has(key(label))) colors.set(key(label), label);
+    }
+    for (const label of [...colors.values()].sort(collator.compare)) color.add(option(label, key(label)));
+    color.value = colors.has(previousColor) ? previousColor : '';
     brand.value = [...brand.options].some(item => item.value === previousBrand) ? previousBrand : '';
     material.value = [...material.options].some(item => item.value === previousMaterial) ? previousMaterial : '';
   }
@@ -44,6 +54,7 @@ export function createSpoolConsultation() {
     const query = key(search.value.trim());
     const visible = items.filter(item => (!brand.value || item.brand === brand.value) &&
       (!material.value || item.material === material.value) &&
+      (!color.value || key(item.filamentColor?.trim()) === color.value) &&
       key([item.brand, item.material, item.name, item.filamentColor, item.supplierSku].join(' ')).includes(query));
     const price = item => item.kind === 'pending-reference' ? item.referencePriceClp ?? -1 : item.purchasePrice;
     visible.sort((a, b) => (sort.value === 'price-asc' ? price(a) - price(b) :
@@ -96,7 +107,7 @@ export function createSpoolConsultation() {
   async function load(repository, current, preserveFilters = false) {
     source = repository; isCurrent = current;
     const token = ++generation;
-    const previous = preserveFilters ? [brand.value, material.value] : ['', ''];
+    const previous = preserveFilters ? [brand.value, material.value, color.value] : ['', '', ''];
     if (!preserveFilters) resetFilters();
     items = []; loading = true; error = false;
     controls.forEach(control => { control.disabled = true; }); render();
@@ -115,7 +126,7 @@ export function createSpoolConsultation() {
       }
     }
   }
-  for (const control of [search, brand, material, sort]) control.addEventListener(control === search ? 'input' : 'change', render);
+  for (const control of [search, brand, material, color, sort]) control.addEventListener(control === search ? 'input' : 'change', render);
   reset.addEventListener('click', () => {
     resetFilters(); setOptions(); render(); search.focus();
   });
