@@ -36,21 +36,32 @@ export function createSpoolConsultation() {
     color.replaceChildren(option('Todos los colores', ''));
     sort.value = 'name';
   }
-  function setOptions(previousBrand = '', previousMaterial = '', previousColor = '') {
-    brand.replaceChildren(option('Todas las marcas', ''));
-    material.replaceChildren(option('Todos los materiales', ''));
-    color.replaceChildren(option('Todos los colores', ''));
-    for (const name of [...new Set(items.map(item => item.brand).filter(Boolean))].sort(collator.compare)) brand.add(option(name, name));
-    for (const name of [...new Set(items.map(item => item.material))].sort(collator.compare)) material.add(option(name, name));
+  function setOptions(selectedBrand = brand.value, selectedMaterial = material.value, selectedColor = color.value) {
+    const brands = new Map();
+    const materials = new Map();
     const colors = new Map();
+    // Each facet honors the other two, allowing selection in either direction.
     for (const item of items) {
       const label = String(item.filamentColor ?? '').trim();
-      if (label && !colors.has(key(label))) colors.set(key(label), label);
+      const colorKey = searchIndex.get(item).color;
+      const matchesBrand = !selectedBrand || item.brand === selectedBrand;
+      const matchesMaterial = !selectedMaterial || item.material === selectedMaterial;
+      const matchesColor = !selectedColor || colorKey === selectedColor;
+      if (matchesMaterial && matchesColor && item.brand) brands.set(item.brand, item.brand);
+      if (matchesBrand && matchesColor && item.material) materials.set(item.material, item.material);
+      if (matchesBrand && matchesMaterial && label && !colors.has(colorKey)) colors.set(colorKey, label);
     }
-    for (const label of [...colors.values()].sort(collator.compare)) color.add(option(label, key(label)));
-    color.value = colors.has(previousColor) ? previousColor : '';
-    brand.value = [...brand.options].some(item => item.value === previousBrand) ? previousBrand : '';
-    material.value = [...material.options].some(item => item.value === previousMaterial) ? previousMaterial : '';
+    const populate = (control, all, choices, selected) => {
+      // A refresh may remove a combination. Only the user clears their selection.
+      if (selected && !choices.has(selected)) choices.set(selected,
+        control.value === selected ? control.selectedOptions[0].textContent : selected);
+      const options = [...choices].sort((a, b) => collator.compare(a[1], b[1]));
+      control.replaceChildren(option(all, ''), ...options.map(([value, label]) => option(label, value)));
+      control.value = selected;
+    };
+    populate(brand, 'Todas las marcas', brands, selectedBrand);
+    populate(material, 'Todos los materiales', materials, selectedMaterial);
+    populate(color, 'Todos los colores', colors, selectedColor);
   }
   function cancelPaint() {
     paintVersion++;
@@ -175,7 +186,9 @@ export function createSpoolConsultation() {
       }
     }
   }
-  for (const control of [search, brand, material, color, sort]) control.addEventListener(control === search ? 'input' : 'change', render);
+  for (const control of [brand, material, color]) control.addEventListener('change', () => { setOptions(); render(); });
+  search.addEventListener('input', render);
+  sort.addEventListener('change', render);
   reset.addEventListener('click', () => {
     resetFilters(); setOptions(); render(); search.focus();
   });

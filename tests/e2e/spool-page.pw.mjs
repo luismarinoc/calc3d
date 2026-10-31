@@ -254,3 +254,75 @@ test('queued large result paints are discarded when the account changes', async 
   await expect(page.locator('#consultation-list a')).toHaveCount(0);
   await expect(page.locator('#consultation-color option')).toHaveCount(1);
 });
+
+
+function facetCatalog(remote) {
+  remote.brands=[brand(remote,ids[0],'Bambu Lab'),brand(remote,ids[1],'Esun'),brand(remote,ids[2],'Polymaker')];
+  remote.profiles=[profile(remote,ids[0],'Bambu PLA rojo','PLA',ids[0],10000,'Rojo'),
+    profile(remote,ids[1],'Bambu PETG negro','PETG',ids[0],11000,'Negro'),
+    profile(remote,ids[2],'Esun PLA negro','PLA',ids[1],12000,'Negro'),
+    profile(remote,'dddddddd-dddd-4ddd-8ddd-dddddddddddd','Polymaker TPU verde','TPU',ids[2],13000,'Verde'),
+    profile(remote,'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','Polymaker PETG negro','PETG',ids[2],14000,'Negro')];
+  remote.supplierReferences=[{...pending(remote),id:'ffffffff-ffff-4fff-8fff-ffffffffffff',
+    name:'Bambu PA12 azul pendiente',brand:'Bambu Lab',material:'PA12',filament_color:'Azul'}];
+}
+
+test('dynamic facets constrain brand material and color in both selection directions', async ({page,remote}) => {
+  facetCatalog(remote);
+  await page.goto('/spools.html');
+  const rows=page.locator('.consultation-row');await expect(rows).toHaveCount(6);
+  const brands=page.getByRole('combobox',{name:'Marca',exact:true});
+  const materials=page.getByRole('combobox',{name:'Material',exact:true});
+  const colors=page.getByRole('combobox',{name:'Color',exact:true});
+  const before=JSON.stringify([remote.calls,remote.profiles,remote.supplierReferences,remote.number]);
+  await brands.selectOption('Bambu Lab');
+  await expect(materials.locator('option')).toHaveText(['Todos los materiales','PA12','PETG','PLA']);
+  await expect(colors.locator('option')).toHaveText(['Todos los colores','Azul','Negro','Rojo']);
+  await materials.selectOption('PLA');
+  await expect(colors.locator('option')).toHaveText(['Todos los colores','Rojo']);
+  await expect(brands.locator('option')).toHaveText(['Todas las marcas','Bambu Lab','Esun']);
+  await colors.selectOption('rojo');
+  await expect(brands.locator('option')).toHaveText(['Todas las marcas','Bambu Lab']);
+  await expect(materials.locator('option')).toHaveText(['Todos los materiales','PLA']);
+  await expect(rows).toHaveCount(1);
+  await page.getByRole('button',{name:'Limpiar filtros'}).click();
+  await expect(rows).toHaveCount(6);
+  await expect(materials.locator('option')).toHaveText(['Todos los materiales','PA12','PETG','PLA','TPU']);
+  await colors.selectOption('negro');
+  await expect(brands.locator('option')).toHaveText(['Todas las marcas','Bambu Lab','Esun','Polymaker']);
+  await expect(materials.locator('option')).toHaveText(['Todos los materiales','PETG','PLA']);
+  await materials.selectOption('PETG');
+  await expect(brands.locator('option')).toHaveText(['Todas las marcas','Bambu Lab','Polymaker']);
+  await expect(colors.locator('option')).toHaveText(['Todos los colores','Negro']);
+  await brands.selectOption('Polymaker');
+  await expect(materials.locator('option')).toHaveText(['Todos los materiales','PETG']);
+  await expect(rows).toHaveCount(1);await expect(rows).toContainText('Polymaker PETG negro');
+  expect(JSON.stringify([remote.calls,remote.profiles,remote.supplierReferences,remote.number])).toBe(before);
+});
+
+test('dynamic facets retain missing selected values until the user clears filters', async ({page,remote}) => {
+  facetCatalog(remote);
+  await page.goto('/spools.html');
+  const rows=page.locator('.consultation-row');await expect(rows).toHaveCount(6);
+  const brands=page.getByRole('combobox',{name:'Marca',exact:true});
+  const materials=page.getByRole('combobox',{name:'Material',exact:true});
+  const colors=page.getByRole('combobox',{name:'Color',exact:true});
+  await brands.selectOption('Bambu Lab');await materials.selectOption('PA12');await colors.selectOption('azul');
+  await expect(rows).toHaveCount(1);await expect(rows).toContainText('No cotizable');
+  remote.profiles=remote.profiles.filter(p=>p.brand_id!==ids[0]);remote.supplierReferences=[];
+  const before=JSON.stringify([remote.profiles,remote.supplierReferences,remote.number]);
+  await page.getByRole('button',{name:'Actualizar lista'}).click();
+  await expect(page.locator('#consultation-status')).toContainText('No hay bobinas');
+  await expect(brands).toHaveValue('Bambu Lab');await expect(materials).toHaveValue('PA12');await expect(colors).toHaveValue('azul');
+  await expect(rows).toHaveCount(0);
+  await page.getByRole('searchbox',{name:'Buscar bobinas'}).fill('sin coincidencias');
+  await expect(brands).toHaveValue('Bambu Lab');await expect(materials).toHaveValue('PA12');await expect(colors).toHaveValue('azul');
+  await page.getByRole('button',{name:'Limpiar filtros'}).click();
+  await expect(rows).toHaveCount(3);
+  await expect(brands).toHaveValue('');await expect(materials).toHaveValue('');await expect(colors).toHaveValue('');
+  await expect(brands.locator('option')).toHaveText(['Todas las marcas','Esun','Polymaker']);
+  await expect(materials.locator('option')).toHaveText(['Todos los materiales','PETG','PLA','TPU']);
+  await expect(colors.locator('option')).toHaveText(['Todos los colores','Negro','Verde']);
+  expect(JSON.stringify([remote.profiles,remote.supplierReferences,remote.number])).toBe(before);
+  expect(remote.calls.filter(x=>/\/rpc\/calc3d_(save|archive)/.test(x.pathname))).toHaveLength(0);
+});
