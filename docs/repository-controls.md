@@ -28,3 +28,9 @@ La protección de rama vía API REST usa `required_status_checks: { strict: true
 ## Fallos cerrados
 
 Versiones inválidas o decrecientes; PR ausente/ambigua, de fork, otra base, sin merge o SHA distinto; errores API distintos de 404; y conflictos con tags o releases existentes detienen el job sin reemplazar un tag. Una anotación de tag se resuelve hasta su commit real. Para publicar tras una falla, investigar la causa y reintentar el job con el **mismo evento**: no crear tags manualmente para saltar los controles. La verificación local usa mocks, no constituye prueba de Actions ni de permisos/protección reales.
+
+## Mediciones responsive con datos remotos
+
+La prueba de campos alcanzables espera que `#result-content` tenga contenido antes de recorrer el formulario. En móvil, la tarjeta de resultados ocupa una fila encima de los campos: si el catálogo llega después del primer scroll, la tarjeta crece y desplaza el campo ya medido. La regresión retiene la respuesta del catálogo, reproduce esa expansión y vuelve a comprobar el campo sobre el layout listo. Se conservan todas las verificaciones de visibilidad, viewport y ausencia de desbordamiento; no se agregan pausas fijas, reintentos, skips ni cambios de timeouts.
+
+El helper de configuración de impresoras también espera que la navegación de cuenta sea visible y que `main.inert` sea falso **antes** de salir del documento actual. La regresión retiene la primera respuesta de admisión: el helper debe permanecer en esa página hasta liberarla, completar la configuración y conservar vacías las listas de errores y solicitudes fallidas. Se reproducen y conservan los errores originales; no se filtran mensajes, cambian cabeceras CORS ni modifica la autenticación de producción.

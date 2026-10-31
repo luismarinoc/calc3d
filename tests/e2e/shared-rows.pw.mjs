@@ -112,6 +112,9 @@ test('real shared horizontal rows align desktop controls and captions', async ({
 test('responsive layout keeps every field reachable without horizontal overflow', async ({ page }, info) => {
   test.skip(info.project.name === 'chromium-desktop');
   await page.goto('/');
+  // The mobile result card grows above the form when authenticated data arrives.
+  // Scroll the final layout, not the empty loading state.
+  await expect(page.locator('#result-content')).not.toBeEmpty();
   for (const id of ['title', 'spoolId', 'grams', 'hours', 'extraProductionCost', 'multiplierPreset', 'save']) {
     const control = page.locator(id === 'spoolId' ? '.calculator-spool-picker .spool-picker-trigger' : `#${id}`);
     await expect(control).toBeVisible();
