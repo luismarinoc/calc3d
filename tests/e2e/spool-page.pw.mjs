@@ -218,6 +218,7 @@ test('large catalogs keep typing responsive and retain all matching rows', async
   });
   await page.goto('/spools.html');
   const rows=page.locator('.consultation-row');
+  await page.locator('#consultation-list[aria-busy="false"]').waitFor({state:'attached'});
   await expect(rows).toHaveCount(1171);
   await page.evaluate(()=>new MutationObserver(records=>{
     const count=records.flatMap(r=>[...r.addedNodes]).filter(n=>n.matches?.('.consultation-row')).length;
@@ -226,6 +227,7 @@ test('large catalogs keep typing responsive and retain all matching rows', async
   const before=JSON.stringify([remote.calls,remote.profiles,remote.supplierReferences,remote.number]);
   await page.getByRole('searchbox',{name:'Buscar bobinas'}).focus();
   await page.keyboard.type('pla',{delay:20});
+  await page.locator('#consultation-list[aria-busy="false"]').waitFor({state:'attached'});
   await expect(rows).toHaveCount(874);
   const work=await page.evaluate(()=>window.searchWork);
   expect(work.map(x=>x.value)).toEqual(['p','pl','pla']);
@@ -233,12 +235,14 @@ test('large catalogs keep typing responsive and retain all matching rows', async
   expect(await page.evaluate(()=>window.largestPaint)).toBeLessThanOrEqual(32);
   expect(JSON.stringify([remote.calls,remote.profiles,remote.supplierReferences,remote.number])).toBe(before);
   await page.getByRole('button',{name:'Limpiar filtros'}).click();
+  await page.locator('#consultation-list[aria-busy="false"]').waitFor({state:'attached'});
   await expect(rows).toHaveCount(1171);
 });
 
 test('queued large result paints are discarded when the account changes', async ({page,remote}) => {
   fillLargeCatalog(remote);
   await page.goto('/spools.html');
+  await page.locator('#consultation-list[aria-busy="false"]').waitFor({state:'attached'});
   await expect(page.locator('.consultation-row')).toHaveCount(1171);
   await page.getByRole('searchbox',{name:'Buscar bobinas'}).fill('pla');
   remote.user={...remote.user,id:'22222222-2222-4222-8222-222222222222',email:'second@example.test'};
@@ -325,4 +329,38 @@ test('dynamic facets retain missing selected values until the user clears filter
   await expect(colors.locator('option')).toHaveText(['Todos los colores','Negro','Verde']);
   expect(JSON.stringify([remote.profiles,remote.supplierReferences,remote.number])).toBe(before);
   expect(remote.calls.filter(x=>/\/rpc\/calc3d_(save|archive)/.test(x.pathname))).toHaveLength(0);
+});
+
+
+test('complete catalog counts wait for the final paint rather than a partial batch', async ({page,remote}) => {
+  fillLargeCatalog(remote);
+  const stored=JSON.stringify([remote.profiles,remote.supplierReferences,remote.number]);
+  await page.addInitScript(()=>{
+    const raf=requestAnimationFrame.bind(window),cancel=cancelAnimationFrame.bind(window);
+    let frames=0,next=-1;const pending=new Map();
+    window.requestAnimationFrame=callback=>{
+      if(frames>=35){const id=next--;pending.set(id,callback);return id;}
+      return raf(time=>{frames++;callback(time);});
+    };
+    window.cancelAnimationFrame=id=>id<0?pending.delete(id):cancel(id);
+    window.releaseCatalogFrames=()=>{
+      window.requestAnimationFrame=raf;window.cancelAnimationFrame=cancel;
+      for(const callback of pending.values())raf(callback);pending.clear();
+    };
+  });
+  await page.goto('/spools.html');
+  const rows=page.locator('.consultation-row'),list=page.locator('#consultation-list');
+  try {
+    // Hold the producer at the same partial batch seen in the original CI trace.
+    // A locator wait must not consume the frame callbacks controlled by this probe.
+    await rows.nth(1119).waitFor({state:'attached'});
+    await expect(rows).toHaveCount(1120);await expect(list).toHaveAttribute('aria-busy','true');
+    const completed=page.locator('#consultation-list[aria-busy="false"]').waitFor({state:'attached'});
+    await expect(list).toHaveAttribute('aria-busy','true');
+    await page.evaluate(()=>window.releaseCatalogFrames());
+    await completed;
+    await expect(rows).toHaveCount(1171);await expect(list).toHaveAttribute('aria-busy','false');
+    expect(JSON.stringify([remote.profiles,remote.supplierReferences,remote.number])).toBe(stored);
+    expect(remote.calls.filter(call=>/\/rpc\/calc3d_(save|archive)/.test(call.pathname))).toHaveLength(0);
+  } finally { await page.evaluate(()=>window.releaseCatalogFrames()); }
 });

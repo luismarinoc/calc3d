@@ -34,3 +34,9 @@ Versiones inválidas o decrecientes; PR ausente/ambigua, de fork, otra base, sin
 La prueba de campos alcanzables espera que `#result-content` tenga contenido antes de recorrer el formulario. En móvil, la tarjeta de resultados ocupa una fila encima de los campos: si el catálogo llega después del primer scroll, la tarjeta crece y desplaza el campo ya medido. La regresión retiene la respuesta del catálogo, reproduce esa expansión y vuelve a comprobar el campo sobre el layout listo. Se conservan todas las verificaciones de visibilidad, viewport y ausencia de desbordamiento; no se agregan pausas fijas, reintentos, skips ni cambios de timeouts.
 
 El helper de configuración de impresoras también espera que la navegación de cuenta sea visible y que `main.inert` sea falso **antes** de salir del documento actual. La regresión retiene la primera respuesta de admisión: el helper debe permanecer en esa página hasta liberarla, completar la configuración y conservar vacías las listas de errores y solicitudes fallidas. Se reproducen y conservan los errores originales; no se filtran mensajes, cambian cabeceras CORS ni modifica la autenticación de producción.
+
+## Conteos del catálogo incremental
+
+Los conteos completos esperan la señal pública `#consultation-list[aria-busy="false"]` antes de comprobar exactamente 1171 filas (o 874 para la búsqueda de referencia). El mensaje de coincidencias no indica que haya terminado el pintado.
+
+La regresión retiene los frames en 1120 filas / `aria-busy=true`, libera el productor y exige 1171 / `false`, conservando los datos simulados. Se mantiene el presupuesto total del caso y cada conteo estricto; no se cambian timeouts, límites de resultados, assertions ni código de producción.
