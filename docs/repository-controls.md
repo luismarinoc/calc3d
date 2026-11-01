@@ -40,3 +40,9 @@ El helper de configuración de impresoras también espera que la navegación de 
 Los conteos completos esperan la señal pública `#consultation-list[aria-busy="false"]` antes de comprobar exactamente 1171 filas (o 874 para la búsqueda de referencia). El mensaje de coincidencias no indica que haya terminado el pintado.
 
 La regresión retiene los frames en 1120 filas / `aria-busy=true`, libera el productor y exige 1171 / `false`, conservando los datos simulados. Se mantiene el presupuesto total del caso y cada conteo estricto; no se cambian timeouts, límites de resultados, assertions ni código de producción.
+
+## Navegación de compras y cabecera lista
+
+La prueba de navegación espera la admisión del documento recién cargado (`.account-nav` visible y `main.inert=false`) antes de pulsar Compras. La comprobación anterior al nuevo `goto('/')` no alcanza: la cabecera cambia de geometría al mostrar la cuenta. El control causal reprodujo `pointerdown` en el enlace y `pointerup` en un título después de ese cambio; no hubo solicitud de navegación. El mismo enlace funciona con la cabecera lista.
+
+Se conserva la URL exacta, el teclado, las etiquetas, los tamaños táctiles y la ausencia de desbordamiento. Antes de enumerar controles también se espera la carga de compras. La regresión retiene admisión en la carga nueva y exige ambos gestos sobre páginas listas, ida y vuelta correctas, cero errores y solicitudes fallidas y datos/contadores simulados intactos. No cambia autenticación, CSS, código de producción, timeouts ni reintentos.

@@ -99,10 +99,20 @@ test('denied writes require retry without false records or clearing draft', asyn
   expect(await remotePurchases(page)).toHaveLength(0);
 });
 
-test('touch controls, labels, keyboard, navigation and no overflow', async ({ page }) => {
-  await page.goto('/');
+async function openPurchasesFromReadyCalculator(page) {
+  // This fresh document must finish admission before its header can be clicked.
+  await expect(page.locator('.account-nav')).toBeVisible();
+  await expect(page.locator('main')).toHaveJSProperty('inert', false);
   await page.getByRole('link', { name: 'Compras e inventario de prueba' }).click();
   await expect(page).toHaveURL(/purchases.html$/);
+  await waitForPurchaseReady(page);
+  await expect(page.locator('.account-nav')).toBeVisible();
+  await expect(page.locator('main')).toHaveJSProperty('inert', false);
+}
+
+test('touch controls, labels, keyboard, navigation and no overflow', async ({ page }) => {
+  await page.goto('/');
+  await openPurchasesFromReadyCalculator(page);
   for (const control of await page.locator('#purchase-form input, #purchase-form textarea, #purchase-form button').all()) {
     if (await control.isVisible()) {
       if (await control.evaluate(el => el.matches('input, textarea'))) expect(await control.evaluate(el => el.labels?.length)).toBeGreaterThan(0);
@@ -130,4 +140,40 @@ test('unavailable remote spools shows a read error without crashing the purchase
   await expect(page.locator('#purchase-history .saved-item')).toHaveCount(0);
   await expect(page.locator('#purchase-inventory .saved-item')).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+
+test('purchase navigation waits for admission on the fresh calculator document', async ({page,remote}) => {
+  let release,captured;const held=new Promise(r=>release=r),seen=new Promise(r=>captured=r);
+  let first=true,navigation;const errors=[],failures=[],gestures=[];
+  const stored=JSON.stringify([remote.purchases,remote.profiles,remote.number]);
+  page.on('pageerror',error=>errors.push(error.message));
+  page.on('requestfailed',request=>{if(request.url().endsWith('/rpc/calc3d_access_status'))failures.push(request.failure()?.errorText);});
+  await page.exposeFunction('recordPurchaseGesture',gesture=>gestures.push(gesture));
+  await page.addInitScript(()=>document.addEventListener('pointerdown',event=>{
+    const href=event.target.closest('a')?.getAttribute('href');
+    if(href==='./purchases.html'||href==='./index.html')void window.recordPurchaseGesture({href,ready:!document.querySelector('.account-nav').hidden&&!document.querySelector('main').inert});
+  },true));
+  await page.route('**/rpc/calc3d_access_status',async route=>{
+    if(first){first=false;captured();await held;}
+    await route.fallback();
+  });
+  try {
+    await page.goto('/');await seen;
+    await expect(page.locator('main')).toHaveJSProperty('inert',true);
+    navigation=openPurchasesFromReadyCalculator(page);
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    await expect(page).toHaveURL('/');
+    await expect(page.locator('main')).toHaveJSProperty('inert',true);
+    release();await navigation;
+    await expect(page).toHaveURL(/purchases.html$/);
+    await page.getByRole('link',{name:/Volver a la calculadora/}).click();
+    await expect(page).toHaveURL(/index.html$/);
+    await expect(page.locator('.account-nav')).toBeVisible();
+    await expect(page.locator('main')).toHaveJSProperty('inert',false);
+    expect(gestures).toEqual([{href:'./purchases.html',ready:true},{href:'./index.html',ready:true}]);
+    expect(JSON.stringify([remote.purchases,remote.profiles,remote.number])).toBe(stored);
+    expect(remote.calls.filter(call=>/\/rpc\/calc3d_(save|archive)/.test(call.pathname))).toHaveLength(0);
+    expect(failures).toEqual([]);expect(errors).toEqual([]);
+  } finally {release();if(navigation)await navigation;}
 });
