@@ -36,7 +36,7 @@ Extracted from the existing application. Product register: a Chilean 3D-printing
 - Search and filter labels remain visible. Inputs use the control surface and border above.
 - Focus uses a 3px accent outline, offset 2–3px (src/styles.css, src/users.css).
 - Use plain dividers for dense records; avoid nested cards.
-- Use existing brand metadata only for brand indicators; do not invent filament HEX samples.
+- Use existing brand metadata only for brand indicators. Exact filament samples come from saved HEX; Settings/consultation may show explicitly labeled display-only approximations for exact basic color names when no HEX is saved. Never infer special shades or persist an approximation automatically. Settings presents registered filament color as one read-only field with an automatic sample, without a sample toggle or manual HEX picker.
 - Read-only supplier references must show their pending state and must not imply a known weight or CLP/kg.
 - Match existing Spanish project copy and es-CL formatting.
 - Responsive references: 560px and 900px in src/users.css; 750px and 1050px in src/styles.css. Keep narrow screens free of horizontal overflow.

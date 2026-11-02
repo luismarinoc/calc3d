@@ -1,7 +1,10 @@
+import { createFilamentSample } from './filament-color.mjs';
+import { filamentSample } from '../domain/filament-colors.mjs';
+
 /** Native select owns the selection identity; this view renders only detached presentation data. */
 export function createBrandProfilePicker(select, {
   root = document.querySelector('.spool-picker'), listId = 'spool-picker-list',
-  label = 'Presentación guardada', listLabel = 'Presentaciones guardadas',
+  label = 'Presentación guardada', listLabel = 'Presentaciones guardadas', filamentFirst = false,
   formatRow = item => `${item.material} · ${item.brand?.trim() || 'Sin marca'} · ${item.name}${item.filamentColor ? ` · ${item.filamentColor}` : ''}`,
 } = {}) {
   const trigger = document.createElement('button');
@@ -56,7 +59,17 @@ export function createBrandProfilePicker(select, {
     else node.classList.add(`${kind}-chip-neutral`);
     return node;
   }
+  function sampleSuffix(item) {
+    if (!filamentFirst || !item || (!item.filamentColor && !item.filamentColorHex)) return '';
+    const sample = filamentSample(item);
+    return `; ${sample.approximate ? 'Muestra aproximada por nombre' : sample.hex ? 'Muestra personalizada' : 'Sin muestra'}`;
+  }
   function decorate(node, item, text) {
+    if (filamentFirst && (item.filamentColor || item.filamentColorHex)) {
+      node.append(createFilamentSample(item, { compact: true }), document.createTextNode(text),
+        chip('brand', item.brand || 'Sin marca', item.brandColor));
+      return;
+    }
     node.append(chip('brand', item.brand || 'Sin marca', item.brandColor), document.createTextNode(text));
     if (item.filamentColorHex) node.append(chip('filament', item.filamentColor, item.filamentColorHex));
   }
@@ -69,7 +82,7 @@ export function createBrandProfilePicker(select, {
       if (option?.value) trigger.append(chip('brand', 'Sin marca', null), document.createTextNode(option.textContent));
       else trigger.textContent = option?.textContent ?? 'Elige una presentación';
     }
-    trigger.setAttribute('aria-label', `${label}: ${trigger.textContent}${selected ? `; Marca: ${selected.brand || 'Sin marca'}; Filamento: ${selected.filamentColor || 'sin color indicado'}` : ''}`);
+    trigger.setAttribute('aria-label', `${label}: ${selected ? formatRow(selected) : trigger.textContent}${selected ? `; Marca: ${selected.brand || 'Sin marca'}; Filamento: ${selected.filamentColor || 'sin color indicado'}${sampleSuffix(selected)}` : ''}`);
     for (const row of rows) row.setAttribute('aria-selected', String(row.dataset.id === select.value));
   }
   function render(next, disabled) {
@@ -78,7 +91,7 @@ export function createBrandProfilePicker(select, {
       const row = document.createElement('div');
       row.className = 'spool-picker-option'; row.setAttribute('role', 'option'); row.tabIndex = -1;
       row.dataset.id = item.id;
-      row.setAttribute('aria-label', `${formatRow(item)}; Marca: ${item.brand || 'Sin marca'}; Filamento: ${item.filamentColor || 'sin color indicado'}`);
+      row.setAttribute('aria-label', `${formatRow(item)}; Marca: ${item.brand || 'Sin marca'}; Filamento: ${item.filamentColor || 'sin color indicado'}${sampleSuffix(item)}`);
       decorate(row, item, formatRow(item));
       row.addEventListener('click', () => choose(row));
       list.append(row); rows.push(row);

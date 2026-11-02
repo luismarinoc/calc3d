@@ -74,25 +74,29 @@ test('S1-S2: Marcas is separate; explicit create, color change and rename preser
 
 test('S3-S4: brand ID and filament name/sample are independent, legible in Settings and Calculator; price unchanged', async ({ page, remote }) => {
   remote.brands = [brand(remote.user.id)];
+  remote.profiles = [profile(remote.user.id)];
+  const before = structuredClone(remote.profiles);
   await signIn(page, { withProfile: false });
   await page.goto('/settings.html');
-  await page.locator('#new-spool').click();
+  await page.locator('.spool-picker-trigger').click();
+  await page.locator(`#spool-picker-list [data-id="${profileId}"]`).click();
+  await page.locator('#edit-spool').click();
   await page.locator('#spool-name').fill('PETG 1 kg');
   await page.locator('#spool-material').fill('PETG');
   await expect(page.getByLabel('Marca de la bobina')).toBeVisible();
   await page.getByLabel('Marca de la bobina').selectOption(brandId);
   await expect(page.getByLabel('Color del filamento')).toBeVisible();
-  await page.getByLabel('Color del filamento').fill('Azul noche');
-  await page.getByLabel('Mostrar muestra del filamento').check();
-  await page.getByLabel('Muestra del filamento', { exact: true }).fill('#336699');
+  await expect(page.getByLabel('Color del filamento')).toHaveValue('Azul noche');
+  await expect(page.getByLabel('Color del filamento')).not.toBeEditable();
+  await expect(page.locator('#spool-showSample, #spool-filamentColorHex')).toHaveCount(0);
   await page.locator('#spool-purchasePrice').fill('12000');
   await page.locator('#spool-netWeightGrams').fill('1000');
-  expect(await remoteRows(page, 'spool_profiles')).toEqual([]);
+  expect(await remoteRows(page, 'spool_profiles')).toEqual(before);
   await page.locator('#save-spool').click();
   await expect(page.locator('#spool-feedback')).toContainText('guardada');
   const [saved] = await remoteRows(page, 'spool_profiles');
   expect(saved).toMatchObject({ brand_id: brandId, brand: 'Prueba', filament_color: 'Azul noche',
-    filament_color_hex: '#336699', purchase_price: 12000, net_weight_grams: 1000, revision: 1 });
+    filament_color_hex: '#336699', purchase_price: 12000, net_weight_grams: 1000, revision: 2 });
   await page.reload();
   await page.locator('.spool-picker-trigger').click();
   const row = page.locator(`#spool-picker-list [role="option"][data-id="${saved.id}"]`);
@@ -133,7 +137,7 @@ test('S5: named unrepresentable filament has readable text and no invented sampl
   await row.click();
   await page.locator('#edit-spool').click();
   await expect(page.getByLabel('Color del filamento')).toHaveValue('Arcoíris translúcido');
-  await expect(page.getByLabel('Mostrar muestra del filamento')).not.toBeChecked();
+  await expect(page.locator('#spool-showSample')).toHaveCount(0);
   await page.goto('/');
   const trigger = page.locator('.calculator-spool-picker .spool-picker-trigger');
   await expect(trigger).toContainText('Arcoíris translúcido');
@@ -212,7 +216,7 @@ test('S1-S6 owner fence: open and closed pickers/forms clear brand and filament 
   await page.locator(`#spool-picker-list [data-id="${profileId}"]`).click();
   await page.locator('#edit-spool').click();
   await expect(page.getByLabel('Color del filamento')).toHaveValue('Secreto');
-  await expect(page.getByLabel('Mostrar muestra del filamento')).toBeChecked();
+  await expect(page.getByLabel('Color del filamento')).not.toBeEditable();
   const section = page.getByRole('region', { name: 'Marcas' });
   await expect(section.getByLabel('Marca guardada')).toHaveValue(brandId);
   await section.getByRole('button', { name: 'Editar marca' }).click();
@@ -224,7 +228,7 @@ test('S1-S6 owner fence: open and closed pickers/forms clear brand and filament 
   await expect(page.locator('#spool-profile')).toHaveValue('');
   await expect(page.getByLabel('Marca de la bobina')).toHaveValue('');
   await expect(page.getByLabel('Color del filamento')).toBeEmpty();
-  await expect(page.getByLabel('Mostrar muestra del filamento')).not.toBeChecked();
+  await expect(page.locator('#spool-showSample')).toHaveCount(0);
   await expect(section.getByLabel('Marca guardada')).toHaveValue('');
   await expect(section.getByLabel('Nombre de marca')).toBeEmpty();
   await expect(section.locator('.brand-chip')).toHaveCount(0);

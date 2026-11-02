@@ -1,5 +1,6 @@
 import { presentSpools } from './brand-display.mjs';
 import { canonicalMaterial } from '../domain/materials.mjs';
+import { createFilamentSample } from './filament-color.mjs';
 
 /** Read-only page. Filter locally; every explicit refresh rechecks the current owner. */
 export function createSpoolConsultation() {
@@ -85,6 +86,9 @@ export function createSpoolConsultation() {
     description.textContent = [item.material, item.filamentColor,
       pending ? 'Peso por confirmar' : `${weight.format(item.netWeightGrams)} g`].filter(Boolean).join(' · ');
     details.append(brandLabel, title, description);
+    const filament = document.createElement('div'); filament.className = 'consultation-filament';
+    filament.setAttribute('role', 'group'); filament.setAttribute('aria-label', 'Color del filamento');
+    filament.append(createFilamentSample(item));
     const purchase = document.createElement('div'); purchase.className = 'consultation-purchase';
     const value = document.createElement('strong');
     value.textContent = pending ? item.referencePriceClp === null ? 'Sin precio publicado' :
@@ -105,7 +109,7 @@ export function createSpoolConsultation() {
     } else {
       const missing = document.createElement('span'); missing.textContent = 'Sin enlace de origen'; origin.append(missing);
     }
-    row.append(details, purchase, comparison, origin);
+    row.append(details, filament, purchase, comparison, origin);
     rowCache.set(item, row);
     return row;
   }
