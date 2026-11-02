@@ -129,4 +129,12 @@ await protectPage({ onClear: () => {
       state = null; failure.textContent = 'No se pudo leer la configuración. Comprueba la conexión y recarga para reintentar.'; showState();
     }
   })()]);
+  if (!isCurrent() || repository !== source) return;
+  const editSpool = new URLSearchParams(window.location.search).get('editSpool');
+  const spoolSelect = document.querySelector('#spool-profile');
+  if (editSpool && [...spoolSelect.options].some(option => option.value === editSpool)) {
+    spoolSelect.value = editSpool;
+    spoolSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector('#edit-spool').click();
+  }
 } });

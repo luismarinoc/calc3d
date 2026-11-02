@@ -1,6 +1,6 @@
 import { presentSpools } from './brand-display.mjs';
 
-/** Read-only page. Filter locally; every explicit refresh rechecks the current owner. */
+/** Filter locally and link to the existing editor; refresh rechecks the current owner. */
 export function createSpoolConsultation() {
   const search = document.querySelector('#consultation-search');
   const brand = document.querySelector('#consultation-brand');
@@ -83,6 +83,12 @@ export function createSpoolConsultation() {
         origin.append(link);
       } else {
         const missing = document.createElement('span'); missing.textContent = 'Sin enlace de origen'; origin.append(missing);
+      }
+      if (!pending) {
+        const edit = document.createElement('a'); edit.className = 'consultation-product-link';
+        edit.href = `./settings.html?editSpool=${encodeURIComponent(item.id)}#spool-form`;
+        edit.textContent = 'Editar'; edit.setAttribute('aria-label', `Editar bobina: ${item.name}`);
+        origin.append(edit);
       }
       row.append(details, purchase, comparison, origin); fragment.append(row);
     }

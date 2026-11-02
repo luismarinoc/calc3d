@@ -4,6 +4,39 @@ const ids = ['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','bbbbbbbb-bbbb-4bbb-8bbb-bbb
 const brand = (remote,id,name) => ({id,owner_id:remote.user.id,name,normalized_name:name.toLowerCase(),aliases:[name.toLowerCase()],color:'#A78BFA',revision:1,created_at:stamp,updated_at:stamp});
 const profile = (remote,id,name,material,brandId,price,color='') => ({id,owner_id:remote.user.id,name,material,brand:'',brand_id:brandId,filament_color:color,filament_color_hex:null,purchase_price:price,net_weight_grams:1000,revision:1,created_at:stamp,updated_at:stamp});
 
+test('consultation Edit opens the selected saved spool and saves only on explicit submit', async ({page,remote}) => {
+  remote.brands=[brand(remote,ids[0],'Marca Uno')];
+  remote.profiles=[profile(remote,ids[0],'PLA Azul','PLA',ids[0],15000,'Azul'),
+    profile(remote,ids[1],'PETG Verde','PETG',null,18000,'Verde')];
+  const before=structuredClone(remote.profiles);
+  const number=remote.number;
+  await page.goto('/spools.html');
+  await page.getByRole('link',{name:'Editar bobina: PLA Azul',exact:true}).click();
+  await expect(page).toHaveURL(new RegExp(`settings.html\\?editSpool=${ids[0]}#spool-form$`));
+  await expect(page.locator('#spool-profile')).toHaveValue(ids[0]);
+  await expect(page.locator('#spool-name')).toHaveValue('PLA Azul');
+  await expect(page.locator('#spool-form [name="brandId"]')).toHaveValue(ids[0]);
+  await expect(page.locator('#spool-form [name="filamentColor"]')).toHaveValue('Azul');
+  await expect(page.locator('#spool-form [name="purchasePrice"]')).toHaveValue('15000');
+  await expect(page.locator('#spool-form [name="netWeightGrams"]')).toHaveValue('1000');
+  expect(remote.profiles).toEqual(before);
+  expect(remote.calls.filter(c=>/\/rpc\/calc3d_(save|archive)/.test(c.pathname))).toHaveLength(0);
+  await page.locator('#spool-form [name="purchasePrice"]').fill('16000');
+  await expect(page.locator('#spool-purchasePrice'), 'Price must remain 16000 immediately before saving').toHaveValue('16000');
+  await page.locator('#spool-form button[type="submit"]').click();
+  await expect.poll(() => remote.calls.filter(call => call.pathname.endsWith('/rpc/calc3d_save_spool_profile'))
+    .map(call => call.body), { message: 'Save RPC must receive the edited price and current profile revision' })
+    .toEqual([expect.objectContaining({ profile_id: ids[0], expected_revision: 1,
+      payload: expect.objectContaining({ purchasePrice: 16000 }) })]);
+  await expect(page.locator('#spool-feedback')).toContainText('Bobina guardada en tu cuenta.');
+  expect(remote.profiles).toHaveLength(2);
+  expect(remote.profiles.find(p=>p.id===ids[0])).toMatchObject({...before[0],brand:'Marca Uno',purchase_price:16000,revision:2,updated_at:expect.any(String)});
+  expect(remote.profiles.find(p=>p.id===ids[1])).toEqual(before[1]);
+  expect(remote.number).toBe(number);
+  await page.goto('/spools.html');
+  await expect(page.locator('.consultation-row').filter({hasText:'PLA Azul'})).toContainText('CLP 16.000');
+});
+
 test('S10 consultation navigation opens its own page, not a dialog', async ({page}) => {
   await page.goto('/settings.html');
   const link = page.getByRole('link',{name:'Consultar bobinas',exact:true});

@@ -19,7 +19,12 @@ test('S1-S3: save a presentation, reload, edit the same revision and retain cust
   await page.locator('#spool-purchasePrice').fill('0');
   await page.locator('#spool-netWeightGrams').fill('750');
   expect(await remoteRows(page, 'spool_profiles')).toEqual([]);
+  await expect(page.locator('#spool-purchasePrice'), 'Zero price must remain present immediately before saving').toHaveValue('0');
   await page.locator('#save-spool').click();
+  await expect.poll(() => remote.calls.filter(call => call.pathname.endsWith('/rpc/calc3d_save_spool_profile'))
+    .map(call => call.body), { message: 'Create RPC must receive the explicit zero price' })
+    .toEqual([expect.objectContaining({ profile_id: null, expected_revision: 0,
+      payload: expect.objectContaining({ purchasePrice: 0 }) })]);
   await expect(page.locator('#spool-feedback')).toContainText('guardada');
   const [created] = await remoteRows(page, 'spool_profiles');
   expect(created).toMatchObject({ name: 'PLA 750 g', material: 'PLA seda', brand: 'Marca propia', purchase_price: 0, net_weight_grams: 750, revision: 1 });
@@ -30,7 +35,16 @@ test('S1-S3: save a presentation, reload, edit the same revision and retain cust
   await page.locator('#spool-purchasePrice').fill('21900');
   await page.locator('#spool-netWeightGrams').fill('1000');
   expect((await remoteRows(page, 'spool_profiles'))[0]).toEqual(created);
+  await expect(page.locator('#spool-purchasePrice'), 'Edited price must remain 21900 immediately before saving').toHaveValue('21900');
   await page.locator('#save-spool').click();
+  await expect.poll(() => remote.calls.filter(call => call.pathname.endsWith('/rpc/calc3d_save_spool_profile'))
+    .map(call => call.body), { message: 'Save RPCs must preserve the zero creation price and send the edited price' })
+    .toEqual([
+      expect.objectContaining({ profile_id: null, expected_revision: 0,
+        payload: expect.objectContaining({ purchasePrice: 0 }) }),
+      expect.objectContaining({ profile_id: created.id, expected_revision: 1,
+        payload: expect.objectContaining({ purchasePrice: 21900 }) }),
+    ]);
   await expect(page.locator('#spool-feedback')).toContainText('guardada');
   const [updated] = await remoteRows(page, 'spool_profiles');
   expect(updated).toMatchObject({ id: created.id, purchase_price: 21900, net_weight_grams: 1000, revision: 2 });
