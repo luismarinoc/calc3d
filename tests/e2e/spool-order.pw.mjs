@@ -1,6 +1,15 @@
 import { test, expect, signIn, remoteRows, remoteQuotes } from './supabase-fixture.mjs';
 
 const optionValues = (page, selector) => page.locator(`${selector} option`).evaluateAll(options => options.map(option => option.value));
+// A focused numeric field can leave smooth document scrolling in flight on WebKit.
+// Prepare this test's target without changing production scrolling or forcing a click.
+async function prepareCalculatorPicker(page) {
+  const trigger = page.locator('.calculator-spool-picker .spool-picker-trigger');
+  await trigger.evaluate(node => node.scrollIntoView({ behavior: 'instant', block: 'center' }));
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  return trigger;
+}
+
 const materialCost = page => page.locator('#result-content .result-row').filter({ has: page.getByText('Material', { exact: true }) });
 
 test('unsorted profiles and purchase display by material then brand without changing editing, selection or quote value', async ({ page, remote }) => {
@@ -54,7 +63,9 @@ test('unsorted profiles and purchase display by material then brand without chan
   await page.locator('#hours').fill('0');
   await page.locator('#minutes').fill('0');
   await expect(materialCost(page)).toContainText('1.095');
-  await page.locator('.calculator-spool-picker .spool-picker-trigger').click();
+  const trigger = await prepareCalculatorPicker(page);
+  await trigger.click();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
   await page.locator('#calculator-spool-picker-list [role="option"][data-id="purchase:purchase-petg"]').click();
   await expect(materialCost(page)).toContainText('750');
   expect(await remoteRows(page, 'spool_profiles')).toEqual(profilesBefore);

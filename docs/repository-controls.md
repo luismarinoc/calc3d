@@ -46,3 +46,9 @@ La regresión retiene los frames en 1120 filas / `aria-busy=true`, libera el pro
 La prueba de navegación espera la admisión del documento recién cargado (`.account-nav` visible y `main.inert=false`) antes de pulsar Compras. La comprobación anterior al nuevo `goto('/')` no alcanza: la cabecera cambia de geometría al mostrar la cuenta. El control causal reprodujo `pointerdown` en el enlace y `pointerup` en un título después de ese cambio; no hubo solicitud de navegación. El mismo enlace funciona con la cabecera lista.
 
 Se conserva la URL exacta, el teclado, las etiquetas, los tamaños táctiles y la ausencia de desbordamiento. Antes de enumerar controles también se espera la carga de compras. La regresión retiene admisión en la carga nueva y exige ambos gestos sobre páginas listas, ida y vuelta correctas, cero errores y solicitudes fallidas y datos/contadores simulados intactos. No cambia autenticación, CSS, código de producción, timeouts ni reintentos.
+
+## Preparación del selector tras campos numéricos
+
+La prueba de orden y costo de bobinas centra localmente el botón de Calculadora con desplazamiento instantáneo y deja pasar dos frames antes de su segundo clic normal. No cambia el desplazamiento de producción, no fuerza el gesto ni repite un clic fallido. Mantiene las etiquetas, identidades, orden, costos de material 1.095/750 y todas las comprobaciones de datos, contadores y ausencia de guardados.
+
+Un experimento aislado de WebKit móvil mostró que desplazar la página entre presionar y soltar lleva el gesto fuera del botón; con posición estable la compra se selecciona. Esto demuestra ese mecanismo controlado, no la causa histórica de un timeout ni una regla universal entre motores. Los fallos originales permanecen registrados; esta preparación no aumenta límites ni sustituye la verificación independiente.

@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="es-CL">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#202321"><title>Calc3D · Consultar bobinas</title><link rel="stylesheet" href="./src/styles.css"><link rel="stylesheet" href="./src/ui/spool-consultation.css"><link rel="stylesheet" href="./src/auth.css"><script type="module" src="./src/spools-app.mjs"></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#202321"><title>Calc3D · Consultar bobinas</title><link rel="stylesheet" href="./src/styles.css"><link rel="stylesheet" href="./src/ui/spool-consultation.css"><link rel="stylesheet" href="./src/auth.css"><link rel="stylesheet" href="./src/ui/filament-color.css"><script type="module" src="./src/spools-app.mjs"></script></head>
 <body class="catalog-page">
 <header class="topbar"><a class="brand" href="./index.html">calc<span>3D</span></a><nav aria-label="Navegación principal"><a href="./index.html">Calculadora</a><a href="./settings.html">Configuración</a></nav></header>
 <main class="shell catalog-shell">
@@ -13,7 +13,7 @@
     <label for="consultation-sort">Ordenar por<select id="consultation-sort" disabled><option value="name">Presentación</option><option value="price-asc">Precio: menor a mayor</option><option value="price-desc">Precio: mayor a menor</option></select></label>
   </search>
   <div class="catalog-results-head"><p id="consultation-status" role="status" aria-live="polite">Comprobando acceso…</p><button id="consultation-clear" type="button" disabled>Limpiar filtros</button></div>
-  <div class="catalog-columns" aria-hidden="true"><span>Presentación</span><span>Precio guardado</span><span>Comparación por kg</span><span>Origen</span></div>
+  <div class="catalog-columns" aria-hidden="true"><span>Presentación</span><span>Color del filamento</span><span>Precio guardado</span><span>Comparación por kg</span><span>Origen</span></div>
   <ul id="consultation-list" class="consultation-list" aria-label="Bobinas encontradas"></ul>
   <p class="catalog-note">Solo consulta. Los precios guardados no son precios en tiempo real ni stock propio. Las referencias con peso por confirmar no muestran CLP/kg ni se pueden cotizar.</p>
 </main>

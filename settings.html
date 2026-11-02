@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="es-CL">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#202321"><title>Calc3D · Configuración</title><link rel="stylesheet" href="./src/styles.css"><link rel="stylesheet" href="./src/settings-styles.css"><link rel="stylesheet" href="./src/ui/spool-consultation.css"><link rel="stylesheet" href="./src/auth.css"><script type="module" src="./src/printer-settings-app.mjs"></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#202321"><title>Calc3D · Configuración</title><link rel="stylesheet" href="./src/styles.css"><link rel="stylesheet" href="./src/settings-styles.css"><link rel="stylesheet" href="./src/ui/spool-consultation.css"><link rel="stylesheet" href="./src/auth.css"><link rel="stylesheet" href="./src/ui/filament-color.css"><script type="module" src="./src/printer-settings-app.mjs"></script></head>
 <body>
 <header class="topbar"><a class="brand" href="./index.html">calc<span>3D</span></a><a href="./index.html">Volver a la calculadora</a><span>Estudio de costos · Chile</span></header>
 <main class="shell settings-shell">
@@ -39,9 +39,10 @@
       <label for="spool-name">Nombre / presentación<input id="spool-name" name="name" type="text" maxlength="120" required></label>
       <label for="spool-material">Material<input id="spool-material" name="material" type="text" list="spool-materials" maxlength="120" required></label><datalist id="spool-materials"></datalist>
       <label for="spool-brandId">Marca de la bobina<select id="spool-brandId" name="brandId"></select></label>
-      <label for="spool-filamentColor">Color del filamento<input id="spool-filamentColor" name="filamentColor" type="text" maxlength="120"></label>
-      <label class="sample-toggle" for="spool-showSample"><input id="spool-showSample" type="checkbox">Mostrar muestra del filamento</label>
-      <label for="spool-filamentColorHex">Muestra del filamento<input id="spool-filamentColorHex" name="filamentColorHex" type="color" value="#565c59" disabled></label>
+      <div class="spool-filament-setting"><label for="spool-filamentColor">Color del filamento</label>
+        <div class="spool-filament-field"><input id="spool-filamentColor" name="filamentColor" type="text" readonly placeholder="Sin color indicado" aria-describedby="spool-filament-preview">
+          <span id="spool-filament-preview" class="spool-filament-preview" role="status" aria-live="polite" aria-label="Muestra automática de color"></span></div>
+      </div>
       <label for="spool-purchasePrice">Precio de compra · CLP<input id="spool-purchasePrice" name="purchasePrice" type="number" inputmode="numeric" min="0" step="1" required></label>
       <label for="spool-netWeightGrams">Peso neto del filamento · g<input id="spool-netWeightGrams" name="netWeightGrams" type="number" inputmode="decimal" min="0.001" step="any" required></label>
       <button id="save-spool" class="primary" type="submit">Guardar bobina</button>

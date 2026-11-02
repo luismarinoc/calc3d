@@ -16,9 +16,11 @@
 .catalog-results-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 0; }
 #consultation-status { color: var(--muted); min-height: 1.45em; margin: 0; }
 .catalog-results-head button { flex: none; }
-.catalog-columns, .consultation-row { display: grid; grid-template-columns: minmax(240px, 2fr) minmax(140px, 1fr) minmax(150px, 1fr) 132px; gap: 20px; align-items: center; }
+.catalog-columns, .consultation-row { display: grid; grid-template-columns: minmax(220px, 2fr) minmax(120px, 1fr) minmax(130px, 1fr) minmax(140px, 1fr) 132px; gap: 20px; align-items: center; }
 .catalog-columns { padding: 12px 0; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
 .catalog-columns > span:not(:first-child) { text-align: right; }
+.catalog-columns > span:nth-child(2) { text-align: left; }
+.consultation-filament::before { content: "Color del filamento"; display: none; color: var(--muted); font-size: 11px; }
 .consultation-list { list-style: none; padding: 0; margin: 0; }
 .consultation-row { padding: 20px 0; border-top: 1px solid var(--line); }
 .consultation-row > div { display: grid; gap: 6px; min-width: 0; }
@@ -36,6 +38,8 @@
   .catalog-search { grid-column: 1 / -1; }
   .catalog-columns { display: none; }
   .consultation-row { grid-template-columns: minmax(0, 2fr) minmax(140px, 1fr) minmax(150px, 1fr); }
+  .consultation-details { grid-column: 1 / -1; }
+  .consultation-filament::before { display: block; }
   .consultation-origin { grid-column: 1 / -1; justify-items: start; }
 }
 @media (max-width: 600px) {
@@ -47,7 +51,7 @@
   .catalog-results-head { align-items: start; }
   .catalog-results-head button { padding-inline: 10px; }
   .consultation-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
-  .consultation-details { grid-column: 1 / -1; }
+  .consultation-details, .consultation-filament { grid-column: 1 / -1; }
   .consultation-purchase { text-align: left; }
   .consultation-comparison { text-align: right; }
   .consultation-origin { justify-items: stretch; }

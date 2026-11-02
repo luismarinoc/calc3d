@@ -1,0 +1,10 @@
+.filament-color { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.filament-color .filament-color-swatch { display: inline-block; flex: none; width: 24px; height: 24px; border: 1px solid var(--muted); border-radius: 4px; }
+.filament-color .filament-color-name { color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
+.filament-color .filament-color-approx, .filament-color .filament-color-unavailable { color: var(--muted); font-size: 11px; }
+.filament-color-compact { flex: none; }
+.filament-color-compact .filament-color-swatch { width: 20px; height: 20px; }
+.spool-filament-setting { min-width: 0; }
+.spool-filament-field { display: flex; align-items: center; min-width: 0; min-height: 44px; border: 1px solid #666e65; border-radius: 6px; background: #303531; }
+#spool-form .spool-filament-field input { flex: 1; width: 0; min-width: 0; border: 0; background: transparent; }
+.spool-filament-preview { display: flex; align-items: center; flex: none; padding-right: 10px; color: var(--muted); }
