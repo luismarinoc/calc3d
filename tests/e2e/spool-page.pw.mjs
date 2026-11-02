@@ -37,9 +37,12 @@ test('consultation Edit opens the selected saved spool and saves only on explici
   await expect(page.locator('.consultation-row').filter({hasText:'PLA Azul'})).toContainText('CLP 16.000');
 });
 
-test('S10 consultation navigation opens its own page, not a dialog', async ({page}) => {
+test('consultation is in main navigation rather than the settings content', async ({page}) => {
   await page.goto('/settings.html');
-  const link = page.getByRole('link',{name:'Consultar bobinas',exact:true});
+  await expect(page.locator('main').getByRole('link',{name:'Consultar bobinas',exact:true})).toHaveCount(0);
+  await expect(page.locator('.topbar').getByRole('link',{name:'Consultar bobinas',exact:true})).toHaveAttribute('href','./spools.html');
+  await page.goto('/index.html');
+  const link = page.locator('.topbar').getByRole('link',{name:'Consultar bobinas',exact:true});
   await expect(link).toHaveAttribute('href','./spools.html');
   await link.click();
   await expect(page).toHaveURL(/\/spools.html$/);
