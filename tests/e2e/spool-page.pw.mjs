@@ -4,15 +4,65 @@ const ids = ['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','bbbbbbbb-bbbb-4bbb-8bbb-bbb
 const brand = (remote,id,name) => ({id,owner_id:remote.user.id,name,normalized_name:name.toLowerCase(),aliases:[name.toLowerCase()],color:'#A78BFA',revision:1,created_at:stamp,updated_at:stamp});
 const profile = (remote,id,name,material,brandId,price,color='') => ({id,owner_id:remote.user.id,name,material,brand:'',brand_id:brandId,filament_color:color,filament_color_hex:null,purchase_price:price,net_weight_grams:1000,revision:1,created_at:stamp,updated_at:stamp});
 
-test('S10 consultation navigation opens its own page, not a dialog', async ({page}) => {
+test('consultation Edit opens the selected saved spool and saves only on explicit submit', async ({page,remote}) => {
+  remote.brands=[brand(remote,ids[0],'Marca Uno')];
+  remote.profiles=[profile(remote,ids[0],'PLA Azul','PLA',ids[0],15000,'Azul'),
+    profile(remote,ids[1],'PETG Verde','PETG',null,18000,'Verde')];
+  remote.supplierReferences=[pending(remote)];
+  const before=structuredClone([remote.profiles,remote.supplierReferences]);
+  const number=remote.number;
+  await page.goto('/spools.html');
+  await expect(page.getByRole('link',{name:'Editar bobina: PLA Azul',exact:true})).toHaveAttribute('href',
+    `./settings.html?editSpool=${ids[0]}#spool-form`);
+  await expect(page.locator('.consultation-row').filter({hasText:'PLA Plus pendiente'}).getByRole('link',{name:/Editar/})).toHaveCount(0);
+  await page.getByRole('link',{name:'Editar bobina: PLA Azul',exact:true}).click();
+  await expect(page).toHaveURL(new RegExp(`settings.html\\?editSpool=${ids[0]}#spool-form$`));
+  await expect(page.locator('#spool-profile')).toHaveValue(ids[0]);
+  await expect(page.locator('#spool-name')).toHaveValue('PLA Azul');
+  await expect(page.locator('#spool-material')).toHaveValue('PLA');
+  await expect(page.locator('#spool-brandId')).toHaveValue(ids[0]);
+  await expect(page.locator('#spool-filamentColor')).toHaveValue('Azul');
+  await expect(page.locator('#spool-filamentColor')).toHaveAttribute('readonly','');
+  await expect(page.locator('#spool-purchasePrice')).toHaveValue('15000');
+  await expect(page.locator('#spool-netWeightGrams')).toHaveValue('1000');
+  expect([remote.profiles,remote.supplierReferences]).toEqual(before);
+  expect(remote.number).toBe(number);
+  expect(remote.calls.filter(c=>/\/rpc\/calc3d_(save|archive)/.test(c.pathname))).toHaveLength(0);
+  await page.locator('#spool-purchasePrice').fill('16000');
+  await expect(page.locator('#spool-purchasePrice')).toHaveValue('16000');
+  expect([remote.profiles,remote.supplierReferences]).toEqual(before);
+  expect(remote.number).toBe(number);
+  expect(remote.calls.filter(c=>/\/rpc\/calc3d_(save|archive)/.test(c.pathname))).toHaveLength(0);
+  await page.locator('#save-spool').click();
+  await expect.poll(() => remote.calls.filter(c=>c.pathname.endsWith('/rpc/calc3d_save_spool_profile'))
+    .map(c=>c.body)).toEqual([expect.objectContaining({profile_id:ids[0],expected_revision:1,
+    payload:expect.objectContaining({purchasePrice:16000})})]);
+  await expect(page.locator('#spool-feedback')).toContainText('Bobina guardada en tu cuenta.');
+  expect(remote.profiles).toHaveLength(2);
+  expect(remote.profiles.find(p=>p.id===ids[0])).toMatchObject({...before[0][0],brand:'Marca Uno',purchase_price:16000,
+    revision:2,updated_at:expect.any(String)});
+  expect(remote.profiles.find(p=>p.id===ids[1])).toEqual(before[0][1]);
+  expect(remote.supplierReferences).toEqual(before[1]);
+  expect(remote.number).toBe(number);
+  await page.goto('/spools.html');
+  await expect(page.locator('.consultation-row').filter({hasText:'PLA Azul'})).toContainText('CLP 16.000');
+});
+
+test('consultation is in main navigation rather than the settings content', async ({page,remote}) => {
+  const before=JSON.stringify([remote.profiles,remote.supplierReferences,remote.number]);
   await page.goto('/settings.html');
-  const link = page.getByRole('link',{name:'Consultar bobinas',exact:true});
+  await expect(page.locator('main').getByRole('link',{name:'Consultar bobinas',exact:true})).toHaveCount(0);
+  await expect(page.locator('.topbar').getByRole('link',{name:'Consultar bobinas',exact:true})).toHaveAttribute('href','./spools.html');
+  await page.goto('/index.html');
+  const link = page.locator('.topbar').getByRole('link',{name:'Consultar bobinas',exact:true});
   await expect(link).toHaveAttribute('href','./spools.html');
   await link.click();
   await expect(page).toHaveURL(/\/spools.html$/);
   await expect(page.getByRole('heading',{name:'Consultar bobinas',exact:true})).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('searchbox',{name:'Buscar bobinas'})).toBeVisible();
+  expect(JSON.stringify([remote.profiles,remote.supplierReferences,remote.number])).toBe(before);
+  expect(remote.calls.filter(c=>/\/rpc\/calc3d_(save|archive)/.test(c.pathname))).toHaveLength(0);
 });
 
 test('S10 LU filters instantly and preserves brand, material and price order without writes', async ({page,remote}) => {
