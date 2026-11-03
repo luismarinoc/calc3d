@@ -13,6 +13,15 @@ test('historical material stays pinned after a profile revision; new selection u
   assert.equal(historicalSpool({ form: { spoolId: 'purchase:missing' }, input: { spool: { purchasePrice: -1, netWeightGrams: 1000 } } }), null);
 });
 
+test('base selection uses live effective values while historical base quote stays pinned', () => {
+  const id = 'base:11111111-1111-4111-8111-111111111111';
+  const saved = { form: { spoolId: id, purchasePrice: 100, netWeightGrams: 900 } };
+  const current = [{ id, purchasePrice: 200, netWeightGrams: 800 }];
+  assert.equal(selectedSpool(current, id).purchasePrice, 200);
+  assert.deepEqual(selectedSpool(current, id, historicalSpool(saved)), { id, purchasePrice: 100, netWeightGrams: 900 });
+  assert.equal(selectedSpool(current, 'base:unknown'), null);
+});
+
 test('legacy saved material uses its owned snapshot even when its demo identity is absent', () => {
   const saved = { form: { spoolId: 'demo-petg', purchasePrice: '10000', netWeightGrams: '1000' } };
   assert.deepEqual(historicalSpool(saved), { id: 'demo-petg', purchasePrice: 10000, netWeightGrams: 1000 });

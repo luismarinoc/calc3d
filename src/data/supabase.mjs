@@ -4,6 +4,7 @@ import { validatePurchase } from '../domain/purchases.mjs';
 import { validateSpoolProfile } from '../domain/spool-profiles.mjs';
 import { normalizeBrandName, validateBrand } from '../domain/brands.mjs';
 import { normalizeRow, createAccessService } from '../auth/access.mjs';
+import { composeSharedCatalog } from '../domain/shared-catalog.mjs';
 
 const copy = value => structuredClone(value);
 const missing = () => { throw new Error('No se pudo guardar: el servidor no devolvió un registro.'); };
@@ -345,7 +346,121 @@ export function createRemoteRepositories(client, session, accessService = create
     }
     return profile(row);
   }
+  // Unlike ownedCompleteRead, the public baseline has no owner filter. Enumerate the
+  // whole ordered set, comparing it with a counted first page; never return partial data.
+  async function completeSharedRead(table, columns, owned = false) {
+    const key = owned ? 'base_id' : 'id';
+    const incomplete = () => { throw new Error('No se pudo cargar el catálogo completo de bobinas. Recarga e intenta nuevamente.'); };
+    const token = async () => {
+      const value = (await guard())?.access_token;
+      if (typeof value !== 'string' || !value || /\s/u.test(value)) incomplete();
+      return value;
+    };
+    const queryFor = (value, counted, cursor) => {
+      let query = client.from(table).select(columns, ...(counted ? [{ count: 'exact' }] : []));
+      if (owned) query = query.eq('owner_id', owner);
+      query = query.order(key, { ascending: true }).limit(500);
+      if (cursor !== null) query = query.gt(key, cursor);
+      return query.setHeader('Authorization', `Bearer ${value}`);
+    };
+    const result = [];
+    let cursor = null;
+    let total = null;
+    do {
+      const response = await queryFor(await token(), total === null, cursor);
+      await guard();
+      const page = rows(response);
+      if (total === null) total = response.count;
+      if (!Number.isSafeInteger(total) || total < 0 || page.length > 500 ||
+          (result.length < total && page.length === 0)) incomplete();
+      for (const row of page) {
+        if (!validProfileId(row?.[key]) || (owned && row.owner_id !== owner) ||
+            (cursor !== null && row[key] <= cursor)) incomplete();
+        cursor = row[key];
+        result.push(row);
+        if (result.length > total) incomplete();
+      }
+    } while (result.length < total);
+    return result;
+  }
+  const sharedCatalog = {
+    /** Returns { profiles, pendingReferences }; profiles are personal DTOs or flattened
+     * base DTOs with id base:<uuid>, source, baseRevision, overrideRevision and mask. */
+    async list() {
+      const baseRows = await completeSharedRead('calc3d_shared_products',
+        'id,sku,source_url,status,profile,pending,revision,source_sha256,normalized_sha256');
+      const overrideRows = await completeSharedRead('calc3d_shared_overrides',
+        'owner_id,base_id,fields,hidden,revision', true);
+      const ownProfiles = await spoolProfiles.list();
+      const ownPending = await supplierReferences.list();
+      await guard();
+      const base = baseRows.map(row => {
+        if (!validProfileId(row.id) || !safeSourceUrl(row.source_url) ||
+            !Number.isSafeInteger(row.revision) || row.revision < 1 ||
+            !/^[0-9a-f]{64}$/.test(row.source_sha256) || !/^[0-9a-f]{64}$/.test(row.normalized_sha256)) {
+          throw new Error('Respuesta remota inválida del catálogo compartido.');
+        }
+        const common = { id: `base:${row.id}`, sku: row.sku, sourceUrl: row.source_url,
+          status: row.status, provenance: { sourceSha256: row.source_sha256, normalizedSha256: row.normalized_sha256 } };
+        if (row.status === 'confirmed' && row.pending === null) return { ...common, profile: row.profile };
+        if (row.status === 'pending' && row.profile === null && row.pending) return { ...common, ...row.pending };
+        throw new Error('Respuesta remota inválida del catálogo compartido.');
+      });
+      const metadata = new Map();
+      const overrides = overrideRows.map(row => {
+        if (!validProfileId(row.base_id) || !Number.isSafeInteger(row.revision) || row.revision < 1 ||
+            typeof row.hidden !== 'boolean' || !row.fields || typeof row.fields !== 'object' || Array.isArray(row.fields) ||
+            metadata.has(`base:${row.base_id}`)) throw new Error('Respuesta remota inválida del catálogo compartido.');
+        metadata.set(`base:${row.base_id}`, row);
+        return { baseId: `base:${row.base_id}`, fields: row.fields };
+      }).filter(row => Object.keys(row.fields).length);
+      const composed = composeSharedCatalog({ base, personal: ownProfiles, overrides });
+      const profiles = [], pendingReferences = [];
+      for (const row of composed) {
+        if (!row.id.startsWith('base:')) { profiles.push(row); continue; }
+        const id = row.id.slice(5);
+        const mask = metadata.get(row.id);
+        if (mask?.hidden) continue;
+        if (row.status === 'pending') {
+          pendingReferences.push({ ...row, kind: 'pending-reference', quotable: false });
+          continue;
+        }
+        const revision = baseRows.find(item => item.id === id)?.revision;
+        profiles.push({ id: row.id, ...row.profile, brandId: null, filamentColor: row.profile.filamentColor ?? '',
+          filamentColorHex: row.profile.filamentColorHex ?? null, sourceUrl: row.sourceUrl, sku: row.sku,
+          source: 'base', baseRevision: revision, overrideRevision: mask?.revision ?? 0,
+          overriddenFields: row.overriddenFields ?? [], archivedAt: null });
+      }
+      return copy({ profiles, pendingReferences: [...ownPending, ...pendingReferences] });
+    },
+    async saveOverride(id, fields, expectedRevision) {
+      validSharedTarget(id, expectedRevision);
+      if (!fields || typeof fields !== 'object' || Array.isArray(fields) ||
+          !Object.keys(fields).length || Object.keys(fields).some(key => !['name', 'material', 'brand', 'purchasePrice', 'netWeightGrams'].includes(key))) {
+        throw new TypeError('Campos de bobina compartida inválidos.');
+      }
+      const row = await write('calc3d_save_shared_override', { product_id: id, fields: copy(fields), expected_revision: expectedRevision });
+      return sharedWriteResult(row, id, expectedRevision);
+    },
+    async hide(id, expectedRevision) {
+      validSharedTarget(id, expectedRevision);
+      const row = await write('calc3d_hide_shared_product', { product_id: id, expected_revision: expectedRevision });
+      if (row.hidden !== true) throw new Error('Respuesta remota inválida del catálogo compartido.');
+      return sharedWriteResult(row, id, expectedRevision);
+    },
+  };
+  function validSharedTarget(id, expectedRevision) {
+    if (!validProfileId(id) || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0 ||
+        expectedRevision >= Number.MAX_SAFE_INTEGER) throw new TypeError('Identificador o revisión de bobina compartida inválidos.');
+  }
+  function sharedWriteResult(row, id, previous) {
+    if (row.owner_id !== owner || row.base_id !== id || row.revision !== previous + 1) {
+      throw new Error('Respuesta remota inválida del catálogo compartido.');
+    }
+    return copy({ baseId: `base:${id}`, overrideRevision: row.revision, fields: row.fields, hidden: row.hidden });
+  }
   return {
+    sharedCatalog,
     spoolProfiles,
     supplierReferences,
     brands,

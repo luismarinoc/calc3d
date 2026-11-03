@@ -1,10 +1,11 @@
 import { presentSpools } from './brand-display.mjs';
 
-/** Build a detached owned calculator catalog from validated profile and purchase lists. */
-export function buildSpoolCatalog(purchasedSpools, profiles = [], brands = []) {
+/** Build a detached calculator catalog from owned rows and optional resolved shared profiles. */
+export function buildSpoolCatalog(purchasedSpools, profiles = [], brands = [], baseProfiles = []) {
   return presentSpools([
-    ...profiles.filter(profile => !profile.archivedAt).map(profile => ({
-      id: `profile:${profile.id}`,
+    ...[...profiles, ...baseProfiles.filter(row => row.source === 'base' && row.id?.startsWith('base:') && row.status !== 'pending')]
+      .filter(profile => !profile.archivedAt).map(profile => ({
+      id: profile.source === 'base' ? profile.id : `profile:${profile.id}`,
       label: [profile.name, profile.material, profile.brand].filter(Boolean).join(' · '),
       name: profile.name, material: profile.material, brand: profile.brand, brandId: profile.brandId ?? null,
       filamentColor: profile.filamentColor ?? '', filamentColorHex: profile.filamentColorHex ?? null,
