@@ -86,6 +86,8 @@ test('S1-S3: deferred old-owner list never repaints after an account switch', as
   remote.holdProfiles = new Promise(resolve => { release = resolve; });
   await page.reload();
   await expect.poll(() => remote.reads[path]).toBeGreaterThan(priorReads);
+  // Keep printer admission settled while the old owner's spool read remains pending.
+  await expect(page.locator('#save-printer')).toBeEnabled();
   remote.user = { ...remote.user, id: '22222222-2222-4222-8222-222222222222', email: 'second@example.test' };
   const signInError = await page.evaluate(async () => {
     const { client } = await import('/src/auth/browser.mjs');

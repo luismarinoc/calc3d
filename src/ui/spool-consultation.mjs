@@ -109,6 +109,10 @@ export function createSpoolConsultation() {
     } else {
       const missing = document.createElement('span'); missing.textContent = 'Sin enlace de origen'; origin.append(missing);
     }
+    if (item.source === 'base') {
+      const provenance = document.createElement('span'); provenance.textContent = 'Catálogo común · cambios solo en tu cuenta';
+      origin.append(provenance);
+    }
     if (!pending) {
       const edit = document.createElement('a'); edit.className = 'consultation-product-link';
       edit.href = `./settings.html?editSpool=${encodeURIComponent(item.id)}#spool-form`;
@@ -177,10 +181,9 @@ export function createSpoolConsultation() {
     items = []; loading = true; error = false;
     controls.forEach(control => { control.disabled = true; }); render();
     try {
-      const [profiles, references, brands] = await Promise.all([
-        repository.spoolProfiles.list(), repository.supplierReferences.list(), repository.brands.list()]);
+      const [catalog, brands] = await Promise.all([repository.sharedCatalog.list(), repository.brands.list()]);
       if (token !== generation || source !== repository || !current()) return;
-      items = presentSpools([...profiles.filter(profile => !profile.archivedAt), ...references], brands)
+      items = presentSpools([...catalog.profiles.filter(profile => !profile.archivedAt), ...catalog.pendingReferences], brands)
         .map(item => ({ ...item, material: canonicalMaterial(item.material) }));
       for (const item of items) searchIndex.set(item, {
         text: key([item.brand, item.material, item.name, item.filamentColor, item.supplierSku].join(' ')),

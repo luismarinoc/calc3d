@@ -14,7 +14,9 @@ El borrador nuevo usa la impresora activa; los cuatro costos fijos ya no se intr
 
 ## Consultar y editar bobinas
 
-Abre «Consultar bobinas» desde la navegación superior de la calculadora (`spools.html`), sin entrar en Configuración. Busca una bobina guardada y pulsa «Editar» para abrir su formulario en Configuración con los datos precargados. Solo «Guardar bobina» confirma los cambios; al volver a la consulta se muestra el precio actualizado. Las referencias con peso por confirmar no tienen acción de edición.
+Abre «Consultar bobinas» desde la calculadora (`spools.html`) para buscar productos confirmados del catálogo común junto con tus bobinas personales. Las referencias del proveedor sin peso se muestran con precio de referencia cuando existe, pero no se pueden editar ni cotizar. Pulsa «Editar» en una bobina cotizable para abrir su formulario en Configuración. Elegir o editar no guarda: solo «Guardar bobina» confirma los cambios. En el catálogo común, los campos modificados y «Quitar bobina» afectan únicamente a tu cuenta; los campos no modificados siguen las actualizaciones de la base. Una bobina personal con la misma URL verificada conserva su identidad sin otra fila del producto. Las compras y las cotizaciones previas conservan sus datos históricos.
+
+Este catálogo es por ahora un **borrador funcional local**: la migración y la aceptación independiente de seguridad siguen pendientes. Las pruebas de interfaz no autorizan aplicar SQL, desplegar ni publicar en `main`. Consulta [el contrato local](docs/shared-spool-catalog.md) antes de probarlo.
 
 ## Compras e inventario adquirido de prueba
 

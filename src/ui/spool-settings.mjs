@@ -30,6 +30,9 @@ export function createSpoolSettings() {
   let editing = null;
   let pending = false;
   let ownerKey = null;
+  const touched = new Set();
+  form.addEventListener('input', event => { if (editing?.source === 'base' && event.target.name in labels) touched.add(event.target.name); });
+  brandField.addEventListener('change', () => { if (editing?.source === 'base') touched.add('brand'); });
   function controls(selectedId) {
     failure.hidden = profiles !== null || !failure.textContent;
     for (const control of actions) control.disabled = profiles === null || pending;
@@ -87,13 +90,13 @@ export function createSpoolSettings() {
     controls(select.value);
   }
   document.querySelector('#new-spool').addEventListener('click', () => {
-    clearError(); editing = null; controls(''); populate(); form.elements.namedItem('name').focus();
+    clearError(); editing = null; touched.clear(); controls(''); populate(); form.elements.namedItem('name').focus();
   });
   select.addEventListener('change', () => { edit.disabled = archive.disabled = !select.value; });
   edit.addEventListener('click', () => {
     const item = profiles?.find(profile => profile.id === select.value);
     if (!item) return;
-    clearError(); editing = item; populate(item); form.elements.namedItem('name').focus();
+    clearError(); editing = item; touched.clear(); populate(item); form.elements.namedItem('name').focus();
   });
   archive.addEventListener('click', async () => {
     const item = profiles?.find(profile => profile.id === select.value && !profile.archivedAt);
@@ -102,22 +105,26 @@ export function createSpoolSettings() {
     const current = source;
     pending = true; clearError(); controls(item.id);
     try {
-      const result = await current.spoolProfiles.archiveProfile(item.id, item.revision);
+      const result = item.source === 'base'
+        ? await current.sharedCatalog.hide(item.id.slice(5), item.overrideRevision)
+        : await current.spoolProfiles.archiveProfile(item.id, item.revision);
       if (source !== current) return;
-      profiles = profiles.map(profile => profile.id === item.id ? result.profile : profile);
+      profiles = item.source === 'base' ? profiles.filter(profile => profile.id !== item.id) :
+        profiles.map(profile => profile.id === item.id ? result.profile : profile);
       editing = null; populate();
       const fallback = profiles.find(profile => !profile.archivedAt)?.id ?? '';
       try { if (sessionStorage.getItem(ownerKey) === item.id) sessionStorage.removeItem(ownerKey); } catch { /* Selection memory is optional. */ }
       feedback.textContent = 'Bobina quitada de las listas. Se conserva el historial.';
       controls(fallback);
       try {
-        const loaded = await current.spoolProfiles.list();
+        const loaded = await current.sharedCatalog.list();
         if (source !== current) return;
-        profiles = loaded;
+        profiles = loaded.profiles;
       } catch {
         if (source === current) feedback.textContent = 'Bobina quitada de las listas. No se pudo actualizar la lista; recarga para reintentar.';
       }
-    } catch (error) { if (source === current) report(error.message); }
+    } catch (error) { if (source === current) report(item.source === 'base' && error.code === '40001'
+      ? 'La bobina común cambió; recarga antes de quitarla.' : error.message); }
     finally { if (source === current) { pending = false; controls(profiles?.find(profile => !profile.archivedAt)?.id); } }
   });
   form.addEventListener('submit', async event => {
@@ -142,35 +149,45 @@ export function createSpoolSettings() {
       const key = Object.keys(labels).find(key => error.message.toLowerCase().includes(labels[key])) ?? 'name';
       report(error.message, form.elements.namedItem(key)); return;
     }
+    if (editing?.source === 'base' && !touched.size) {
+      feedback.textContent = 'No hay cambios para guardar en tu cuenta.';
+      return;
+    }
     const current = source;
     const selectedId = select.value;
     pending = true; controls(selectedId);
     try {
-      const result = editing
-        ? await current.spoolProfiles.updateProfile(editing.id, input, editing.revision)
-        : await current.spoolProfiles.createProfile(input);
+      const shared = editing?.source === 'base';
+      const result = shared
+        ? await current.sharedCatalog.saveOverride(editing.id.slice(5),
+          Object.fromEntries([...touched].map(key => [key, input[key]])), editing.overrideRevision)
+        : editing ? await current.spoolProfiles.updateProfile(editing.id, input, editing.revision)
+          : await current.spoolProfiles.createProfile(input);
       if (source !== current) return;
       // The validated RPC response is the commit acknowledgment. A later read cannot undo it.
-      editing = result.profile;
+      editing = shared ? { ...editing, ...result.fields, overrideRevision: result.overrideRevision,
+        overriddenFields: Object.keys(result.fields) } : result.profile;
+      touched.clear();
       profiles = [...profiles.filter(item => item.id !== editing.id), editing];
       feedback.textContent = 'Bobina guardada en tu cuenta.';
       controls(editing.id);
-      try { sessionStorage.setItem(ownerKey, editing.id); } catch { /* Selection memory is optional. */ }
+      if (!shared) try { sessionStorage.setItem(ownerKey, editing.id); } catch { /* Selection memory is optional. */ }
       try {
-        const loaded = await current.spoolProfiles.list();
+        const loaded = await current.sharedCatalog.list();
         if (source !== current) return;
-        const confirmed = loaded.find(item => item.id === editing.id);
+        const confirmed = loaded.profiles.find(item => item.id === editing.id);
         if (!confirmed) throw new Error('La lista no incluye la bobina guardada.');
-        profiles = loaded;
+        profiles = loaded.profiles;
         editing = confirmed;
       } catch {
         if (source === current) feedback.textContent = 'Bobina guardada en tu cuenta. No se pudo actualizar la lista; recarga para reintentar.';
       }
-    } catch (error) { if (source === current) report(error.message); }
+    } catch (error) { if (source === current) report(editing?.source === 'base' && error.code === '40001'
+      ? 'La bobina común cambió; recarga antes de guardar.' : error.message); }
     finally { if (source === current) { pending = false; controls(editing?.id ?? selectedId); } }
   });
   function clear() {
-    source = null; profiles = null; editing = null; pending = false; ownerKey = null;
+    source = null; profiles = null; editing = null; touched.clear(); pending = false; ownerKey = null;
     form.reset();
     brands = []; populate(); feedback.textContent = ''; failure.textContent = 'Comprobando acceso remoto…'; controls();
   }
@@ -179,9 +196,9 @@ export function createSpoolSettings() {
     source = current;
     ownerKey = `calc3d-spool-selection:${session.user.id}`;
     try {
-      const loaded = await current.spoolProfiles.list();
+      const loaded = await current.sharedCatalog.list();
       if (!isCurrent() || source !== current) return;
-      profiles = loaded; failure.textContent = '';
+      profiles = loaded.profiles; failure.textContent = '';
       let remembered = null;
       try { remembered = sessionStorage.getItem(ownerKey); } catch { /* Selection memory is optional. */ }
       controls(remembered);

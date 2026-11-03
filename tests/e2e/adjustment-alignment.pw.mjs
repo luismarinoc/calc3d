@@ -36,6 +36,8 @@ test('discount shares the Imprevistos row in default and custom modes on wide la
 
 test('discount and surcharge each align their own type and value in one row', async ({ page }, info) => {
   await page.goto('/');
+  await expect(page.locator('#spoolId option')).toHaveCount(1);
+  await expect(page.locator('.account-nav')).toBeVisible();
   const multiplier = await page.locator('#multiplierPreset').boundingBox();
   let previousBottom = multiplier.y + multiplier.height;
   for (const prefix of ['discount', 'surcharge']) {

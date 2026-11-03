@@ -1,6 +1,6 @@
 # Catálogo común de bobinas: contrato local
 
-La semilla pública contiene productos confirmados y referencias pendientes del proveedor; no contiene bobinas ni identificadores de cuentas. T3 añade un lector de repositorio y proyección para el calculador. La migración T2 sigue bloqueada sin verificación independiente: este contrato local no autoriza aplicar SQL, habilitar la interfaz ni publicar en main.
+La semilla pública contiene productos confirmados y referencias pendientes del proveedor; no contiene bobinas ni identificadores de cuentas. T3 añade el lector y la proyección; T4 conecta calculadora, consulta y configuración localmente. La migración T2 y la aceptación de seguridad T3 siguen bloqueadas sin verificación independiente: las pruebas funcionales de interfaz no autorizan aplicar SQL, desplegar ni publicar en main.
 
 ## Reproducir la semilla
 
@@ -19,7 +19,11 @@ La fuente es el catálogo normalizado v2 (SHA-256 `cd02ddbdb9591722cda5061db6e76
 
 `composeSharedCatalog({ base, personal, overrides })` devuelve primero filas personales, luego filas base no duplicadas; recibe solo las filas privadas del dueño ya autorizado. Un override es `{ baseId, fields }`: la presencia explícita de cada campo en `fields` manda, incluso cuando coincide con el valor anterior. Los otros campos, incluido el color del filamento de la fuente, se leen siempre del perfil base vigente. La composición mantiene procedencia y datos de presentación de pendientes, sin convertir `referencePriceClp` en `purchasePrice`. Solo se aceptan nombre, material, marca, precio de compra y peso, sujetos a `validateSpoolProfile`. La identidad exacta del proveedor deduplica filas y conserva la fila y el ID personal; sin identidad verificada no se aplica semejanza por nombre, marca o peso. La función no escribe ni muta las entradas. La autorización del dueño, la verificación de procedencia de filas personales y la prohibición de cotizar pendientes deberán aplicarse también en T2–T4.
 
-## API local para el consumidor T4 (sin conectar la interfaz todavía)
+## Uso local de la interfaz
+
+Una cuenta admitida ve los productos confirmados en la calculadora y en Configuración, y también las referencias pendientes en Consultar bobinas. Estas referencias muestran el precio publicado cuando existe, pero no se pueden editar ni cotizar. Al editar una bobina del catálogo común, solo Guardar crea cambios personales: se envían los campos tocados y la revisión vigente; los demás siguen la versión común al recargar. Quitarla la oculta solamente en esa cuenta. Las bobinas personales y compras mantienen sus identificadores y controles existentes; una bobina personal con identidad exacta de proveedor sustituye la fila común sin duplicarse. Los cálculos guardados conservan la copia histórica de precio y peso.
+
+## API local de consumidores
 
 `createRemoteRepositories(client, session).sharedCatalog.list()` devuelve `{ profiles, pendingReferences }`. Cada perfil base está aplanado con `id: "base:<uuid>"`, `source: "base"`, `baseRevision`, `overrideRevision` (0 si no existe), `overriddenFields`, `sourceUrl`, `sku`, color público y `brandId: null`. Los perfiles personales mantienen su UUID, archivo y editor original. Las referencias pendientes conservan nombre, material, marca, color, URL, SKU, precio de referencia y razones; tienen `quotable: false` y nunca entran al calculador. Los lectores compartidos usan páginas completas y sesión vinculada al dueño; si la migración falta o la lectura es parcial, se propaga el error, no un catálogo vacío.
 
