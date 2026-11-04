@@ -8,7 +8,7 @@ const states = new WeakMap();
 export const remoteForPage = page => states.get(page);
 export const test = base.extend({
   remote: async ({ page }, use) => {
-    const state = { quotes: [], printers: null, purchases: [], spools: [], profiles: [], supplierReferences: [], sharedProducts: [], sharedOverrides: [], brands: [], number: 0, allowed: true, pending: false,
+    const state = { quotes: [], printers: null, purchases: [], spools: [], profiles: [], supplierReferences: [], sharedProducts: [], sharedOverrides: [], brands: [], number: 0, allowed: true, role: 'member', pending: false,
       fail: null, failAfter: null, reads: {}, calls: [], holdQuotes: null, holdProfiles: null, holdBrands: null, holdArchive: null, user };
     await page.route('http://127.0.0.1:54321/**', async route => {
       const request = route.request();
@@ -21,7 +21,7 @@ export const test = base.extend({
       if (pathname.endsWith('/auth/v1/token')) return json({ access_token: state.user.id === user.id ? 'fake.browser.test' : 'fake.browser.test.other', refresh_token: 'fake-refresh', token_type: 'bearer', expires_in: 3600, user: state.user });
       if (pathname.endsWith('/auth/v1/user')) return json(state.user);
       if (pathname.endsWith('/auth/v1/logout')) return route.fulfill({ status: 204, body: '' });
-      if (pathname.endsWith('/rest/v1/rpc/calc3d_access_status') || pathname.endsWith('/rest/v1/rpc/calc3d_record_access')) return json({ allowed: state.allowed, role: state.allowed ? 'member' : null, email: state.allowed ? state.user.email : null });
+      if (pathname.endsWith('/rest/v1/rpc/calc3d_access_status') || pathname.endsWith('/rest/v1/rpc/calc3d_record_access')) return json({ allowed: state.allowed, role: state.allowed ? state.role : null, email: state.allowed ? state.user.email : null });
       if (pathname.endsWith('/rest/v1/rpc/calc3d_request_access')) return json({ state: 'revoked', request: null });
       if (pathname.endsWith('/rest/v1/rpc/calc3d_claim_invitation')) {
         if (!state.pending) return json({ code: '23514', message: 'Invitation is not pending' }, 400);
@@ -54,6 +54,23 @@ export const test = base.extend({
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(limited),
           headers: counted ? { 'Content-Range': limited.length ? `0-${limited.length - 1}/${visible.length}` : `*/${visible.length}`,
             'Access-Control-Expose-Headers': 'Content-Range' } : {} });
+      }
+      if (pathname.endsWith('/rest/v1/rpc/calc3d_create_common_product') || pathname.endsWith('/rest/v1/rpc/calc3d_update_common_product')) {
+        if (state.role !== 'admin') return json({ code: '42501', message: 'Admin required' }, 403);
+        const creating = pathname.endsWith('calc3d_create_common_product');
+        const current = state.sharedProducts.find(row => row.id === body.product_id);
+        if (!creating && (!current || current.status !== 'confirmed' || current.revision !== body.expected_revision))
+          return json({ code: '40001', message: 'Shared product revision conflict' }, 409);
+        const profile = { ...current?.profile, ...body.payload };
+        if (!profile.name?.trim() || !profile.material?.trim() || !Number.isSafeInteger(profile.purchasePrice) ||
+            profile.purchasePrice < 0 || !Number.isFinite(profile.netWeightGrams) || profile.netWeightGrams <= 0 ||
+            Object.keys(body.payload ?? {}).some(key => !['name', 'material', 'brand', 'purchasePrice', 'netWeightGrams'].includes(key)))
+          return json({ code: '23514', message: 'Invalid common product' }, 400);
+        const row = creating ? { id: crypto.randomUUID(), origin: 'manual', sku: null, source_url: null,
+          source_sha256: null, normalized_sha256: null, status: 'confirmed', pending: null, revision: 1, profile } :
+          { ...current, profile, revision: current.revision + 1 };
+        state.sharedProducts = creating ? [...state.sharedProducts, row] : state.sharedProducts.map(item => item === current ? row : item);
+        return json(row);
       }
       if (pathname.endsWith('/rest/v1/rpc/calc3d_save_shared_override') || pathname.endsWith('/rest/v1/rpc/calc3d_hide_shared_product')) {
         const product = state.sharedProducts.find(row => row.id === body.product_id && row.status === 'confirmed');

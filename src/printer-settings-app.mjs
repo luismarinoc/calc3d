@@ -116,10 +116,10 @@ showState();
 await protectPage({ onClear: () => {
   repository = null; state = null; editing = null; pending = false; form.reset(); feedback.textContent = '';
   failure.textContent = 'Comprobando acceso remoto…'; showState(); spoolSettings.clear(); brandSettings.clear();
-}, onReady: async ({ client, session }, isCurrent) => {
+}, onReady: async ({ client, session, access }, isCurrent) => {
   const source = createRemoteRepositories(client, session);
   repository = source;
-  await Promise.all([brandSettings.load(source, isCurrent), spoolSettings.load(source, session, isCurrent), (async () => {
+  await Promise.all([brandSettings.load(source, isCurrent), spoolSettings.load(source, session, isCurrent, access.role), (async () => {
     try {
       const loaded = await source.printers.load();
       if (!isCurrent() || repository !== source) return;
@@ -132,7 +132,7 @@ await protectPage({ onClear: () => {
   if (!isCurrent() || repository !== source) return;
   const editSpool = new URLSearchParams(window.location.search).get('editSpool');
   const spoolSelect = document.querySelector('#spool-profile');
-  if (editSpool && [...spoolSelect.options].some(option => option.value === editSpool)) {
+  if (access.role === 'admin' && editSpool && [...spoolSelect.options].some(option => option.value === editSpool)) {
     spoolSelect.value = editSpool;
     spoolSelect.dispatchEvent(new Event('change', { bubbles: true }));
     document.querySelector('#edit-spool').click();

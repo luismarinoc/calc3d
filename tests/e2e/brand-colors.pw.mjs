@@ -6,6 +6,7 @@ const brand = (owner_id, id, name, color, aliases) => ({ id, owner_id, name, col
   normalized_name: aliases[0], revision: 1, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' });
 
 test('S1-S2: visible brand chips in every ordered option and selected profile; selection does not save', async ({ page, remote }) => {
+  remote.role = 'admin';
   remote.brands = [brand(remote.user.id, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Zeta', '#123456', ['zeta']),
     brand(remote.user.id, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Álamo', '#ABCDEF', ['álamo'])];
   remote.profiles = [profile('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Zeta', 'Z', remote.user.id), profile('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Álamo', 'A', remote.user.id),
@@ -41,6 +42,7 @@ test('S1-S2: visible brand chips in every ordered option and selected profile; s
 });
 
 test('S2: keyboard navigation, Escape and account switch clear an open list and selected owner name', async ({ page, remote }) => {
+  remote.role = 'admin';
   remote.profiles = [profile('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'Privada', 'Original', remote.user.id)];
   await signIn(page);
   await page.goto('/settings.html');
@@ -70,6 +72,7 @@ test('S2: keyboard navigation, Escape and account switch clear an open list and 
 });
 
 test('S2: Tab leaves the open list and selected profile is announced', async ({ page, remote }) => {
+  remote.role = 'admin';
   remote.profiles = [profile('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'Privada', 'Original', remote.user.id)];
   await signIn(page);
   await page.goto('/settings.html');
@@ -95,6 +98,7 @@ test('S2: Tab leaves the open list and selected profile is announced', async ({ 
 });
 
 test('S2: account switch also clears a closed selected profile and retained DOM text', async ({ page, remote }) => {
+  remote.role = 'admin';
   remote.profiles = [profile('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'Privada', 'Original', remote.user.id)];
   await signIn(page);
   await page.goto('/settings.html');

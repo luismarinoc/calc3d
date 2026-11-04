@@ -40,6 +40,9 @@ test('S2: choosing non-active installed A saves its snapshot while B stays activ
 
 test('S4: compact aligned controls without redundant data-used note', async ({ page }, info) => {
   await page.goto('/');
+  // Wait for the admitted catalog and resulting layout before measuring geometry.
+  await expect(page.locator('#spoolId option')).toHaveCount(1);
+  await expect(page.locator('.account-nav')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Configuración · Bobinas e impresoras' })).toBeVisible();
   await expect(page.locator('#printer-name-current')).toBeHidden();
   await expect(page.getByText('Datos usados:', { exact: false })).toHaveCount(0);

@@ -8,7 +8,7 @@ window.addEventListener('pageshow', event => {
 });
 await protectPage({
   onClear: () => consultation.clear(),
-  onReady: async ({ client, session }, isCurrent) => {
-    await consultation.load(createRemoteRepositories(client, session), isCurrent);
+  onReady: async ({ client, session, access }, isCurrent) => {
+    await consultation.load(createRemoteRepositories(client, session), isCurrent, access.role);
   },
 });

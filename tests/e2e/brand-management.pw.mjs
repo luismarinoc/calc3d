@@ -73,6 +73,7 @@ test('S1-S2: Marcas is separate; explicit create, color change and rename preser
 });
 
 test('S3-S4: brand ID and filament name/sample are independent, legible in Settings and Calculator; price unchanged', async ({ page, remote }) => {
+  remote.role = 'admin';
   remote.brands = [brand(remote.user.id)];
   remote.profiles = [profile(remote.user.id)];
   const before = structuredClone(remote.profiles);
@@ -124,6 +125,7 @@ test('S3-S4: brand ID and filament name/sample are independent, legible in Setti
 });
 
 test('S5: named unrepresentable filament has readable text and no invented sample; legacy unconfigured brand is neutral', async ({ page, remote }) => {
+  remote.role = 'admin';
   remote.brands = [brand(remote.user.id, { color: null })];
   remote.profiles = [profile(remote.user.id, { filament_color: 'Arcoíris translúcido', filament_color_hex: null })];
   const before = structuredClone(remote.profiles);
@@ -208,6 +210,7 @@ test('S6: stored brand ID and normalized legacy aliases resolve current purchase
 });
 
 test('S1-S6 owner fence: open and closed pickers/forms clear brand and filament after account switch', async ({ page, remote }) => {
+  remote.role = 'admin';
   remote.brands = [brand(remote.user.id, { name: 'Privada', normalized_name: 'privada', color: '#CF1245', aliases: ['privada'] })];
   remote.profiles = [profile(remote.user.id, { brand: 'Privada', filament_color: 'Secreto' })];
   await signIn(page, { withProfile: false });
@@ -288,6 +291,7 @@ test('S1-S6 owner fence: delayed Calculator brand GET cannot repaint second-owne
 });
 
 test('S1-S6 owner fence: delayed first-owner brands read cannot repaint second-owner Settings or Calculator', async ({ page, remote }) => {
+  remote.role = 'admin';
   remote.brands = [brand(remote.user.id, { name: 'Privada', normalized_name: 'privada', color: '#CF1245', aliases: ['privada'] })];
   remote.profiles = [profile(remote.user.id, { brand: 'Privada' })];
   await signIn(page, { withProfile: false });

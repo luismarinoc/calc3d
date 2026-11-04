@@ -5,6 +5,7 @@ const brand = (remote,id,name) => ({id,owner_id:remote.user.id,name,normalized_n
 const profile = (remote,id,name,material,brandId,price,color='') => ({id,owner_id:remote.user.id,name,material,brand:'',brand_id:brandId,filament_color:color,filament_color_hex:null,purchase_price:price,net_weight_grams:1000,revision:1,created_at:stamp,updated_at:stamp});
 
 test('consultation Edit opens the selected saved spool and saves only on explicit submit', async ({page,remote}) => {
+  remote.role = 'admin';
   remote.brands=[brand(remote,ids[0],'Marca Uno')];
   remote.profiles=[profile(remote,ids[0],'PLA Azul','PLA',ids[0],15000,'Azul'),
     profile(remote,ids[1],'PETG Verde','PETG',null,18000,'Verde')];

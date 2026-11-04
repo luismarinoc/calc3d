@@ -35,6 +35,7 @@ let saving = false;
 let accessible = false;
 let pinnedPrinter = null;
 let historicalCopy = false;
+let catalogRole = null;
 const fixed = ['watts', 'electricityPricePerKwh', 'replacementCost', 'replacementLifetimeHours'];
 function applyPrinter(printer) {
   pinnedPrinter = printer;
@@ -117,9 +118,11 @@ function describeSpool() {
   document.querySelector('#spool-info').replaceChildren();
   const info = document.querySelector('#spool-info');
   if (!catalog.length) {
-    info.append('No hay bobinas configuradas. ');
-    const link = document.createElement('a'); link.href = './settings.html'; link.textContent = 'Configurar bobinas';
-    info.append(link);
+    info.append(catalogRole === 'admin' ? 'No hay bobinas configuradas. ' : 'Todavía no hay bobinas disponibles en el catálogo común.');
+    if (catalogRole === 'admin') {
+      const link = document.createElement('a'); link.href = './settings.html'; link.textContent = 'Configurar bobinas';
+      info.append(link);
+    }
   } else if (spool?.purchaseId) {
     info.textContent = `Compra de prueba ${spool.purchaseId} · bobina ${spool.spoolId} · ${spool.material}, ${spool.brand}, ${spool.color} · ${spool.date}. No representa saldo disponible ni descuenta consumo.`;
   } else if (spool) info.textContent = spool.label;
@@ -379,7 +382,7 @@ window.addEventListener('pageshow', (event) => {
   if (event.persisted) window.location.reload();
 });
 function clearAccount() {
-  accessible = false; repositories = null; printerState = null; historyRecords = []; historyError = ''; settings.error = null;
+  accessible = false; catalogRole = null; repositories = null; printerState = null; historyRecords = []; historyError = ''; settings.error = null;
   catalog = []; pinnedSpool = null; spoolSelect.replaceChildren(); spoolPicker.render([], true); printerSelect.replaceChildren(); pinnedPrinter = null;
   historicalCopy = false; document.querySelector('#printer-name-current').textContent = '';
   setClient(); form.reset(); document.querySelector('#result-content').replaceChildren();
@@ -388,14 +391,14 @@ function clearAccount() {
   document.querySelector('#feedback').textContent = '';
   renderHistory(); document.querySelector('#save').disabled = true;
 }
-await protectPage({ onClear: clearAccount, onReady: async ({ client, session }, isCurrent) => {
+await protectPage({ onClear: clearAccount, onReady: async ({ client, session, access }, isCurrent) => {
   const source = createRemoteRepositories(client, session);
   try {
     const [printers, quotes, spools, shared, brands] = await Promise.all([
       source.printers.load(), source.quotes.list(), source.purchases.listSpools(), source.sharedCatalog.list(), source.brands.list(),
     ]);
     if (!isCurrent()) return;
-    repositories = source;
+    repositories = source; catalogRole = access.role;
     printerState = printers; historyRecords = quotes;
     catalog = buildSpoolCatalog(spools, shared.profiles.filter(row => row.source !== 'base'), brands,
       shared.profiles.filter(row => row.source === 'base'));

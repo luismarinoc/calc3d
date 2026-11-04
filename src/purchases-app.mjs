@@ -11,6 +11,7 @@ let spools = [];
 let loadError = 'Comprobando acceso remoto…';
 let refreshWarning = '';
 let saving = false;
+let admin = false;
 const money = (amount) => `${new Intl.NumberFormat('es-CL').format(amount)} CLP`;
 const text = (tag, value, className) => {
   const element = document.createElement(tag);
@@ -67,9 +68,10 @@ function render() {
   history.replaceChildren();
   inventory.replaceChildren();
   show($('#storage-error'), loadError || refreshWarning);
-  $('#purchase-save').disabled = !!loadError || saving;
+  $('#purchase-save').disabled = !!loadError || saving || !admin;
+  $('#purchase-permission').hidden = !!loadError || admin;
   if (loadError) return;
-  if (!purchases.length) history.append(text('p', 'Todavía no hay compras guardadas. Completa el formulario y guarda una compra de prueba.', 'empty'));
+  if (!purchases.length) history.append(text('p', admin ? 'Todavía no hay compras guardadas. Completa el formulario y guarda una compra de prueba.' : 'Todavía no hay compras guardadas.', 'empty'));
   for (const purchase of purchases) {
     const item = text('article', '', 'saved-item');
     item.append(text('h3', `${purchase.date} · ${purchase.supplier.name}`));
@@ -115,7 +117,7 @@ form.addEventListener('input', () => {
 });
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
-  if (loadError || saving) return;
+  if (loadError || saving || !admin) return;
   let value;
   try { value = mapPurchaseForm(draft()); }
   catch (error) { focusError(error.message); return; }
@@ -149,11 +151,12 @@ form.addEventListener('submit', async (event) => {
 });
 window.addEventListener('pageshow', event => { if (event.persisted) window.location.reload(); });
 await protectPage({ onClear: () => {
-  repository = null; purchases = []; spools = []; loadError = 'Comprobando acceso remoto…'; refreshWarning = ''; saving = false;
+  repository = null; purchases = []; spools = []; loadError = 'Comprobando acceso remoto…'; refreshWarning = ''; saving = false; admin = false;
   form.reset(); field('date').value = todayDate();
   lines.replaceChildren(); appendLine(); show($('#purchase-feedback'), ''); render();
-}, onReady: async ({ client, session }, isCurrent) => {
+}, onReady: async ({ client, session, access }, isCurrent) => {
   const source = createRemoteRepositories(client, session);
+  admin = access.role === 'admin';
   try {
     const [loadedPurchases, loadedSpools] = await Promise.all([source.purchases.listPurchases(), source.purchases.listSpools()]);
     if (!isCurrent()) return;
