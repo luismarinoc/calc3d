@@ -1,6 +1,6 @@
 import { validateSpoolProfile } from './spool-profiles.mjs';
 
-const FIELDS = ['name', 'material', 'brand', 'purchasePrice', 'netWeightGrams'];
+const BASE_ID = /^base:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SKU = /^[A-Za-z0-9_-]{1,80}$/;
 const URL_PREFIX = 'https://www.todotoner.cl/';
 const own = (object, key) => Object.hasOwn(object, key);
@@ -8,27 +8,25 @@ const validUrl = row => typeof row?.sourceUrl === 'string' && row.sourceUrl.star
   !/[?#]/.test(row.sourceUrl);
 const validIdentity = row => validUrl(row) && typeof row.sku === 'string' && SKU.test(row.sku);
 
-/** Compose public base rows with a single account's overrides and personal rows; never mutate inputs. */
+/** Compose common supplier/manual rows with an account's private identities; legacy masks never apply. */
 export function composeSharedCatalog({ base = [], personal = [], overrides = [] } = {}) {
   if (![base, personal, overrides].every(Array.isArray)) throw new TypeError('Invalid catalog lists');
   const byId = new Map(base.map(row => [row.id, row]));
   if (byId.size !== base.length) throw new TypeError('Duplicate base identity');
-  const masks = new Map();
-  for (const { baseId, fields } of overrides) {
-    const row = byId.get(baseId);
-    if (!row || row.status !== 'confirmed' || masks.has(baseId) ||
-        !fields || typeof fields !== 'object' || Array.isArray(fields)) throw new TypeError('Invalid base override');
-    const keys = Object.keys(fields);
-    if (!keys.length || keys.some(key => !FIELDS.includes(key))) throw new TypeError('Invalid override field mask');
-    const values = Object.fromEntries(keys.map(key => [key, fields[key]]));
-    validateSpoolProfile({ ...row.profile, ...values });
-    masks.set(baseId, { values, keys });
-  }
+  // Legacy owner masks remain stored but cannot alter the common projection.
+  const supplier = base.filter(row => row.origin !== 'manual');
   const verified = personal.filter(validUrl);
-  const result = personal.map(row => ({ ...row }));
+  const matches = row => supplier.find(baseRow => baseRow.sourceUrl === row.sourceUrl ||
+    (typeof row.sku === 'string' && SKU.test(row.sku) && row.sku === baseRow.sku));
+  const result = personal.map(row => {
+    const match = validUrl(row) ? matches(row) : null;
+    return match?.status === 'confirmed' ? { ...row, ...validateSpoolProfile(match.profile), id: row.id,
+      ...(Number.isSafeInteger(match.revision) ? { commonTarget: { id: match.id.slice(5), baseRevision: match.revision } } : {}) } : { ...row };
+  });
   for (const row of base) {
-    if (!validIdentity(row) || !['confirmed', 'pending'].includes(row.status)) throw new TypeError('Invalid base identity');
-    if (verified.some(ownRow => ownRow.sourceUrl === row.sourceUrl ||
+    if (!BASE_ID.test(row.id) || (row.origin === 'manual' ? row.status !== 'confirmed' || row.sourceUrl != null || row.sku != null || own(row, 'provenance') : !validIdentity(row)) ||
+        !['confirmed', 'pending'].includes(row.status)) throw new TypeError('Invalid base identity');
+    if (row.origin !== 'manual' && verified.some(ownRow => ownRow.sourceUrl === row.sourceUrl ||
       (typeof ownRow.sku === 'string' && SKU.test(ownRow.sku) && ownRow.sku === row.sku))) continue;
     const provenance = own(row, 'provenance') ? {
       provenance: { sourceSha256: row.provenance.sourceSha256, normalizedSha256: row.provenance.normalizedSha256 }
@@ -49,14 +47,13 @@ export function composeSharedCatalog({ base = [], personal = [], overrides = [] 
       continue;
     }
     const profile = validateSpoolProfile(row.profile);
-    const mask = masks.get(row.id);
-    const effective = mask ? validateSpoolProfile({ ...profile, ...mask.values }) : profile;
-    result.push({ id: row.id, sku: row.sku, sourceUrl: row.sourceUrl, status: 'confirmed', ...provenance,
-      profile: { name: effective.name, material: effective.material, brand: effective.brand,
-        purchasePrice: effective.purchasePrice, netWeightGrams: effective.netWeightGrams,
-        ...(own(effective, 'filamentColor') ? { filamentColor: effective.filamentColor } : {}),
-        ...(own(effective, 'filamentColorHex') ? { filamentColorHex: effective.filamentColorHex } : {}) },
-      ...(mask ? { overriddenFields: [...mask.keys] } : {}) });
+    result.push({ id: row.id, ...(row.origin === 'manual' ? { origin: 'manual' } : { sku: row.sku, sourceUrl: row.sourceUrl }),
+      status: 'confirmed', ...provenance, ...(own(row, 'revision') ? { revision: row.revision } : {}),
+      profile: { name: profile.name, material: profile.material, brand: profile.brand,
+        purchasePrice: profile.purchasePrice, netWeightGrams: profile.netWeightGrams,
+        ...(own(profile, 'filamentColor') ? { filamentColor: profile.filamentColor } : {}),
+        ...(own(profile, 'filamentColorHex') ? { filamentColorHex: profile.filamentColorHex } : {}) },
+    });
   }
   return result;
 }

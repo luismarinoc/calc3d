@@ -7,7 +7,7 @@ const other = '22222222-2222-4222-8222-222222222222';
 const baseId = '33333333-3333-4333-8333-333333333333';
 const url = 'https://www.todotoner.cl/impresoras/impresoras-3d/filamentos/pla-negro';
 const hash = 'a'.repeat(64);
-const base = { id: baseId, sku: 'PLA1', source_url: url, status: 'confirmed', revision: 3,
+const base = { id: baseId, origin: 'supplier', sku: 'PLA1', source_url: url, status: 'confirmed', revision: 3,
   source_sha256: hash, normalized_sha256: hash, profile: { name: 'PLA', material: 'PLA', brand: 'ACME', purchasePrice: 1000, netWeightGrams: 1000, filamentColor: 'Azul' }, pending: null };
 const pending = { ...base, id: other, sku: 'PEND', source_url: `${url}-pending`, status: 'pending', profile: null,
   pending: { name: 'Pendiente', material: 'PLA', brand: 'ACME', filamentColor: 'Rojo', referencePriceClp: 200, reasons: ['weight_unproven'] } };
@@ -36,9 +36,11 @@ function harness(data = {}) {
         if (data.afterRead) data.afterRead(table, state);
         return Promise.resolve({ data: rows, count: state.options?.count ? count + (data.reportExtraCount && table === 'calc3d_shared_products' ? 1 : 0) : null, error: null }).then(resolve, reject); } };
     return query;
-  } }; }, rpc: async (name, args) => { calls.push({ rpc: name, args }); return { data: { owner_id: owner, base_id: baseId, fields: args.fields ?? {}, hidden: name === 'calc3d_hide_shared_product', revision: args.expected_revision + 1 }, error: null }; } };
-  const repo = createRemoteRepositories(client, session, { requireAccess: async () => ({ session, access: { allowed: true } }) });
-  return { repo, calls, tables, switchAccount() { session = { user: { id: other }, access_token: 'other-token' }; } };
+  } }; }, rpc: async (name, args) => { calls.push({ rpc: name, args }); return { data: name === 'calc3d_create_common_product' ? { ...base, id: other, origin: 'manual', sku: null, source_url: null, source_sha256: null, normalized_sha256: null, profile: args.payload, revision: 1 } :
+      { ...base, origin: 'supplier', profile: { ...base.profile, ...args.payload }, revision: args.expected_revision + 1 }, error: null }; } };
+  let role = 'admin';
+  const repo = createRemoteRepositories(client, session, { requireAccess: async () => ({ session, access: { allowed: true, role } }) });
+  return { repo, calls, tables, setRole(value) { role = value; }, switchAccount() { session = { user: { id: other }, access_token: 'other-token' }; } };
 }
 test('new account reads complete confirmed and pending rows with no writes; pending stays nonquotable', async () => {
   const h = harness(); const result = await h.repo.sharedCatalog.list();
@@ -52,28 +54,40 @@ test('new account reads complete confirmed and pending rows with no writes; pend
   assert.equal(h.calls.filter(call => call.rpc).length, 0);
   assert.ok(h.calls.filter(call => call.table).every(call => call.token === 'Bearer owner-token'));
 });
-test('sparse owner mask refreshes untouched fields; exact verified personal duplicate retains ID, fields and archive', async () => {
-  const h = harness({ calc3d_spool_profiles: [personal], calc3d_shared_overrides: [{ owner_id: owner, base_id: baseId, fields: { purchasePrice: 700 }, hidden: false, revision: 2 }] });
+test('private supplier identity retains ID and archive but reads common values; masks are ignored', async () => {
+  const h = harness({ calc3d_spool_profiles: [personal], calc3d_shared_overrides: [{ owner_id: owner, base_id: baseId, fields: { purchasePrice: 700 }, hidden: true, revision: 2 }] });
   let result = await h.repo.sharedCatalog.list();
   assert.deepEqual(result.profiles.map(row => row.id), [other]);
   assert.equal(result.profiles[0].archivedAt, stamp);
+  assert.equal(result.profiles[0].purchasePrice, 1000);
+  assert.deepEqual(result.profiles[0].commonTarget, { id: baseId, baseRevision: 3 });
   h.tables.calc3d_spool_profiles = [];
-  result = await h.repo.sharedCatalog.list();
-  assert.equal(result.profiles[0].purchasePrice, 700);
-  assert.equal(result.profiles[0].name, 'PLA');
-  assert.deepEqual(result.profiles[0].overriddenFields, ['purchasePrice']);
-  assert.equal(result.profiles[0].overrideRevision, 2);
   h.tables.calc3d_shared_products = [{ ...base, profile: { ...base.profile, name: 'PLA nuevo', netWeightGrams: 850, purchasePrice: 1200 } }, pending];
   result = await h.repo.sharedCatalog.list();
   assert.equal(result.profiles[0].name, 'PLA nuevo');
   assert.equal(result.profiles[0].netWeightGrams, 850);
-  assert.equal(result.profiles[0].purchasePrice, 700);
-  h.tables.calc3d_shared_overrides = [{ owner_id: owner, base_id: baseId, fields: { purchasePrice: 700 }, hidden: true, revision: 3 }];
-  assert.deepEqual((await h.repo.sharedCatalog.list()).profiles, []);
-  assert.deepEqual(h.tables.calc3d_shared_products[0].profile.purchasePrice, 1200);
+  assert.equal(result.profiles[0].purchasePrice, 1200);
+  assert.equal(result.profiles[0].overrideRevision, undefined);
 });
+test('admin manual create then member list retains manual origin without supplier provenance', async () => {
+  const h = harness();
+  const created = await h.repo.sharedCatalog.create({ name: 'Manual', material: 'PLA', brand: '', purchasePrice: 500, netWeightGrams: 1000 });
+  assert.equal(created.origin, 'manual');
+  assert.equal(Object.hasOwn(created, 'sourceUrl'), false);
+  h.tables.calc3d_shared_products = [{ ...base, id: other, origin: 'manual', source_url: null, sku: null,
+    source_sha256: null, normalized_sha256: null, profile: { name: 'Manual', material: 'PLA', brand: '', purchasePrice: 500, netWeightGrams: 1000 }, revision: 1 }];
+  h.setRole('member');
+  const [visible] = (await h.repo.sharedCatalog.list()).profiles;
+  assert.equal(visible.id, created.id);
+  assert.equal(visible.origin, 'manual');
+  assert.equal(visible.sourceUrl, undefined);
+  assert.equal(visible.sku, undefined);
+  assert.equal(visible.provenance, undefined);
+  assert.equal(visible.baseRevision, 1);
+});
+
 test('foreign owner rows, stale account switch, duplicate and truncated pages reject without partial catalog', async () => {
-  const foreign = harness({ leakForeign: true, calc3d_shared_overrides: [{ owner_id: other, base_id: baseId, fields: {}, hidden: true, revision: 1 }] });
+  const foreign = harness({ leakForeign: true, calc3d_spool_profiles: [{ ...personal, owner_id: other }] });
   await assert.rejects(foreign.repo.sharedCatalog.list(), /catálogo completo/);
   const switched = harness(); switched.switchAccount();
   await assert.rejects(switched.repo.sharedCatalog.list(), /cuenta/);
@@ -98,13 +112,18 @@ test('existing private profile and pending reads stay owner-filtered with no sha
   assert.ok(h.calls.every(call => call.owner === owner && call.token === 'Bearer owner-token'));
 });
 
-test('edit and hide route sparse fields/revision to owner RPC only; invalid changes never write', async () => {
-  const h = harness();
-  await assert.rejects(h.repo.sharedCatalog.saveOverride('bad', { name: 'X' }, 0), TypeError);
-  assert.equal(h.calls.length, 0);
-  const result = await h.repo.sharedCatalog.saveOverride(baseId, { name: 'Mi PLA' }, 0);
-  assert.deepEqual(h.calls.at(-1), { rpc: 'calc3d_save_shared_override', args: { product_id: baseId, fields: { name: 'Mi PLA' }, expected_revision: 0 } });
-  assert.equal(result.overrideRevision, 1);
-  await h.repo.sharedCatalog.hide(baseId, 1);
-  assert.deepEqual(h.calls.at(-1), { rpc: 'calc3d_hide_shared_product', args: { product_id: baseId, expected_revision: 1 } });
+test('member cannot mutate common or legacy masks; admin routes common update via revision', async () => {
+  const h = harness(); h.setRole('member');
+  const before = structuredClone(h.tables);
+  for (const mutation of [() => h.repo.sharedCatalog.create(base.profile),
+    () => h.repo.sharedCatalog.update(baseId, { name: 'X' }, 3),
+    () => h.repo.sharedCatalog.saveOverride(baseId, { name: 'X' }, 0),
+    () => h.repo.sharedCatalog.hide(baseId, 0)]) {
+    await assert.rejects(mutation(), /administrador|no están disponibles/);
+    assert.deepEqual(h.tables, before);
+  }
+  assert.equal(h.calls.filter(call => call.rpc).length, 0);
+  h.setRole('admin');
+  await h.repo.sharedCatalog.update(baseId, { name: 'New' }, 3);
+  assert.deepEqual(h.calls.at(-1), { rpc: 'calc3d_update_common_product', args: { product_id: baseId, payload: { name: 'New' }, expected_revision: 3 } });
 });

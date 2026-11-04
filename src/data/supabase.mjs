@@ -146,6 +146,11 @@ export function createRemoteRepositories(client, session, accessService = create
     if (!result.access?.allowed) throw new Error('Acceso denegado o desactivado. Vuelve a iniciar sesión.');
     return result.session;
   }
+  async function adminGuard() {
+    const result = await accessService.requireAccess({ adminOnly: true });
+    if (result.session?.user?.id !== owner) throw new Error('La cuenta cambió; vuelve a iniciar sesión.');
+    if (!result.access?.allowed || result.access.role !== 'admin') throw new Error('Se requiere acceso de administrador.');
+  }
   const read = async (table, columns, order) => {
     await guard();
     let query = client.from(table).select(columns);
@@ -309,12 +314,14 @@ export function createRemoteRepositories(client, session, accessService = create
       return copy((await ownedCompleteRead('calc3d_spool_profiles', columns)).map(profile));
     },
     async createProfile(input) {
+      await adminGuard();
       const payload = validateSpoolProfile(input);
       const row = await saveProfile(payload, null, 0);
       if (row.revision !== 1) invalidProfile();
       return { ok: true, profile: copy(row) };
     },
     async archiveProfile(id, expectedRevision) {
+      await adminGuard();
       validArchiveTarget(id, expectedRevision, 'bobina');
       let row;
       try { row = profile(await write('calc3d_archive_spool_profile', { profile_id: id, expected_revision: expectedRevision })); }
@@ -326,6 +333,7 @@ export function createRemoteRepositories(client, session, accessService = create
       return { ok: true, profile: copy(row) };
     },
     async updateProfile(id, input, expectedRevision) {
+      await adminGuard();
       if (!validProfileId(id)) throw new TypeError('Identificador de bobina inválido.');
       if (!Number.isSafeInteger(expectedRevision) || expectedRevision <= 0 || expectedRevision >= Number.MAX_SAFE_INTEGER) {
         throw new TypeError('La revisión de bobina debe ser un entero positivo válido.');
@@ -384,80 +392,82 @@ export function createRemoteRepositories(client, session, accessService = create
     return result;
   }
   const sharedCatalog = {
-    /** Returns { profiles, pendingReferences }; profiles are personal DTOs or flattened
-     * base DTOs with id base:<uuid>, source, baseRevision, overrideRevision and mask. */
+    /** Returns { profiles, pendingReferences }; private supplier matches keep their ID
+     * and expose commonTarget { id, baseRevision } for admin editing. */
     async list() {
       const baseRows = await completeSharedRead('calc3d_shared_products',
-        'id,sku,source_url,status,profile,pending,revision,source_sha256,normalized_sha256');
-      const overrideRows = await completeSharedRead('calc3d_shared_overrides',
-        'owner_id,base_id,fields,hidden,revision', true);
+        'id,origin,sku,source_url,status,profile,pending,revision,source_sha256,normalized_sha256');
       const ownProfiles = await spoolProfiles.list();
       const ownPending = await supplierReferences.list();
       await guard();
       const base = baseRows.map(row => {
-        if (!validProfileId(row.id) || !safeSourceUrl(row.source_url) ||
+        const manual = row.origin === 'manual';
+        if (!['supplier', 'manual'].includes(row.origin) || !validProfileId(row.id) ||
             !Number.isSafeInteger(row.revision) || row.revision < 1 ||
-            !/^[0-9a-f]{64}$/.test(row.source_sha256) || !/^[0-9a-f]{64}$/.test(row.normalized_sha256)) {
+            (manual ? row.status !== 'confirmed' || row.source_url !== null || row.sku !== null ||
+              row.source_sha256 !== null || row.normalized_sha256 !== null :
+              !safeSourceUrl(row.source_url) || !/^[0-9a-f]{64}$/.test(row.source_sha256) ||
+              !/^[0-9a-f]{64}$/.test(row.normalized_sha256))) {
           throw new Error('Respuesta remota inválida del catálogo compartido.');
         }
-        const common = { id: `base:${row.id}`, sku: row.sku, sourceUrl: row.source_url,
-          status: row.status, provenance: { sourceSha256: row.source_sha256, normalizedSha256: row.normalized_sha256 } };
+        const common = { id: `base:${row.id}`, revision: row.revision, origin: manual ? 'manual' : 'supplier',
+          ...(manual ? {} : { sku: row.sku, sourceUrl: row.source_url,
+            provenance: { sourceSha256: row.source_sha256, normalizedSha256: row.normalized_sha256 } }), status: row.status };
         if (row.status === 'confirmed' && row.pending === null) return { ...common, profile: row.profile };
         if (row.status === 'pending' && row.profile === null && row.pending) return { ...common, ...row.pending };
         throw new Error('Respuesta remota inválida del catálogo compartido.');
       });
-      const metadata = new Map();
-      const overrides = overrideRows.map(row => {
-        if (!validProfileId(row.base_id) || !Number.isSafeInteger(row.revision) || row.revision < 1 ||
-            typeof row.hidden !== 'boolean' || !row.fields || typeof row.fields !== 'object' || Array.isArray(row.fields) ||
-            metadata.has(`base:${row.base_id}`)) throw new Error('Respuesta remota inválida del catálogo compartido.');
-        metadata.set(`base:${row.base_id}`, row);
-        return { baseId: `base:${row.base_id}`, fields: row.fields };
-      }).filter(row => Object.keys(row.fields).length);
-      const composed = composeSharedCatalog({ base, personal: ownProfiles, overrides });
+      const composed = composeSharedCatalog({ base, personal: ownProfiles });
       const profiles = [], pendingReferences = [];
       for (const row of composed) {
         if (!row.id.startsWith('base:')) { profiles.push(row); continue; }
         const id = row.id.slice(5);
-        const mask = metadata.get(row.id);
-        if (mask?.hidden) continue;
         if (row.status === 'pending') {
           pendingReferences.push({ ...row, kind: 'pending-reference', quotable: false });
           continue;
         }
         const revision = baseRows.find(item => item.id === id)?.revision;
         profiles.push({ id: row.id, ...row.profile, brandId: null, filamentColor: row.profile.filamentColor ?? '',
-          filamentColorHex: row.profile.filamentColorHex ?? null, sourceUrl: row.sourceUrl, sku: row.sku,
-          source: 'base', baseRevision: revision, overrideRevision: mask?.revision ?? 0,
-          overriddenFields: row.overriddenFields ?? [], archivedAt: null });
+          filamentColorHex: row.profile.filamentColorHex ?? null,
+          ...(row.origin === 'manual' ? {} : { sourceUrl: row.sourceUrl, sku: row.sku }),
+          source: 'base', origin: row.origin, baseRevision: revision, archivedAt: null });
       }
       return copy({ profiles, pendingReferences: [...ownPending, ...pendingReferences] });
     },
-    async saveOverride(id, fields, expectedRevision) {
+    async create(input) {
+      await adminGuard();
+      const payload = commonInput(input);
+      const row = await write('calc3d_create_common_product', { payload });
+      if (row.origin !== 'manual' || row.status !== 'confirmed' || row.revision !== 1 ||
+          row.sku !== null || row.source_url !== null || row.source_sha256 !== null || row.normalized_sha256 !== null ||
+          !validProfileId(row.id)) throw new Error('Respuesta remota inválida del catálogo compartido.');
+      return copy({ id: `base:${row.id}`, origin: 'manual', baseRevision: row.revision, ...row.profile });
+    },
+    async update(id, fields, expectedRevision) {
+      await adminGuard();
       validSharedTarget(id, expectedRevision);
-      if (!fields || typeof fields !== 'object' || Array.isArray(fields) ||
+      if (expectedRevision === 0 || !fields || typeof fields !== 'object' || Array.isArray(fields) ||
           !Object.keys(fields).length || Object.keys(fields).some(key => !['name', 'material', 'brand', 'purchasePrice', 'netWeightGrams'].includes(key))) {
         throw new TypeError('Campos de bobina compartida inválidos.');
       }
-      const row = await write('calc3d_save_shared_override', { product_id: id, fields: copy(fields), expected_revision: expectedRevision });
-      return sharedWriteResult(row, id, expectedRevision);
+      const row = await write('calc3d_update_common_product', { product_id: id, payload: copy(fields), expected_revision: expectedRevision });
+      if (row.id !== id || row.revision !== expectedRevision + 1 || row.status !== 'confirmed' ||
+          !validateSpoolProfile(row.profile)) throw new Error('Respuesta remota inválida del catálogo compartido.');
+      return copy({ id: `base:${id}`, origin: row.origin, baseRevision: row.revision, ...row.profile });
     },
-    async hide(id, expectedRevision) {
-      validSharedTarget(id, expectedRevision);
-      const row = await write('calc3d_hide_shared_product', { product_id: id, expected_revision: expectedRevision });
-      if (row.hidden !== true) throw new Error('Respuesta remota inválida del catálogo compartido.');
-      return sharedWriteResult(row, id, expectedRevision);
-    },
+    async saveOverride() { throw new Error('Los cambios personales de bobinas ya no están disponibles.'); },
+    async hide() { throw new Error('Los cambios personales de bobinas ya no están disponibles.'); },
   };
   function validSharedTarget(id, expectedRevision) {
     if (!validProfileId(id) || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0 ||
         expectedRevision >= Number.MAX_SAFE_INTEGER) throw new TypeError('Identificador o revisión de bobina compartida inválidos.');
   }
-  function sharedWriteResult(row, id, previous) {
-    if (row.owner_id !== owner || row.base_id !== id || row.revision !== previous + 1) {
-      throw new Error('Respuesta remota inválida del catálogo compartido.');
+  function commonInput(input) {
+    const payload = validateSpoolProfile(input);
+    if (Object.keys(payload).some(key => !['name', 'material', 'brand', 'purchasePrice', 'netWeightGrams'].includes(key))) {
+      throw new TypeError('Campos de bobina compartida inválidos.');
     }
-    return copy({ baseId: `base:${id}`, overrideRevision: row.revision, fields: row.fields, hidden: row.hidden });
+    return payload;
   }
   return {
     sharedCatalog,
@@ -482,7 +492,7 @@ export function createRemoteRepositories(client, session, accessService = create
       async listPurchases() { return copy((await read('calc3d_purchases', 'id,created_at,purchase_date,supplier,notes,lines,total,spool_count', 'created_at')).map(purchase)); },
       async listSpools() { return copy((await read('calc3d_spools', 'id,purchase_id,purchase_date,supplier,material,brand,color,purchase_price,net_weight_grams,remaining_grams', 'id')).map(spool)); },
       async savePurchase(input) {
-        await guard();
+        await adminGuard();
         const normalized = validatePurchase(input);
         const row = await write('calc3d_save_purchase', { payload: normalized });
         if (!row.id || !row.created_at || !row.purchase_date) missing();

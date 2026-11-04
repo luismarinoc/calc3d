@@ -31,7 +31,8 @@ test('public color and pending consultation metadata survive curation and compos
   });
   const composed = composeSharedCatalog({ base: curated.records, overrides: [{ baseId: curated.records[0].id, fields: { purchasePrice: 80 } }] });
   assert.equal(composed[0].profile.filamentColorHex, '#ABCDEF');
-  assert.equal(composed[0].profile.purchasePrice, 80);
+  assert.equal(composed[0].profile.purchasePrice, 100); // A legacy mask cannot change common supplier data.
+  assert.equal(curated.records[0].profile.purchasePrice, 100);
   assert.deepEqual(composed[1], { ...curated.records[1] });
   assert.equal(composed[1].profile, undefined);
   assert.equal(composed[1].purchasePrice, undefined);

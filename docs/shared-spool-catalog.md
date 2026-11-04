@@ -1,8 +1,8 @@
 # Catálogo común de bobinas: contrato local
 
-La semilla pública contiene productos confirmados y referencias pendientes del proveedor; no contiene bobinas ni identificadores de cuentas. T3 añade el lector y la proyección; T4 conecta calculadora, consulta y configuración localmente. La migración T2 y la aceptación de seguridad T3 siguen bloqueadas sin verificación independiente: las pruebas funcionales de interfaz no autorizan aplicar SQL, desplegar ni publicar en main.
+El catálogo común permite que cualquier cuenta admitida consulte bobinas confirmadas y referencias pendientes. Solo administradores crean o modifican bobinas; cada cuenta conserva sus compras, configuraciones e historial de cotizaciones privados. Esta es una implementación funcional local, **no** una autorización para aplicar migraciones a la base activa, desplegar o integrar en main. La aceptación independiente de seguridad de T2/T3 sigue pendiente.
 
-## Reproducir la semilla
+## Semilla pública
 
 Con el artefacto público revisado `prepared-catalog.json` del trabajo `todotoner-complete-filaments`:
 
@@ -11,32 +11,19 @@ node ops/shared-catalog-seed.mjs <ruta-al-artefacto-publico-revisado>/prepared-c
 node --test tests/shared-catalog*.test.mjs
 ```
 
-La fuente es el catálogo normalizado v2 (SHA-256 `cd02ddbdb9591722cda5061db6e76a232436f2da1ffe6bafe2e76db88a7d44a0`) y su preparación revisada v5. Se seleccionan 1127 productos confirmados y 44 referencias pendientes de 1179 identidades; se excluyen 8 no filamentos. Las 44 referencias no incluyen peso neto ni perfil cotizable. El conteo describe esta fuente, no una cuota para futuras actualizaciones. Ningún dato de importaciones SQL o lecturas de cuentas integra la semilla.
+La fuente normalizada v2 tiene SHA-256 `cd02ddbdb9591722cda5061db6e76a232436f2da1ffe6bafe2e76db88a7d44a0`; la preparación revisada v5 selecciona 1127 confirmados y 44 pendientes de 1179 identidades. Las referencias pendientes no tienen peso ni perfil cotizable. No se copian filas privadas a la semilla.
 
-## Contrato para las siguientes unidades
+## Contrato para la interfaz siguiente
 
-`data/shared-supplier-catalog.json` tiene `{ version, sourceSha256, records }`. Cada fila tiene `id` (`base:<UUID>` estable derivado de SKU sin dueño), `sku`, `sourceUrl`, `status` y `provenance` con hashes de fuente y normalizador. Las confirmadas tienen `profile: { name, material, brand, purchasePrice, netWeightGrams, filamentColor, filamentColorHex? }`; el HEX aparece solo cuando está respaldado por la fuente. Las pendientes tienen `name`, `material`, `brand`, `filamentColor`, `referencePriceClp` (precio público de referencia, nullable) y `reasons`, **sin** perfil ni peso/precio cotizable. Ambos tipos conservan `sourceUrl` y hashes públicos de procedencia; `brandId`, identificadores de cuenta y campos nativos no se copian.
-
-`composeSharedCatalog({ base, personal, overrides })` devuelve primero filas personales, luego filas base no duplicadas; recibe solo las filas privadas del dueño ya autorizado. Un override es `{ baseId, fields }`: la presencia explícita de cada campo en `fields` manda, incluso cuando coincide con el valor anterior. Los otros campos, incluido el color del filamento de la fuente, se leen siempre del perfil base vigente. La composición mantiene procedencia y datos de presentación de pendientes, sin convertir `referencePriceClp` en `purchasePrice`. Solo se aceptan nombre, material, marca, precio de compra y peso, sujetos a `validateSpoolProfile`. La identidad exacta del proveedor deduplica filas y conserva la fila y el ID personal; sin identidad verificada no se aplica semejanza por nombre, marca o peso. La función no escribe ni muta las entradas. La autorización del dueño, la verificación de procedencia de filas personales y la prohibición de cotizar pendientes deberán aplicarse también en T2–T4.
-
-## Uso local de la interfaz
-
-Una cuenta admitida ve los productos confirmados en la calculadora y en Configuración, y también las referencias pendientes en Consultar bobinas. Estas referencias muestran el precio publicado cuando existe, pero no se pueden editar ni cotizar. Al editar una bobina del catálogo común, solo Guardar crea cambios personales: se envían los campos tocados y la revisión vigente; los demás siguen la versión común al recargar. Quitarla la oculta solamente en esa cuenta. Las bobinas personales y compras mantienen sus identificadores y controles existentes; una bobina personal con identidad exacta de proveedor sustituye la fila común sin duplicarse. Los cálculos guardados conservan la copia histórica de precio y peso.
-
-## API local de consumidores
-
-`createRemoteRepositories(client, session).sharedCatalog.list()` devuelve `{ profiles, pendingReferences }`. Cada perfil base está aplanado con `id: "base:<uuid>"`, `source: "base"`, `baseRevision`, `overrideRevision` (0 si no existe), `overriddenFields`, `sourceUrl`, `sku`, color público y `brandId: null`. Los perfiles personales mantienen su UUID, archivo y editor original. Las referencias pendientes conservan nombre, material, marca, color, URL, SKU, precio de referencia y razones; tienen `quotable: false` y nunca entran al calculador. Los lectores compartidos usan páginas completas y sesión vinculada al dueño; si la migración falta o la lectura es parcial, se propaga el error, no un catálogo vacío.
+`createRemoteRepositories(client, session).sharedCatalog.list()` devuelve `{ profiles, pendingReferences }`. Los confirmados comunes usan `id: "base:<uuid>"`, `source: "base"`, `origin: "supplier" | "manual"`, `baseRevision` y campos planos del perfil; las referencias pendientes se consultan separadamente y tienen `quotable: false`. Las filas privadas conservan su UUID, archivo e historial. Si una fila privada tiene identidad verificada idéntica de proveedor (SKU o URL exacta), conserva su ID de presentación/cotización y su archivo, pero muestra los valores comunes vigentes y recibe `commonTarget: { id: "<uuid>", baseRevision }`. El editor administrativo debe llamar a `sharedCatalog.update(commonTarget.id, fields, commonTarget.baseRevision)`, **no** a `spoolProfiles.updateProfile` para esa fila. Nunca se emparejan bobinas manuales por parecido. Los antiguos overrides/hides personales permanecen almacenados, pero no afectan la vista ni la cotización y sus RPC dejan de ser ejecutables por cuentas autenticadas.
 
 ```js
 const { profiles, pendingReferences } = await repositories.sharedCatalog.list();
-const catalog = buildSpoolCatalog(purchasedSpools, profiles.filter(p => p.source !== 'base'), brands,
-  profiles.filter(p => p.source === 'base'));
-// En el editor, conservar solo campos tocados explícitamente; no copiar el perfil entero.
-await repositories.sharedCatalog.saveOverride(baseUuid, { purchasePrice: 12000 }, overrideRevision);
-await repositories.sharedCatalog.hide(baseUuid, overrideRevision);
-// Para perfiles personales, seguir usando spoolProfiles.updateProfile/archiveProfile.
+const commonId = profiles.find(row => row.source === 'base').id.slice(5);
+const created = await repositories.sharedCatalog.create({ name: 'PLA', material: 'PLA', brand: 'Marca', purchasePrice: 12000, netWeightGrams: 1000 });
+const updated = await repositories.sharedCatalog.update(commonId, { purchasePrice: 12500 }, created.baseRevision);
 ```
 
-`saveOverride(uuid, fields, expectedRevision)` y `hide(uuid, expectedRevision)` requieren UUID sin prefijo, validan la revisión (0 para primer cambio) y usan exclusivamente los RPC `calc3d_save_shared_override` y `calc3d_hide_shared_product`. Devuelven `{ baseId, overrideRevision, fields, hidden }`. Ninguna lectura escribe ni crea overrides. `buildSpoolCatalog(purchasedSpools, profiles = [], brands = [], baseProfiles = [])` preserva el comportamiento antiguo con tres argumentos; el cuarto acepta solo perfiles resueltos base, no pendientes. `selectedSpool` y `historicalSpool` conservan selecciones y snapshots de cotizaciones existentes.
+`create(profile)` requiere administrador y los cinco campos del editor, devuelve `{ id: "base:<uuid>", origin: "manual", baseRevision: 1, ...profile }`. Una creación manual no posee SKU, URL ni hashes ficticios. `update(uuid, fields, expectedRevision)` requiere administrador, UUID **sin** prefijo, revisión positiva actual y campos parciales no vacíos entre nombre, material, marca, precio y peso; devuelve el perfil común actualizado con `id`, `origin`, `baseRevision`. Ambas operaciones usan RPC con verificación de rol vigente y validación del perfil completo; conflicto CAS devuelve error sin cambios. `saveOverride` y `hide` ahora rechazan sin escribir. La interfaz anterior todavía debe sustituir el editor personal por estos métodos y deshabilitar agregar/editar/quitar bobinas para miembros.
 
-La vista SQL efectiva no expone la revisión del override y oculta filas; por eso este lector usa las tablas `calc3d_shared_products` y `calc3d_shared_overrides` del borrador T2, con composición local. T4 todavía debe conectar consulta/editor y asegurar que una cuenta cambiada no pinte una respuesta vieja.
+El miembro puede leer las bobinas confirmadas, seleccionar `base:<uuid>` y guardar o reabrir/modificar **sus propias** cotizaciones. La captura histórica de cada cotización permanece; una referencia pendiente nunca es cotizable. Las escrituras de perfiles personales y compras antiguas quedan restringidas a administradores, pero las lecturas privadas siguen ligadas al dueño. La migración es aditiva; no borra perfiles, overrides, compras ni cotizaciones.

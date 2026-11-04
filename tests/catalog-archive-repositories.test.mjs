@@ -21,7 +21,7 @@ function harness() {
     setHeader(name, value) { assert.equal(name, 'Authorization'); assert.equal(value, 'Bearer fixture-owner-token'); return this; },
     then(resolve, reject) { return Promise.resolve(result).then(resolve, reject); } };
   } }), rpc: async (name, args) => { calls.push([name, args]); return { data: reply, error: null }; } };
-  const repo = createRemoteRepositories(client, session, { requireAccess: async () => ({ session, access: { allowed } }) });
+  const repo = createRemoteRepositories(client, session, { requireAccess: async () => ({ session, access: { allowed, role: allowed ? 'admin' : null } }) });
   return { repo, calls, respond: value => { reply = value; }, switchOwner: () => { session = { user: { id: '22222222-2222-4222-8222-222222222222' } }; }, deny: () => { allowed = false; } };
 }
 test('archive DTOs remain readable, detached and include nullable timestamp', async () => {
@@ -51,7 +51,7 @@ test('archive brand and profile use guarded CAS RPC and verify response identity
     h.switchOwner();
     await assert.rejects(h.repo[key][method](id, 2), /cuenta/);
     const denied = harness(); denied.deny();
-    await assert.rejects(denied.repo[key][method](id, 2), /Acceso/);
+    await assert.rejects(denied.repo[key][method](id, 2), /Acceso|administrador/);
     assert.deepEqual(denied.calls, []);
   }
 });
