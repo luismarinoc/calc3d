@@ -64,11 +64,11 @@ test('S2: keyboard navigation, Escape and account switch clear an open list and 
     await client.auth.signInWithPassword({ email: 'second@example.test', password: 'fake-password' });
   });
   await expect(page.locator('#save-spool')).toBeEnabled();
-  await expect(trigger).not.toContainText('Privada');
-  await expect(trigger).toHaveAccessibleName('Presentación guardada: Todavía no hay bobinas guardadas');
+  // The old selection is cleared, then the second admitted account reads the same catalog.
+  await expect(page.locator('#spool-profile')).toHaveValue('');
+  await expect(trigger).toHaveAccessibleName('Presentación guardada: Elige una presentación');
   await expect(options).toHaveCount(0);
-  expect(await page.locator('.spool-picker').textContent()).not.toContain('Privada');
-  expect(await remoteRows(page, 'spool_profiles')).toEqual([]);
+  expect(await remoteRows(page, 'spool_profiles')).toEqual(remote.profiles);
 });
 
 test('S2: Tab leaves the open list and selected profile is announced', async ({ page, remote }) => {
@@ -115,8 +115,7 @@ test('S2: account switch also clears a closed selected profile and retained DOM 
   });
   expect(signInError).toBeNull();
   await expect(page.locator('#save-spool')).toBeEnabled();
-  await expect(trigger).toHaveAccessibleName('Presentación guardada: Todavía no hay bobinas guardadas');
-  expect(await page.locator('.spool-picker').textContent()).not.toContain('Privada');
+  await expect(trigger).toHaveAccessibleName('Presentación guardada: Elige una presentación');
   await expect(page.locator('#spool-profile')).toHaveValue('');
-  expect(await remoteRows(page, 'spool_profiles')).toEqual([]);
+  expect(await remoteRows(page, 'spool_profiles')).toEqual(remote.profiles);
 });

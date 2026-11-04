@@ -32,8 +32,6 @@ export function createSpoolSettings() {
   let pending = false;
   let ownerKey = null;
   let admin = false;
-  const commonTarget = item => item?.commonTarget ?? (item?.source === 'base' ?
-    { id: item.id.slice(5), baseRevision: item.baseRevision } : null);
   function controls(selectedId) {
     failure.hidden = profiles !== null || !failure.textContent;
     for (const control of actions) control.disabled = profiles === null || pending || (control !== select && !admin);
@@ -49,8 +47,8 @@ export function createSpoolSettings() {
     picker.render(ordered, pending);
     edit.disabled = pending || !admin || !select.value;
     const selected = active.find(item => item.id === select.value);
-    archive.hidden = !admin || !selected || !!commonTarget(selected);
-    archive.disabled = pending || !admin || !selected || !!commonTarget(selected);
+    archive.hidden = !admin || !selected;
+    archive.disabled = pending || !admin || !selected;
     if (!active.length && !feedback.textContent) feedback.textContent = admin ?
       'Agrega una bobina al catálogo común para que todos puedan usarla.' : 'Todavía no hay bobinas disponibles en el catálogo común.';
   }
@@ -108,7 +106,7 @@ export function createSpoolSettings() {
   });
   archive.addEventListener('click', async () => {
     const item = profiles?.find(profile => profile.id === select.value && !profile.archivedAt);
-    if (!admin || !source || pending || !item || commonTarget(item)) return;
+    if (!admin || !source || pending || !item) return;
     if (!window.confirm(`¿Quitar la bobina «${item.name}» de las listas? Se conservarán compras, precios y cálculos guardados. No se puede restaurar desde esta página.`)) return;
     const current = source;
     pending = true; clearError(); controls(item.id);
@@ -122,9 +120,9 @@ export function createSpoolSettings() {
       feedback.textContent = 'Bobina quitada de las listas. Se conserva el historial.';
       controls(fallback);
       try {
-        const loaded = await current.sharedCatalog.list();
+        const loaded = await current.spoolProfiles.listCatalog();
         if (source !== current) return;
-        profiles = loaded.profiles;
+        profiles = loaded;
       } catch {
         if (source === current) feedback.textContent = 'Bobina quitada de las listas. No se pudo actualizar la lista; recarga para reintentar.';
       }
@@ -153,41 +151,31 @@ export function createSpoolSettings() {
       const key = Object.keys(labels).find(key => error.message.toLowerCase().includes(labels[key])) ?? 'name';
       report(error.message, form.elements.namedItem(key)); return;
     }
-    const target = commonTarget(editing);
-    const commonFields = Object.fromEntries(Object.keys(labels).map(key => [key, input[key]]));
-    commonFields.brand = input.brand;
-    if (target && Object.entries(commonFields).every(([key, value]) => editing[key] === value)) {
-      feedback.textContent = 'No hay cambios para guardar en el catálogo común.';
-      return;
-    }
     const current = source;
     const selectedId = select.value;
     pending = true; controls(selectedId);
     try {
-      const result = target ? await current.sharedCatalog.update(target.id, commonFields, target.baseRevision) :
-        editing ? await current.spoolProfiles.updateProfile(editing.id, input, editing.revision) :
-          await current.sharedCatalog.create(commonFields);
+      const result = editing ? await current.spoolProfiles.updateProfile(editing.id, input, editing.revision) :
+        await current.spoolProfiles.createProfile(input);
       if (source !== current) return;
       // The RPC acknowledgment remains visible if the subsequent list refresh fails.
-      editing = target && editing.source !== 'base' ? { ...editing, ...result,
-        id: editing.id, commonTarget: { id: target.id, baseRevision: result.baseRevision } } :
-        target || !editing ? { ...editing, ...result, source: 'base', archivedAt: null } : result.profile;
+      editing = result.profile;
       profiles = [...profiles.filter(item => item.id !== editing.id), editing];
-      feedback.textContent = target || !result.profile ? 'Bobina guardada en el catálogo común.' : 'Bobina guardada en tu cuenta.';
+      feedback.textContent = 'Bobina guardada en el catálogo.';
       controls(editing.id);
       try { sessionStorage.setItem(ownerKey, editing.id); } catch { /* Selection memory is optional. */ }
       try {
-        const loaded = await current.sharedCatalog.list();
+        const loaded = await current.spoolProfiles.listCatalog();
         if (source !== current) return;
-        const confirmed = loaded.profiles.find(item => item.id === editing.id);
+        const confirmed = loaded.find(item => item.id === editing.id);
         if (!confirmed) throw new Error('La lista no incluye la bobina guardada.');
-        profiles = loaded.profiles;
+        profiles = loaded;
         editing = confirmed;
       } catch {
         if (source === current) feedback.textContent = 'Bobina guardada. No se pudo actualizar la lista; recarga para reintentar.';
       }
     } catch (error) { if (source === current) report(error.code === '40001'
-      ? 'La bobina común cambió; recarga antes de guardar.' : error.message); }
+      ? 'La bobina cambió; recarga antes de guardar.' : error.message); }
     finally { if (source === current) { pending = false; controls(editing?.id ?? selectedId); } }
   });
   function clear() {
@@ -200,9 +188,9 @@ export function createSpoolSettings() {
     source = current; admin = role === 'admin';
     ownerKey = `calc3d-spool-selection:${session.user.id}`;
     try {
-      const loaded = await current.sharedCatalog.list();
+      const loaded = await current.spoolProfiles.listCatalog();
       if (!isCurrent() || source !== current) return;
-      profiles = loaded.profiles; failure.textContent = '';
+      profiles = loaded; failure.textContent = '';
       let remembered = null;
       try { remembered = sessionStorage.getItem(ownerKey); } catch { /* Selection memory is optional. */ }
       controls(remembered);

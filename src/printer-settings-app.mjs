@@ -15,7 +15,11 @@ const form = document.querySelector('#printer-form');
 const feedback = document.querySelector('#settings-feedback');
 const failure = document.querySelector('#settings-error');
 const spoolSettings = createSpoolSettings();
-const brandSettings = createBrandSettings(brands => spoolSettings.setBrands(brands));
+let catalogBrands = [];
+let brandOwner = null;
+const brandSettings = createBrandSettings(own => spoolSettings.setBrands([
+  ...catalogBrands.filter(brand => brand.ownerId !== brandOwner), ...own,
+]));
 const model = form.elements.namedItem('modelId');
 for (const profile of printerProfiles) model.add(new Option(profile.name, profile.id));
 model.add(new Option('Otro / personalizado', customPrinter));
@@ -115,11 +119,18 @@ window.addEventListener('pageshow', (event) => {
 showState();
 await protectPage({ onClear: () => {
   repository = null; state = null; editing = null; pending = false; form.reset(); feedback.textContent = '';
+  catalogBrands = []; brandOwner = null;
   failure.textContent = 'Comprobando acceso remoto…'; showState(); spoolSettings.clear(); brandSettings.clear();
 }, onReady: async ({ client, session, access }, isCurrent) => {
   const source = createRemoteRepositories(client, session);
   repository = source;
-  await Promise.all([brandSettings.load(source, isCurrent), spoolSettings.load(source, session, isCurrent, access.role), (async () => {
+  brandOwner = session.user.id;
+  const ownBrandRepository = { ...source, brands: { ...source.brands, async list() {
+    const all = await source.brands.listCatalog();
+    if (isCurrent() && repository === source) catalogBrands = all;
+    return all.filter(brand => brand.ownerId === session.user.id);
+  } } };
+  await Promise.all([brandSettings.load(ownBrandRepository, isCurrent), spoolSettings.load(source, session, isCurrent, access.role), (async () => {
     try {
       const loaded = await source.printers.load();
       if (!isCurrent() || repository !== source) return;

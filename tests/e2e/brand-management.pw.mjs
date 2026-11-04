@@ -227,7 +227,8 @@ test('S1-S6 owner fence: open and closed pickers/forms clear brand and filament 
   await page.locator('.spool-picker-trigger').click();
   await switchOwner(page, remote);
   await expect(page.locator('#save-spool')).toBeEnabled();
-  await expect(page.locator('#spool-picker-list [role="option"]')).toHaveCount(0);
+  await expect(page.locator('#spool-picker-list')).toBeHidden();
+  await expect(page.locator('#spool-picker-list [role="option"]')).toHaveCount(1);
   await expect(page.locator('#spool-profile')).toHaveValue('');
   await expect(page.getByLabel('Marca de la bobina')).toHaveValue('');
   await expect(page.getByLabel('Color del filamento')).toBeEmpty();
@@ -235,12 +236,14 @@ test('S1-S6 owner fence: open and closed pickers/forms clear brand and filament 
   await expect(section.getByLabel('Marca guardada')).toHaveValue('');
   await expect(section.getByLabel('Nombre de marca')).toBeEmpty();
   await expect(section.locator('.brand-chip')).toHaveCount(0);
-  await expect(page.locator('.spool-picker .brand-chip')).toHaveCount(0);
-  await expect(page.locator('.spool-picker .filament-chip')).toHaveCount(0);
-  expect(await page.locator('main').textContent()).not.toMatch(/Privada|Secreto/);
-  expect(await remoteRows(page, 'brands')).toEqual([]);
+  await expect(page.locator('.spool-picker-trigger .brand-chip')).toHaveCount(0);
+  await expect(page.locator('#spool-picker-list .brand-chip')).toHaveCount(1);
+  await expect(page.locator('#spool-picker-list .filament-chip')).toHaveCount(1);
+  await expect(page.locator('#spool-profile option')).toHaveCount(2);
+  expect(await remoteRows(page, 'brands')).toEqual(remote.brands);
   await page.goto('/');
-  expect(await page.locator('main').textContent()).not.toMatch(/Privada|Secreto/);
+  await expect(page.locator('#spoolId')).toHaveValue(`profile:${profileId}`);
+  expect(await remoteQuotes(page)).toEqual([]);
   expect(saves(remote)).toEqual([]);
 });
 
@@ -254,13 +257,13 @@ test('S1-S6 owner fence: Calculator clears open brand-colored rows and closed se
   await trigger.click();
   await expect(page.locator('#calculator-spool-picker-list [role="option"]')).toHaveCount(1);
   await switchOwner(page, remote);
-  await expect(page.locator('#calculator-spool-picker-list [role="option"]')).toHaveCount(0);
-  await expect(page.locator('#spoolId option')).toHaveCount(0);
-  await expect(trigger).not.toContainText('Privada');
-  await expect(trigger.locator('.brand-chip')).toHaveCount(0);
-  await expect(trigger.locator('.filament-chip')).toHaveCount(0);
-  expect(await page.locator('.calculator-spool-picker').textContent()).not.toMatch(/Privada|Secreto/);
-  expect(await remoteRows(page, 'brands')).toEqual([]);
+  await expect(page.locator('#calculator-spool-picker-list')).toBeHidden();
+  await expect(page.locator('#calculator-spool-picker-list [role="option"]')).toHaveCount(1);
+  await expect(page.locator('#spoolId')).toHaveValue(`profile:${profileId}`);
+  await expect(trigger).toContainText('Privada');
+  await expect(trigger.locator('.brand-chip')).toHaveCount(1);
+  await expect(trigger.locator('.filament-chip')).toHaveCount(1);
+  expect(await remoteRows(page, 'brands')).toEqual(remote.brands);
   expect(await remoteQuotes(page)).toEqual([]);
   expect(saves(remote)).toEqual([]);
 });
@@ -281,12 +284,12 @@ test('S1-S6 owner fence: delayed Calculator brand GET cannot repaint second-owne
     await switchOwner(page, remote);
   } finally { remote.holdBrands = null; release(); }
   await expect(page.locator('.account-nav')).toContainText('second@example.test');
-  await expect(page.locator('#calculator-spool-picker-list [role="option"]')).toHaveCount(0);
-  await expect(page.locator('#spoolId option')).toHaveCount(0);
-  await expect(trigger.locator('.brand-chip')).toHaveCount(0);
-  await expect(trigger.locator('.filament-chip')).toHaveCount(0);
-  expect(await page.locator('.calculator-spool-picker').textContent()).not.toMatch(/Privada|Secreto/);
-  expect(await remoteRows(page, 'brands')).toEqual([]);
+  await expect(page.locator('#calculator-spool-picker-list')).toBeHidden();
+  await expect(page.locator('#calculator-spool-picker-list [role="option"]')).toHaveCount(1);
+  await expect(page.locator('#spoolId')).toHaveValue(`profile:${profileId}`);
+  await expect(trigger.locator('.brand-chip')).toHaveCount(1);
+  await expect(trigger.locator('.filament-chip')).toHaveCount(1);
+  expect(await remoteRows(page, 'brands')).toEqual(remote.brands);
   expect(saves(remote)).toEqual([]);
 });
 
@@ -307,9 +310,11 @@ test('S1-S6 owner fence: delayed first-owner brands read cannot repaint second-o
   } finally { remote.holdBrands = null; release(); }
   await expect(page.locator('#save-spool')).toBeEnabled();
   await expect(page.getByRole('region', { name: 'Marcas' }).getByLabel('Marca guardada')).toHaveValue('');
-  expect(await page.locator('main').textContent()).not.toContain('Privada');
+  await expect(page.locator('#spool-profile')).toHaveValue('');
+  await expect(page.locator('#spool-profile option')).toHaveCount(2);
   await page.goto('/');
-  expect(await page.locator('main').textContent()).not.toContain('Privada');
-  expect(await remoteRows(page, 'brands')).toEqual([]);
+  await expect(page.locator('#spoolId')).toHaveValue(`profile:${profileId}`);
+  expect(await remoteRows(page, 'brands')).toEqual(remote.brands);
+  expect(await remoteQuotes(page)).toEqual([]);
   expect(saves(remote)).toEqual([]);
 });
