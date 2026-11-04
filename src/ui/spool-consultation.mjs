@@ -2,7 +2,7 @@ import { presentSpools } from './brand-display.mjs';
 import { canonicalMaterial } from '../domain/materials.mjs';
 import { createFilamentSample } from './filament-color.mjs';
 
-/** Filter locally and link saved profiles to the existing editor; refresh rechecks the current owner. */
+/** Filter the admitted catalog locally; refresh rechecks the current session. */
 export function createSpoolConsultation() {
   const search = document.querySelector('#consultation-search');
   const brand = document.querySelector('#consultation-brand');
@@ -110,10 +110,6 @@ export function createSpoolConsultation() {
     } else {
       const missing = document.createElement('span'); missing.textContent = 'Sin enlace de origen'; origin.append(missing);
     }
-    if (item.source === 'base') {
-      const provenance = document.createElement('span'); provenance.textContent = 'Catálogo común · edición por administradores';
-      origin.append(provenance);
-    }
     if (!pending && admin) {
       const edit = document.createElement('a'); edit.className = 'consultation-product-link';
       edit.href = `./settings.html?editSpool=${encodeURIComponent(item.id)}#spool-form`;
@@ -182,10 +178,11 @@ export function createSpoolConsultation() {
     items = []; loading = true; error = false;
     controls.forEach(control => { control.disabled = true; }); render();
     try {
-      const [catalog, brands] = await Promise.all([repository.sharedCatalog.list(), repository.brands.list()]);
+      const [catalog, brands] = await Promise.all([Promise.all([repository.spoolProfiles.listCatalog(), repository.supplierReferences.listCatalog()]).then(([profiles, pendingReferences]) => ({ profiles, pendingReferences })), repository.brands.listCatalog()]);
       if (token !== generation || source !== repository || !current()) return;
-      items = presentSpools([...catalog.profiles.filter(profile => !profile.archivedAt), ...catalog.pendingReferences], brands)
-        .map(item => ({ ...item, material: canonicalMaterial(item.material) }));
+      items = [...catalog.profiles.filter(profile => !profile.archivedAt), ...catalog.pendingReferences]
+        .map(item => ({ ...presentSpools([item], item.ownerId ? brands.filter(brand => brand.ownerId === item.ownerId) : brands)[0],
+          material: canonicalMaterial(item.material) }));
       for (const item of items) searchIndex.set(item, {
         text: key([item.brand, item.material, item.name, item.filamentColor, item.supplierSku].join(' ')),
         color: key(item.filamentColor?.trim()),

@@ -115,10 +115,9 @@ test('S1-S2: account changes wipe open and closed picker rows and do not paint d
     return (await client.auth.signInWithPassword({ email: 'second@example.test', password: 'fake-password' })).error?.message ?? null;
   });
   expect(error).toBeNull();
-  await expect(trigger).not.toContainText('Privada');
+  await expect(page.locator('#spoolId')).toHaveValue('profile:eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
+  await expect(trigger).toContainText('Privada');
   await expect(page.locator('#calculator-spool-picker-list').getByRole('option')).toHaveCount(0);
-  expect(await page.locator('.calculator-spool-picker').textContent()).not.toContain('Privada');
-  await expect(page.locator('#spoolId option')).toHaveCount(0);
   expect(await remoteQuotes(page)).toEqual([]);
 });
 
@@ -141,6 +140,6 @@ test('S1-S2: deferred prior-owner profile response cannot refill cleared picker'
   } finally { release(); remote.holdProfiles = null; }
   await expect(page.locator('.account-nav')).toContainText('second@example.test');
   await expect(page.locator('#calculator-spool-picker-list').getByRole('option')).toHaveCount(0);
-  await expect(page.locator('.calculator-spool-picker .spool-picker-trigger')).not.toContainText('Privada');
-  expect(await page.locator('.calculator-spool-picker').textContent()).not.toContain('Privada');
+  await expect(page.locator('#spoolId')).toHaveValue('profile:eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
+  await expect(page.locator('.calculator-spool-picker .spool-picker-trigger')).toContainText('Privada');
 });

@@ -89,8 +89,7 @@ export const test = base.extend({
         const authorization = request.headers()['authorization'];
         const requestOwner = authorization === 'Bearer fake.browser.test' ? user.id :
           authorization === 'Bearer fake.browser.test.other' ? otherUserId : state.user.id;
-        const visible = state.profiles.filter(row => row.owner_id === requestOwner &&
-          (!ownerFilter || ownerFilter === `eq.${row.owner_id}`));
+        const visible = state.profiles.filter(row => !ownerFilter || ownerFilter === `eq.${row.owner_id}`);
         if (state.holdProfiles) await state.holdProfiles;
         const filtered = url.searchParams.get('id')?.match(/^gt\.(.+)$/);
         const ordered = filtered ? visible.filter(row => row.id > filtered[1]).sort((a, b) => a.id.localeCompare(b.id)) : visible;
@@ -105,8 +104,7 @@ export const test = base.extend({
         const requestOwner = authorization === 'Bearer fake.browser.test' ? user.id :
           authorization === 'Bearer fake.browser.test.other' ? otherUserId : state.user.id;
         const ownerFilter = url.searchParams.get('owner_id');
-        const visible = state.supplierReferences.filter(row => row.owner_id === requestOwner &&
-          (!ownerFilter || ownerFilter === `eq.${row.owner_id}`));
+        const visible = state.supplierReferences.filter(row => !ownerFilter || ownerFilter === `eq.${row.owner_id}`);
         const cursor = url.searchParams.get('id')?.match(/^gt\.(.+)$/)?.[1];
         const ordered = cursor ? visible.filter(row => row.id > cursor).sort((a, b) => a.id.localeCompare(b.id)) : visible;
         const limited = url.searchParams.has('limit') ? ordered.slice(0, Number(url.searchParams.get('limit'))) : ordered;
@@ -116,9 +114,16 @@ export const test = base.extend({
             'Access-Control-Expose-Headers': 'Content-Range' } : {} });
       }
       if (pathname.endsWith('/rest/v1/calc3d_brands')) {
-        const visible = state.brands.filter(row => row.owner_id === state.user.id);
+        const visible = state.brands;
         if (state.holdBrands) await state.holdBrands;
-        return json(visible);
+        const cursor = url.searchParams.get('id')?.match(/^gt\.(.+)$/)?.[1];
+        const ordered = cursor ? visible.filter(row => row.id > cursor).sort((a, b) => a.id.localeCompare(b.id)) :
+          url.searchParams.has('order') ? [...visible].sort((a, b) => a.id.localeCompare(b.id)) : visible;
+        const limited = url.searchParams.has('limit') ? ordered.slice(0, Number(url.searchParams.get('limit'))) : ordered;
+        const counted = request.headers()['prefer']?.includes('count=exact');
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(limited),
+          headers: counted ? { 'Content-Range': limited.length ? `0-${limited.length - 1}/${visible.length}` : `*/${visible.length}`,
+            'Access-Control-Expose-Headers': 'Content-Range' } : {} });
       }
       if (pathname.endsWith('/rest/v1/rpc/calc3d_save_brand')) {
         const current = state.brands.find(row => row.id === body.brand_id && row.owner_id === state.user.id);
@@ -150,7 +155,8 @@ export const test = base.extend({
             body.expected_revision >= Number.MAX_SAFE_INTEGER) {
           return json({ code: '23514', message: `Invalid ${label} archive` }, 400);
         }
-        const current = state[collection].find(row => row.id === body[key] && row.owner_id === state.user.id);
+        if (!isBrand && state.role !== 'admin') return json({ code: '28000', message: 'Calc3D admin required' }, 403);
+        const current = state[collection].find(row => row.id === body[key] && (isBrand ? row.owner_id === state.user.id : true));
         if (!current || current.revision !== body.expected_revision || current.archived_at) {
           return json({ code: '40001', message: `${isBrand ? 'Brand' : 'Spool profile'} revision conflict` }, 409);
         }
@@ -163,6 +169,14 @@ export const test = base.extend({
       if (pathname.endsWith('/rest/v1/calc3d_spools')) return json(state.spools.filter(row => !row.owner_id || row.owner_id === state.user.id));
       if (pathname.endsWith('/rest/v1/rpc/calc3d_save_quote')) {
         const identity = body.payload?.spoolId;
+        if (identity?.startsWith('profile:')) {
+          const profile = state.profiles.find(row => `profile:${row.id}` === identity);
+          const submitted = body.payload?.input?.spool;
+          if (profile && profile.owner_id !== state.user.id &&
+              (profile.archived_at || submitted?.purchasePrice !== profile.purchase_price ||
+                submitted?.netWeightGrams !== Number(profile.net_weight_grams)))
+            return json({ code: '23514', message: 'Catalog spool is not quotable' }, 400);
+        }
         if (identity?.startsWith('base:')) {
           const product = state.sharedProducts.find(row => `base:${row.id}` === identity && row.status === 'confirmed');
           const override = state.sharedOverrides.find(row => `base:${row.base_id}` === identity && row.owner_id === state.user.id);
@@ -178,7 +192,8 @@ export const test = base.extend({
         return json(row);
       }
       if (pathname.endsWith('/rest/v1/rpc/calc3d_save_spool_profile')) {
-        const current = state.profiles.find(row => row.id === body.profile_id && row.owner_id === state.user.id);
+        if (state.role !== 'admin') return json({ code: '28000', message: 'Calc3D admin required' }, 403);
+        const current = state.profiles.find(row => row.id === body.profile_id);
         if ((body.profile_id && !current) || body.expected_revision !== (current?.revision ?? 0)) {
           return json({ code: '40001', message: 'Spool profile revision conflict' }, 409);
         }
@@ -189,10 +204,11 @@ export const test = base.extend({
           return json({ code: '23514', message: 'Invalid spool profile' }, 400);
         }
         const brandId = Object.hasOwn(payload, 'brandId') ? payload.brandId : current?.brand_id ?? null;
-        const selectedBrand = state.brands.find(row => row.id === brandId && row.owner_id === state.user.id);
+        const profileOwner = current?.owner_id ?? state.user.id;
+        const selectedBrand = state.brands.find(row => row.id === brandId && row.owner_id === profileOwner);
         if (brandId !== null && !selectedBrand) return json({ code: '23514', message: 'Invalid spool profile' }, 400);
         const label = Object.hasOwn(payload, 'brand') ? payload.brand : current?.brand ?? '';
-        const aliasBrand = state.brands.find(row => row.owner_id === state.user.id && row.aliases.includes(brandKey(label)));
+        const aliasBrand = state.brands.find(row => row.owner_id === profileOwner && row.aliases.includes(brandKey(label)));
         const resolvedBrand = selectedBrand ?? (Object.hasOwn(payload, 'brandId') ? null : aliasBrand);
         const suppliedFilament = Object.hasOwn(payload, 'filamentColor');
         if (suppliedFilament && typeof payload.filamentColor !== 'string')
@@ -204,7 +220,7 @@ export const test = base.extend({
             (filamentColorHex !== null && (!/^#[0-9a-f]{6}$/i.test(filamentColorHex) ||
               !Object.hasOwn(payload, 'filamentColor'))) || (!filamentColor && filamentColorHex))
           return json({ code: '23514', message: 'Invalid spool profile' }, 400);
-        const row = { id: current?.id ?? crypto.randomUUID(), owner_id: state.user.id,
+        const row = { id: current?.id ?? crypto.randomUUID(), owner_id: profileOwner,
           name: payload.name, material: payload.material,
           brand: resolvedBrand?.name ?? (Object.hasOwn(payload, 'brandId') && brandId === null && !Object.hasOwn(payload, 'brand') ? '' : label),
           brand_id: resolvedBrand?.id ?? null, filament_color: filamentColor,
@@ -221,6 +237,7 @@ export const test = base.extend({
         return json(state.printers);
       }
       if (pathname.endsWith('/rest/v1/rpc/calc3d_save_purchase')) {
+        if (state.role !== 'admin') return json({ code: '28000', message: 'Calc3D admin required' }, 403);
         const purchase = body.payload;
         const id = `purchase-${state.purchases.length + 1}`;
         const row = { id, owner_id: state.user.id, created_at: stamp, purchase_date: purchase.date, supplier: purchase.supplier, notes: purchase.notes, lines: purchase.lines, total: purchase.total, spool_count: purchase.spoolCount };
@@ -250,7 +267,12 @@ export const signedInTest = test.extend({
 /** Test-only profile revision through the public RPC; never edits calculator financial fields. */
 export async function setQuoteProfilePrice(page, purchasePrice, netWeightGrams = 1000) {
   const [profile] = await remoteRows(page, 'spool_profiles');
-  const error = await page.evaluate(async ({ profile, purchasePrice, netWeightGrams }) => {
+  const remote = remoteForPage(page);
+  const priorRole = remote.role;
+  // Test-only fixture setup: the actual member actions below still run as a member.
+  remote.role = 'admin';
+  let error;
+  try { error = await page.evaluate(async ({ profile, purchasePrice, netWeightGrams }) => {
     const { client } = await import('/src/auth/browser.mjs');
     const { error } = await client.rpc('calc3d_save_spool_profile', {
       payload: { name: profile.name, material: profile.material, brand: profile.brand, purchasePrice, netWeightGrams },
@@ -258,6 +280,7 @@ export async function setQuoteProfilePrice(page, purchasePrice, netWeightGrams =
     });
     return error?.message ?? null;
   }, { profile, purchasePrice, netWeightGrams });
+  } finally { remote.role = priorRole; }
   if (error) throw Error(error);
   await page.reload();
   await expect(page.locator('#spoolId')).toHaveValue(`profile:${profile.id}`);

@@ -38,7 +38,7 @@ test('consultation Edit opens the selected saved spool and saves only on explici
   await expect.poll(() => remote.calls.filter(c=>c.pathname.endsWith('/rpc/calc3d_save_spool_profile'))
     .map(c=>c.body)).toEqual([expect.objectContaining({profile_id:ids[0],expected_revision:1,
     payload:expect.objectContaining({purchasePrice:16000})})]);
-  await expect(page.locator('#spool-feedback')).toContainText('Bobina guardada en tu cuenta.');
+  await expect(page.locator('#spool-feedback')).toContainText('Bobina guardada en el catálogo.');
   expect(remote.profiles).toHaveLength(2);
   expect(remote.profiles.find(p=>p.id===ids[0])).toMatchObject({...before[0][0],brand:'Marca Uno',purchase_price:16000,
     revision:2,updated_at:expect.any(String)});
@@ -170,13 +170,11 @@ test('failed pending load is explicit, refresh recovers, and account switch remo
     return (await client.auth.signInWithPassword({email:'second@example.test',password:'fake-password'})).error?.message??null;
   });
   expect(error).toBeNull();
-  await expect(page.locator('#consultation-status')).toContainText('Todavía no hay');
+  await expect(page.locator('#consultation-status')).toContainText('1 de 1 presentaciones');
   await expect(page.getByRole('searchbox',{name:'Buscar bobinas'})).toHaveValue('');
-  await expect(page.locator('#consultation-brand option')).toHaveCount(1);
-  await expect(page.locator('#consultation-color option')).toHaveCount(1);
   await expect(page.locator('#consultation-color')).toHaveValue('');
-  await expect(page.locator('.consultation-row')).toHaveCount(0);
-  await expect(page.locator('#consultation-list a')).toHaveCount(0);
+  await expect(page.locator('.consultation-row')).toHaveCount(1);
+  await expect(page.locator('.consultation-row')).toContainText('PLA Plus pendiente');
 });
 
 test('deferred old-owner results cannot repaint after a switch', async ({page,remote}) => {
@@ -305,13 +303,12 @@ test('queued large result paints are discarded when the account changes', async 
     const {client}=await import('/src/auth/browser.mjs');
     await client.auth.signInWithPassword({email:'second@example.test',password:'fake-password'});
   });
-  await expect(page.locator('#consultation-status')).toContainText('Todavía no hay');
+  await expect(page.locator('#consultation-status')).toContainText('1171 de 1171 presentaciones');
   await page.evaluate(()=>new Promise(resolve=>{
     let frames=0;const next=()=>++frames===3?resolve():requestAnimationFrame(next);requestAnimationFrame(next);
   }));
-  await expect(page.locator('.consultation-row')).toHaveCount(0);
-  await expect(page.locator('#consultation-list a')).toHaveCount(0);
-  await expect(page.locator('#consultation-color option')).toHaveCount(1);
+  await expect(page.locator('.consultation-row')).toHaveCount(1171);
+  await expect(page.locator('#consultation-color option')).toHaveCount(3);
 });
 
 

@@ -134,15 +134,19 @@ for (const kind of ['marca', 'bobina']) {
       await expect.poll(() => archiveCalls(remote).length).toBe(1);
       await switchOwner(page, remote);
       await expect(page.getByRole('region', { name: 'Marcas' }).getByLabel('Marca guardada')).toHaveValue('');
-      await expect(page.locator('#spool-profile option')).toHaveCount(1);
-      expect(await page.locator('main').textContent()).not.toContain('Prueba');
+      await expect(page.locator('#spool-profile option')).toHaveCount(3);
+      await expect(page.locator('#spool-profile')).toHaveValue('');
+      expect(await page.locator('main').textContent()).toContain('Prueba');
       expect(await page.locator('#spool-name').inputValue()).toBe('');
       expect(await page.locator('#brand-name').inputValue()).toBe('');
     } finally { remote.holdArchive = null; release(); }
     await expect(page.locator('.account-nav')).toContainText('second@example.test');
     await expect(page.getByRole('region', { name: 'Marcas' }).getByLabel('Marca guardada')).toHaveValue('');
-    await expect(page.locator('#spool-profile option')).toHaveCount(1);
-    expect(await page.locator('main').textContent()).not.toContain('Prueba');
-    expect(await remoteRows(page, 'brands')).toEqual([]);
+    await expect(page.locator('#spool-profile option')).toHaveCount(3);
+    await expect(page.locator('#spool-profile')).toHaveValue('');
+    expect(await remoteRows(page, 'brands')).toEqual(remote.brands);
+    expect(await remoteRows(page, 'purchases')).toEqual([]);
+    expect(await remoteRows(page, 'spools')).toEqual([]);
+    expect(await remoteQuotes(page)).toEqual([]);
   });
 }

@@ -14,9 +14,9 @@ El borrador nuevo usa la impresora activa; los cuatro costos fijos ya no se intr
 
 ## Consultar y editar bobinas
 
-Abre «Consultar bobinas» desde la calculadora (`spools.html`) para buscar productos confirmados del catálogo común junto con tus bobinas personales. Las referencias del proveedor sin peso se muestran con precio de referencia cuando existe, pero no se pueden editar ni cotizar. Solo el administrador puede pulsar «Editar» en una bobina cotizable o agregar una bobina manual en Configuración. Guardar modifica el catálogo común para todas las cuentas. Una bobina personal con la misma URL o SKU verificados conserva su identidad sin otra fila del producto; el administrador edita el producto común, no su copia privada. Las bobinas privadas antiguas no se publican automáticamente y no se pueden quitar productos comunes desde esta interfaz. Las compras y las cotizaciones previas conservan sus datos históricos.
+Abre «Consultar bobinas» (`spools.html`) para ver el catálogo existente de perfiles, con su nombre, marca y color, sin importar quién creó cada fila. Las referencias pendientes sin peso solo se consultan, nunca se cotizan. Los miembros pueden seleccionar perfiles `profile:<uuid>` y guardar sus propias cotizaciones, pero no editar ni quitar bobinas o marcas, ni crear bobinas mediante compras. El administrador crea, edita o archiva perfiles existentes conservando su identidad, propietario y revisión. Las compras, impresoras y cotizaciones previas siguen siendo privadas por cuenta; editar una bobina no reescribe el historial.
 
-Este catálogo es por ahora un **borrador funcional local**: la migración y la aceptación independiente de seguridad siguen pendientes. Las pruebas de interfaz no autorizan aplicar SQL, desplegar ni publicar en `main`. Consulta [el contrato local](docs/shared-spool-catalog.md) antes de probarlo.
+Esta corrección de permisos es un **borrador funcional local**. La migración de permisos requiere las tablas heredadas, no la migración de catálogo compartido ni una semilla nueva. Las pruebas no autorizan aplicar SQL, desplegar ni publicar en `main`; la aceptación independiente sigue pendiente. Consulta [el contrato local](docs/shared-spool-catalog.md).
 
 ## Compras e inventario adquirido de prueba
 

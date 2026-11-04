@@ -23,11 +23,11 @@ test('S1-S3: owned presentation prices drafts, while saved copies keep their ori
   await page.locator('#spool-netWeightGrams').fill('1000');
   await page.locator('#save-spool').click();
   await expect(page.locator('#spool-feedback')).toContainText('guardada');
-  const [profile] = await remoteRows(page, 'shared_products');
-  expect(profile).toMatchObject({ origin: 'manual', profile: { purchasePrice: 21900, netWeightGrams: 1000 } });
-  expect(await remoteRows(page, 'spool_profiles')).toEqual([]);
+  const [profile] = await remoteRows(page, 'spool_profiles');
+  expect(profile).toMatchObject({ owner_id: remote.user.id, purchase_price: 21900, net_weight_grams: 1000, revision: 1 });
+  expect(remote.sharedProducts).toEqual([]);
   await page.goto('/');
-  await expect(page.locator('#spoolId')).toHaveValue(`base:${profile.id}`);
+  await expect(page.locator('#spoolId')).toHaveValue(`profile:${profile.id}`);
   await expect(page.locator('#quote-form #purchasePrice, #quote-form #netWeightGrams')).toHaveCount(0);
   await expect(page.locator('#spool-info')).not.toContainText(/precio de adquisición|peso inicial adquirido/i);
   await page.locator('#grams').fill('50');
@@ -38,16 +38,17 @@ test('S1-S3: owned presentation prices drafts, while saved copies keep their ori
   await expect(page.locator('#feedback')).toContainText('COT-000001');
   const saved = await remoteQuotes(page);
   expect(saved[0].input.spool).toEqual({ purchasePrice: 21900, netWeightGrams: 1000 });
-  expect(saved[0].form).toMatchObject({ spoolId: `base:${profile.id}`, purchasePrice: 21900, netWeightGrams: 1000 });
+  expect(saved[0].form).toMatchObject({ spoolId: `profile:${profile.id}`, purchasePrice: 21900, netWeightGrams: 1000 });
   expect(saved[0].result.breakdown.material).toBe(1095);
   await page.goto('/settings.html');
   await page.locator('.spool-picker-trigger').click();
-  await page.locator(`#spool-picker-list [data-id="base:${profile.id}"]`).click();
+  await page.locator(`#spool-picker-list [data-id="${profile.id}"]`).click();
   await page.locator('#edit-spool').click();
   await page.locator('#spool-purchasePrice').fill('30000');
   await page.locator('#save-spool').click();
   await expect(page.locator('#spool-feedback')).toContainText('guardada');
-  expect((await remoteRows(page, 'shared_products'))[0]).toMatchObject({ revision: 2, profile: { purchasePrice: 30000 } });
+  expect((await remoteRows(page, 'spool_profiles'))[0]).toMatchObject({ id: profile.id, owner_id: profile.owner_id,
+    revision: 2, purchase_price: 30000 });
   await page.goto('/');
   await expect(page.locator('#save')).toBeEnabled();
   await page.locator('#grams').fill('50');

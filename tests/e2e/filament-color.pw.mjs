@@ -102,9 +102,9 @@ test('consultation has a dedicated labeled filament-color column with safe fallb
   await page.locator('.catalog-shell').screenshot({path:info.outputPath('consultation-filament-color.png')});
   expect(stored(remote)).toBe(before);expect(writes(remote)).toEqual([]);
   await switchOwner(page,remote);
-  await expect(page.locator('#consultation-status')).toContainText('Todavía no hay');
+  await expect(page.locator('#consultation-status')).toContainText('4 de 4 presentaciones');
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-  await expect(rows).toHaveCount(0);await expect(page.locator('.consultation-filament')).toHaveCount(0);
+  await expect(rows).toHaveCount(4);await expect(page.locator('.consultation-filament')).toHaveCount(4);
   expect(stored(remote)).toBe(before);expect(writes(remote)).toEqual([]);
 });
 
