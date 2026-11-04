@@ -64,13 +64,21 @@ export function createBrandProfilePicker(select, {
     const sample = filamentSample(item);
     return `; ${sample.approximate ? 'Muestra aproximada por nombre' : sample.hex ? 'Muestra personalizada' : 'Sin muestra'}`;
   }
+  function labelNode(text) {
+    const label = document.createElement('span');
+    label.className = 'spool-picker-label';
+    label.textContent = text;
+    label.title = text;
+    return label;
+  }
   function decorate(node, item, text) {
+    const label = labelNode(text);
     if (filamentFirst && (item.filamentColor || item.filamentColorHex)) {
-      node.append(createFilamentSample(item, { compact: true }), document.createTextNode(text),
+      node.append(createFilamentSample(item, { compact: true }), label,
         chip('brand', item.brand || 'Sin marca', item.brandColor));
       return;
     }
-    node.append(chip('brand', item.brand || 'Sin marca', item.brandColor), document.createTextNode(text));
+    node.append(chip('brand', item.brand || 'Sin marca', item.brandColor), label);
     if (item.filamentColorHex) node.append(chip('filament', item.filamentColor, item.filamentColorHex));
   }
   function renderSelection() {
