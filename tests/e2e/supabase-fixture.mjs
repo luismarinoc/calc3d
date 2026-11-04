@@ -8,7 +8,7 @@ const states = new WeakMap();
 export const remoteForPage = page => states.get(page);
 export const test = base.extend({
   remote: async ({ page }, use) => {
-    const state = { quotes: [], printers: null, purchases: [], spools: [], profiles: [], supplierReferences: [], brands: [], number: 0, allowed: true, pending: false,
+    const state = { quotes: [], printers: null, purchases: [], spools: [], profiles: [], supplierReferences: [], sharedProducts: [], sharedOverrides: [], brands: [], number: 0, allowed: true, role: 'member', pending: false,
       fail: null, failAfter: null, reads: {}, calls: [], holdQuotes: null, holdProfiles: null, holdBrands: null, holdArchive: null, user };
     await page.route('http://127.0.0.1:54321/**', async route => {
       const request = route.request();
@@ -21,7 +21,7 @@ export const test = base.extend({
       if (pathname.endsWith('/auth/v1/token')) return json({ access_token: state.user.id === user.id ? 'fake.browser.test' : 'fake.browser.test.other', refresh_token: 'fake-refresh', token_type: 'bearer', expires_in: 3600, user: state.user });
       if (pathname.endsWith('/auth/v1/user')) return json(state.user);
       if (pathname.endsWith('/auth/v1/logout')) return route.fulfill({ status: 204, body: '' });
-      if (pathname.endsWith('/rest/v1/rpc/calc3d_access_status') || pathname.endsWith('/rest/v1/rpc/calc3d_record_access')) return json({ allowed: state.allowed, role: state.allowed ? 'member' : null, email: state.allowed ? state.user.email : null });
+      if (pathname.endsWith('/rest/v1/rpc/calc3d_access_status') || pathname.endsWith('/rest/v1/rpc/calc3d_record_access')) return json({ allowed: state.allowed, role: state.allowed ? state.role : null, email: state.allowed ? state.user.email : null });
       if (pathname.endsWith('/rest/v1/rpc/calc3d_request_access')) return json({ state: 'revoked', request: null });
       if (pathname.endsWith('/rest/v1/rpc/calc3d_claim_invitation')) {
         if (!state.pending) return json({ code: '23514', message: 'Invitation is not pending' }, 400);
@@ -38,6 +38,52 @@ export const test = base.extend({
         return json(visible);
       }
       if (pathname.endsWith('/rest/v1/calc3d_printer_settings')) return json(state.printers && state.printers.owner_id === state.user.id ? [state.printers] : []);
+      if (pathname.endsWith('/rest/v1/calc3d_shared_products') || pathname.endsWith('/rest/v1/calc3d_shared_overrides')) {
+        const own = pathname.endsWith('calc3d_shared_overrides');
+        const authorization = request.headers()['authorization'];
+        const requestOwner = authorization === 'Bearer fake.browser.test' ? user.id :
+          authorization === 'Bearer fake.browser.test.other' ? otherUserId : state.user.id;
+        const ownerFilter = url.searchParams.get('owner_id');
+        const visible = (own ? state.sharedOverrides : state.sharedProducts).filter(row => !own ||
+          row.owner_id === requestOwner && (!ownerFilter || ownerFilter === `eq.${row.owner_id}`));
+        const key = own ? 'base_id' : 'id';
+        const cursor = url.searchParams.get(key)?.match(/^gt\.(.+)$/)?.[1];
+        const ordered = visible.filter(row => !cursor || row[key] > cursor).sort((a, b) => a[key].localeCompare(b[key]));
+        const limited = ordered.slice(0, Number(url.searchParams.get('limit') ?? ordered.length));
+        const counted = request.headers()['prefer']?.includes('count=exact');
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(limited),
+          headers: counted ? { 'Content-Range': limited.length ? `0-${limited.length - 1}/${visible.length}` : `*/${visible.length}`,
+            'Access-Control-Expose-Headers': 'Content-Range' } : {} });
+      }
+      if (pathname.endsWith('/rest/v1/rpc/calc3d_create_common_product') || pathname.endsWith('/rest/v1/rpc/calc3d_update_common_product')) {
+        if (state.role !== 'admin') return json({ code: '42501', message: 'Admin required' }, 403);
+        const creating = pathname.endsWith('calc3d_create_common_product');
+        const current = state.sharedProducts.find(row => row.id === body.product_id);
+        if (!creating && (!current || current.status !== 'confirmed' || current.revision !== body.expected_revision))
+          return json({ code: '40001', message: 'Shared product revision conflict' }, 409);
+        const profile = { ...current?.profile, ...body.payload };
+        if (!profile.name?.trim() || !profile.material?.trim() || !Number.isSafeInteger(profile.purchasePrice) ||
+            profile.purchasePrice < 0 || !Number.isFinite(profile.netWeightGrams) || profile.netWeightGrams <= 0 ||
+            Object.keys(body.payload ?? {}).some(key => !['name', 'material', 'brand', 'purchasePrice', 'netWeightGrams'].includes(key)))
+          return json({ code: '23514', message: 'Invalid common product' }, 400);
+        const row = creating ? { id: crypto.randomUUID(), origin: 'manual', sku: null, source_url: null,
+          source_sha256: null, normalized_sha256: null, status: 'confirmed', pending: null, revision: 1, profile } :
+          { ...current, profile, revision: current.revision + 1 };
+        state.sharedProducts = creating ? [...state.sharedProducts, row] : state.sharedProducts.map(item => item === current ? row : item);
+        return json(row);
+      }
+      if (pathname.endsWith('/rest/v1/rpc/calc3d_save_shared_override') || pathname.endsWith('/rest/v1/rpc/calc3d_hide_shared_product')) {
+        const product = state.sharedProducts.find(row => row.id === body.product_id && row.status === 'confirmed');
+        const current = state.sharedOverrides.find(row => row.base_id === body.product_id && row.owner_id === state.user.id);
+        if (!product || body.expected_revision !== (current?.revision ?? 0))
+          return json({ code: '40001', message: 'Shared product revision conflict' }, 409);
+        const hidden = pathname.endsWith('calc3d_hide_shared_product');
+        const row = { owner_id: state.user.id, base_id: body.product_id,
+          fields: { ...current?.fields, ...(!hidden ? body.fields : {}) }, hidden,
+          revision: (current?.revision ?? 0) + 1 };
+        state.sharedOverrides = [...state.sharedOverrides.filter(item => item !== current), row];
+        return json(row);
+      }
       if (pathname.endsWith('/rest/v1/calc3d_spool_profiles')) {
         const ownerFilter = url.searchParams.get('owner_id');
         const authorization = request.headers()['authorization'];
@@ -116,6 +162,16 @@ export const test = base.extend({
       if (pathname.endsWith('/rest/v1/calc3d_purchases')) return json(state.purchases.filter(row => !row.owner_id || row.owner_id === state.user.id));
       if (pathname.endsWith('/rest/v1/calc3d_spools')) return json(state.spools.filter(row => !row.owner_id || row.owner_id === state.user.id));
       if (pathname.endsWith('/rest/v1/rpc/calc3d_save_quote')) {
+        const identity = body.payload?.spoolId;
+        if (identity?.startsWith('base:')) {
+          const product = state.sharedProducts.find(row => `base:${row.id}` === identity && row.status === 'confirmed');
+          const override = state.sharedOverrides.find(row => `base:${row.base_id}` === identity && row.owner_id === state.user.id);
+          const effective = product && { ...product.profile, ...override?.fields };
+          const submitted = body.payload?.input?.spool;
+          if (!effective || override?.hidden || submitted?.purchasePrice !== effective.purchasePrice ||
+              submitted?.netWeightGrams !== effective.netWeightGrams)
+            return json({ code: '23514', message: 'Shared spool is not quotable' }, 400);
+        }
         state.number++;
         const row = { ...body.payload, owner_id: state.user.id, id: `quote-${state.number}`, saved_at: stamp, number: `COT-${String(state.number).padStart(6, '0')}`, spool_id: body.payload.spoolId };
         state.quotes.unshift(row);

@@ -8,11 +8,12 @@ function harness() {
   const responses = new Map();
   let session = owner;
   let allowed = true;
+  let role = 'member';
   const client = {
     auth: { getSession: async () => ({ data: { session }, error: null }) },
     rpc: async (name, args) => {
       calls.push([name, args]);
-      return responses.get(name) ?? { data: name === 'calc3d_access_status' ? { allowed, role: 'member', email: 'a@example.test' } : null, error: null };
+      return responses.get(name) ?? { data: name === 'calc3d_access_status' ? { allowed, role, email: 'a@example.test' } : null, error: null };
     },
     from: (table) => ({ select: (columns) => {
       calls.push([table, columns]);
@@ -21,7 +22,7 @@ function harness() {
       return query;
     } }),
   };
-  return { client, calls, responses, setSession: value => { session = value; }, deny: () => { allowed = false; } };
+  return { client, calls, responses, setRole: value => { role = value; }, setSession: value => { session = value; }, deny: () => { allowed = false; } };
 }
 
 test('quote uses server number, preserves snapshots, lists detached mapped rows', async () => {
@@ -61,8 +62,8 @@ test('printer default is not written, CAS rejects stale revision and retains sta
   assert.deepEqual(h.calls.filter(([name]) => name === 'calc3d_save_printers').at(-1), ['calc3d_save_printers', { payload: first, expected_revision: 0 }]);
 });
 
-test('purchase save RPC and spool rows preserve acquisition snapshots', async () => {
-  const h = harness(); const repo = createRemoteRepositories(h.client, owner);
+test('purchase save RPC and spool rows preserve acquisition snapshots for admin; member private reads remain', async () => {
+  const h = harness(); h.setRole('admin'); const repo = createRemoteRepositories(h.client, owner);
   const input = { date: '2026-01-02', supplier: { name: 'Shop', address: '', phone: '' }, lines: [{ material: 'PLA', brand: 'X', color: 'Blue', quantity: 1, netWeightGrams: 1000, purchasePrice: 1000 }], notes: '' };
   const row = { id: 'p1', created_at: '2026-01-02T00:00:00Z', purchase_date: input.date, supplier: input.supplier, lines: input.lines, notes: '', total: 1000, spool_count: 1 };
   h.responses.set('calc3d_save_purchase', { data: row, error: null });
@@ -96,6 +97,7 @@ const profileRow = (revision = 1) => ({ id: profileId, name: 'Bobina', material:
 function profileHarness() {
   let session = owner;
   let allowed = true;
+  let role = 'admin';
   let afterCall = () => {};
   let stored = [profileRow()];
   let mutations = 0;
@@ -119,10 +121,10 @@ function profileHarness() {
       return result;
     },
   };
-  const access = { async requireAccess() { return { session, access: { allowed } }; } };
+  const access = { async requireAccess() { return { session, access: { allowed, role } }; } };
   return { repo: createRemoteRepositories(client, owner, access), calls, get mutations() { return mutations; },
     get stored() { return stored; }, setStored(value) { stored = value; }, setReply(value) { reply = value; },
-    switchAccount() { session = { user: { id: profileId } }; }, deny() { allowed = false; },
+    switchAccount() { session = { user: { id: profileId } }; }, deny() { allowed = false; }, setRole(value) { role = value; },
     after(fn) { afterCall = fn; } };
 }
 
@@ -345,7 +347,7 @@ test('profile repository guard rejects before calls and after returned protected
   const h = profileHarness();
   h.deny();
   await assert.rejects(h.repo.spoolProfiles.list(), /Acceso/);
-  await assert.rejects(h.repo.spoolProfiles.createProfile(profileInput), /Acceso/);
+  await assert.rejects(h.repo.spoolProfiles.createProfile(profileInput), /Acceso|administrador/);
   assert.deepEqual(h.calls, []);
   const switched = profileHarness();
   switched.switchAccount();

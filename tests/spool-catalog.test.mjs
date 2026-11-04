@@ -36,6 +36,16 @@ test('injected catalog estimates actual price and weight without stock deduction
   assert.deepEqual(evaluate(form()), evaluate(form(), demoSpools));
 });
 
+test('resolved base profiles keep base identity and colors; pending references cannot enter calculator', () => {
+  const base = { id: 'base:11111111-1111-4111-8111-111111111111', source: 'base', name: 'PLA', material: 'PLA', brand: 'Sur', brandId: null, filamentColor: 'Azul', filamentColorHex: '#112233', purchasePrice: 1000, netWeightGrams: 1000 };
+  const catalog = buildSpoolCatalog([], [], [], [base, { id: 'base:pending', status: 'pending', name: 'No', purchasePrice: 2 }]);
+  assert.deepEqual(catalog.map(row => row.id), [base.id]);
+  assert.equal(catalog[0].filamentColorHex, '#112233');
+  assert.equal(catalog[0].brandId, null);
+  assert.equal(evaluate({ ...form(base.id), purchasePrice: '1000' }, catalog).error, null);
+  assert.equal(evaluate(form('base:pending'), catalog).error, 'Selecciona una bobina de prueba.');
+});
+
 test('corrupt purchase storage cannot introduce spools into the validated catalog', () => {
   const store = createPurchaseStore({ getItem: () => '{bad', setItem: () => { throw Error('unexpected write'); } });
   assert.match(store.error, /no se pueden leer/);

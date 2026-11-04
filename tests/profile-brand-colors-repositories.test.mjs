@@ -18,7 +18,7 @@ function harness() {
       setHeader(name, value) { assert.equal(name, 'Authorization'); assert.equal(value, 'Bearer fixture-owner-token'); return this; },
       then(resolve, reject) { return Promise.resolve({ data: [row], count: 1, error: null }).then(resolve, reject); } }; } }),
     rpc: async (name, args) => { calls.push(args); return { data: response, error: null }; } };
-  const access = { requireAccess: async () => ({ session, access: { allowed } }) };
+  const access = { requireAccess: async () => ({ session, access: { allowed, role: allowed ? 'admin' : null } }) };
   return { repo: createRemoteRepositories(client, owner, access), calls,
     reply: value => { response = value; }, switchOwner: () => { session = { user: { id } }; }, deny: () => { allowed = false; } };
 }
@@ -64,7 +64,7 @@ test('list maps independent fields, old optional response columns, and rejects m
 
 test('new profile writes are fenced before and after RPC just like legacy writes', async () => {
   const h = harness(); h.deny();
-  await assert.rejects(h.repo.spoolProfiles.createProfile({ ...input, brandId }), /Acceso/);
+  await assert.rejects(h.repo.spoolProfiles.createProfile({ ...input, brandId }), /Acceso|administrador/);
   assert.equal(h.calls.length, 0);
   const switched = harness(); switched.switchOwner();
   await assert.rejects(switched.repo.spoolProfiles.updateProfile(id, input, 1), /cuenta/);

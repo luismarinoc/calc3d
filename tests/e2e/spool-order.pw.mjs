@@ -13,6 +13,7 @@ async function prepareCalculatorPicker(page) {
 const materialCost = page => page.locator('#result-content .result-row').filter({ has: page.getByText('Material', { exact: true }) });
 
 test('unsorted profiles and purchase display by material then brand without changing editing, selection or quote value', async ({ page, remote }) => {
+  remote.role = 'admin';
   const owner_id = remote.user.id;
   const profile = (id, material, name, purchase_price, brand = 'Prueba') => ({ id, owner_id, material, name, brand, purchase_price,
     net_weight_grams: 1000, revision: 1, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' });

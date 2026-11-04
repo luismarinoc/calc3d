@@ -22,6 +22,7 @@ test('quote save uses server number and opens immutable copy after reload', asyn
 });
 
 test('printer save/activate and purchase acquired spool persist across reloads', async ({ page, remote }) => {
+  remote.role = 'admin';
   await signIn(page);
   await page.goto('/settings.html');
   await page.locator('#new-printer').click();
@@ -120,6 +121,7 @@ test('quote refresh failure after committed RPC retains numbered success warning
 });
 
 test('purchase refresh failure after committed RPC retains purchase success warning', async ({ page, remote }) => {
+  remote.role = 'admin';
   await signIn(page);
   await page.goto('/purchases.html');
   await waitForPurchaseReady(page);

@@ -5,6 +5,11 @@ import { setPrinterCosts } from './printer-fixtures.mjs';
 const primary = ['title', 'purpose', 'spoolId', 'grams', 'hours', 'minutes', 'printerProfile', 'errorPercent', 'multiplierPreset', 'discountType', 'discountValue', 'surchargeType', 'surchargeValue', 'save'];
 const reference = { grams: '294', hours: '11', minutes: '0', errorPercent: '5' };
 
+async function waitForCatalog(page) {
+  await expect(page.locator('#spoolId option')).toHaveCount(1);
+  await expect(page.locator('.account-nav')).toBeVisible();
+}
+
 async function bounds(page, ids, withinViewport) {
   const size = page.viewportSize();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
@@ -25,6 +30,7 @@ async function bounds(page, ids, withinViewport) {
 
 test('desktop complete draft fits with reference results and no automatic persistence', async ({ page }, info) => {
   await page.goto('/');
+  await waitForCatalog(page);
   if (info.project.name === 'chromium-desktop') {
     const dimensions = await page.evaluate(() => ({ height: document.documentElement.scrollHeight, width: document.documentElement.scrollWidth }));
     console.log('desktop initial dimensions', dimensions);
@@ -106,6 +112,7 @@ async function alignedGramsRow(page) {
 
 test('fields have breathing room and paired controls align', async ({ page }, info) => {
   await page.goto('/');
+  await waitForCatalog(page);
   const spacing = await page.locator('.fields').first().evaluate(element => {
     const style = getComputedStyle(element);
     return { row: parseFloat(style.rowGap), column: parseFloat(style.columnGap) };
@@ -154,6 +161,7 @@ test('fields have breathing room and paired controls align', async ({ page }, in
 test('short desktop height scrolls to all controls rather than clipping', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 600 });
   await page.goto('/');
+  await waitForCatalog(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
   await page.locator('#save').scrollIntoViewIfNeeded();
   await expect(page.locator('#save')).toBeInViewport();

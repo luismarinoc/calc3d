@@ -1,4 +1,5 @@
 import { signedInTest as test, expect, remotePurchases, waitForPurchaseReady } from './supabase-fixture.mjs';
+// This suite exercises the administrator's purchase writer; member denial is covered by shared-catalog.
 
 async function fillLine(page, index, values) {
   const line = page.locator('.purchase-line').nth(index);
@@ -16,7 +17,8 @@ async function complete(page) {
   await fillLine(page, 1, petg);
 }
 
-test('explicit purchase, immutable history and per-spool inventory across reloads', async ({ page }, info) => {
+test('explicit purchase, immutable history and per-spool inventory across reloads', async ({ page, remote }, info) => {
+  remote.role = 'admin';
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   // Sign-in returns to the calculator; let its authenticated mount finish before leaving it.
@@ -58,7 +60,8 @@ test('explicit purchase, immutable history and per-spool inventory across reload
   expect(errors).toEqual([]);
 });
 
-test('invalid drafts focus errors and never create extra purchases', async ({ page }) => {
+test('invalid drafts focus errors and never create extra purchases', async ({ page, remote }) => {
+  remote.role = 'admin';
   await page.goto('/purchases.html');
   await waitForPurchaseReady(page);
   await complete(page);
@@ -86,6 +89,7 @@ test('remote read failure disables saving without altering protected records', a
 });
 
 test('denied writes require retry without false records or clearing draft', async ({ page, remote }) => {
+  remote.role = 'admin';
   await page.goto('/purchases.html');
   await waitForPurchaseReady(page);
   await complete(page);
@@ -110,7 +114,8 @@ async function openPurchasesFromReadyCalculator(page) {
   await expect(page.locator('main')).toHaveJSProperty('inert', false);
 }
 
-test('touch controls, labels, keyboard, navigation and no overflow', async ({ page }) => {
+test('touch controls, labels, keyboard, navigation and no overflow', async ({ page, remote }) => {
+  remote.role = 'admin';
   await page.goto('/');
   await openPurchasesFromReadyCalculator(page);
   for (const control of await page.locator('#purchase-form input, #purchase-form textarea, #purchase-form button').all()) {
@@ -144,6 +149,7 @@ test('unavailable remote spools shows a read error without crashing the purchase
 
 
 test('purchase navigation waits for admission on the fresh calculator document', async ({page,remote}) => {
+  remote.role = 'admin';
   let release,captured;const held=new Promise(r=>release=r),seen=new Promise(r=>captured=r);
   let first=true,navigation;const errors=[],failures=[],gestures=[];
   const stored=JSON.stringify([remote.purchases,remote.profiles,remote.number]);

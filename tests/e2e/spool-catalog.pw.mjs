@@ -2,7 +2,8 @@ import { signedInTest as test, expect, remoteQuotes, remotePurchases, waitForPur
 
 const material = page => page.locator('#result-content .result-row').filter({ has: page.getByText('Material', { exact: true }) });
 
-test('public purchase to calculator, quote snapshot and reload without inventory changes', async ({ page }) => {
+test('public purchase to calculator, quote snapshot and reload without inventory changes', async ({ page, remote }) => {
+  remote.role = 'admin';
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/purchases.html');

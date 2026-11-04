@@ -5,6 +5,7 @@ const brandId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const profileId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const secondId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 function seed(remote) {
+  remote.role = 'admin';
   remote.brands = [{ id: brandId, owner_id: remote.user.id, name: 'Prueba', normalized_name: 'prueba',
     color: '#123456', aliases: ['prueba'], revision: 1, archived_at: null, created_at: stamp, updated_at: stamp }];
   remote.profiles = [profileId, secondId].map((id, i) => ({ id, owner_id: remote.user.id,

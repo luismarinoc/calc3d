@@ -28,6 +28,7 @@ async function chooseSettings(page,name) {
 }
 
 test('Settings separates filament color from brand in one automatic read-only field',async({page,remote},info)=>{
+  remote.role='admin';
   catalog(remote);const before=stored(remote);
   await page.goto('/settings.html');await ready(page);
   await chooseSettings(page,'ABS Blanco 1kg');
@@ -61,6 +62,7 @@ test('Settings separates filament color from brand in one automatic read-only fi
 
 
 test('explicit price saves preserve registered color metadata and never persist an approximate sample',async({page,remote})=>{
+  remote.role='admin';
   catalog(remote);
   const before=structuredClone(remote.profiles),brands=structuredClone(remote.brands),refs=structuredClone(remote.supplierReferences);
   await page.goto('/settings.html');await ready(page);

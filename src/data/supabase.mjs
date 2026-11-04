@@ -4,6 +4,7 @@ import { validatePurchase } from '../domain/purchases.mjs';
 import { validateSpoolProfile } from '../domain/spool-profiles.mjs';
 import { normalizeBrandName, validateBrand } from '../domain/brands.mjs';
 import { normalizeRow, createAccessService } from '../auth/access.mjs';
+import { composeSharedCatalog } from '../domain/shared-catalog.mjs';
 
 const copy = value => structuredClone(value);
 const missing = () => { throw new Error('No se pudo guardar: el servidor no devolvió un registro.'); };
@@ -144,6 +145,11 @@ export function createRemoteRepositories(client, session, accessService = create
     if (result.session?.user?.id !== owner) throw new Error('La cuenta cambió; vuelve a iniciar sesión.');
     if (!result.access?.allowed) throw new Error('Acceso denegado o desactivado. Vuelve a iniciar sesión.');
     return result.session;
+  }
+  async function adminGuard() {
+    const result = await accessService.requireAccess({ adminOnly: true });
+    if (result.session?.user?.id !== owner) throw new Error('La cuenta cambió; vuelve a iniciar sesión.');
+    if (!result.access?.allowed || result.access.role !== 'admin') throw new Error('Se requiere acceso de administrador.');
   }
   const read = async (table, columns, order) => {
     await guard();
@@ -308,12 +314,14 @@ export function createRemoteRepositories(client, session, accessService = create
       return copy((await ownedCompleteRead('calc3d_spool_profiles', columns)).map(profile));
     },
     async createProfile(input) {
+      await adminGuard();
       const payload = validateSpoolProfile(input);
       const row = await saveProfile(payload, null, 0);
       if (row.revision !== 1) invalidProfile();
       return { ok: true, profile: copy(row) };
     },
     async archiveProfile(id, expectedRevision) {
+      await adminGuard();
       validArchiveTarget(id, expectedRevision, 'bobina');
       let row;
       try { row = profile(await write('calc3d_archive_spool_profile', { profile_id: id, expected_revision: expectedRevision })); }
@@ -325,6 +333,7 @@ export function createRemoteRepositories(client, session, accessService = create
       return { ok: true, profile: copy(row) };
     },
     async updateProfile(id, input, expectedRevision) {
+      await adminGuard();
       if (!validProfileId(id)) throw new TypeError('Identificador de bobina inválido.');
       if (!Number.isSafeInteger(expectedRevision) || expectedRevision <= 0 || expectedRevision >= Number.MAX_SAFE_INTEGER) {
         throw new TypeError('La revisión de bobina debe ser un entero positivo válido.');
@@ -345,7 +354,123 @@ export function createRemoteRepositories(client, session, accessService = create
     }
     return profile(row);
   }
+  // Unlike ownedCompleteRead, the public baseline has no owner filter. Enumerate the
+  // whole ordered set, comparing it with a counted first page; never return partial data.
+  async function completeSharedRead(table, columns, owned = false) {
+    const key = owned ? 'base_id' : 'id';
+    const incomplete = () => { throw new Error('No se pudo cargar el catálogo completo de bobinas. Recarga e intenta nuevamente.'); };
+    const token = async () => {
+      const value = (await guard())?.access_token;
+      if (typeof value !== 'string' || !value || /\s/u.test(value)) incomplete();
+      return value;
+    };
+    const queryFor = (value, counted, cursor) => {
+      let query = client.from(table).select(columns, ...(counted ? [{ count: 'exact' }] : []));
+      if (owned) query = query.eq('owner_id', owner);
+      query = query.order(key, { ascending: true }).limit(500);
+      if (cursor !== null) query = query.gt(key, cursor);
+      return query.setHeader('Authorization', `Bearer ${value}`);
+    };
+    const result = [];
+    let cursor = null;
+    let total = null;
+    do {
+      const response = await queryFor(await token(), total === null, cursor);
+      await guard();
+      const page = rows(response);
+      if (total === null) total = response.count;
+      if (!Number.isSafeInteger(total) || total < 0 || page.length > 500 ||
+          (result.length < total && page.length === 0)) incomplete();
+      for (const row of page) {
+        if (!validProfileId(row?.[key]) || (owned && row.owner_id !== owner) ||
+            (cursor !== null && row[key] <= cursor)) incomplete();
+        cursor = row[key];
+        result.push(row);
+        if (result.length > total) incomplete();
+      }
+    } while (result.length < total);
+    return result;
+  }
+  const sharedCatalog = {
+    /** Returns { profiles, pendingReferences }; private supplier matches keep their ID
+     * and expose commonTarget { id, baseRevision } for admin editing. */
+    async list() {
+      const baseRows = await completeSharedRead('calc3d_shared_products',
+        'id,origin,sku,source_url,status,profile,pending,revision,source_sha256,normalized_sha256');
+      const ownProfiles = await spoolProfiles.list();
+      const ownPending = await supplierReferences.list();
+      await guard();
+      const base = baseRows.map(row => {
+        const manual = row.origin === 'manual';
+        if (!['supplier', 'manual'].includes(row.origin) || !validProfileId(row.id) ||
+            !Number.isSafeInteger(row.revision) || row.revision < 1 ||
+            (manual ? row.status !== 'confirmed' || row.source_url !== null || row.sku !== null ||
+              row.source_sha256 !== null || row.normalized_sha256 !== null :
+              !safeSourceUrl(row.source_url) || !/^[0-9a-f]{64}$/.test(row.source_sha256) ||
+              !/^[0-9a-f]{64}$/.test(row.normalized_sha256))) {
+          throw new Error('Respuesta remota inválida del catálogo compartido.');
+        }
+        const common = { id: `base:${row.id}`, revision: row.revision, origin: manual ? 'manual' : 'supplier',
+          ...(manual ? {} : { sku: row.sku, sourceUrl: row.source_url,
+            provenance: { sourceSha256: row.source_sha256, normalizedSha256: row.normalized_sha256 } }), status: row.status };
+        if (row.status === 'confirmed' && row.pending === null) return { ...common, profile: row.profile };
+        if (row.status === 'pending' && row.profile === null && row.pending) return { ...common, ...row.pending };
+        throw new Error('Respuesta remota inválida del catálogo compartido.');
+      });
+      const composed = composeSharedCatalog({ base, personal: ownProfiles });
+      const profiles = [], pendingReferences = [];
+      for (const row of composed) {
+        if (!row.id.startsWith('base:')) { profiles.push(row); continue; }
+        const id = row.id.slice(5);
+        if (row.status === 'pending') {
+          pendingReferences.push({ ...row, kind: 'pending-reference', quotable: false });
+          continue;
+        }
+        const revision = baseRows.find(item => item.id === id)?.revision;
+        profiles.push({ id: row.id, ...row.profile, brandId: null, filamentColor: row.profile.filamentColor ?? '',
+          filamentColorHex: row.profile.filamentColorHex ?? null,
+          ...(row.origin === 'manual' ? {} : { sourceUrl: row.sourceUrl, sku: row.sku }),
+          source: 'base', origin: row.origin, baseRevision: revision, archivedAt: null });
+      }
+      return copy({ profiles, pendingReferences: [...ownPending, ...pendingReferences] });
+    },
+    async create(input) {
+      await adminGuard();
+      const payload = commonInput(input);
+      const row = await write('calc3d_create_common_product', { payload });
+      if (row.origin !== 'manual' || row.status !== 'confirmed' || row.revision !== 1 ||
+          row.sku !== null || row.source_url !== null || row.source_sha256 !== null || row.normalized_sha256 !== null ||
+          !validProfileId(row.id)) throw new Error('Respuesta remota inválida del catálogo compartido.');
+      return copy({ id: `base:${row.id}`, origin: 'manual', baseRevision: row.revision, ...row.profile });
+    },
+    async update(id, fields, expectedRevision) {
+      await adminGuard();
+      validSharedTarget(id, expectedRevision);
+      if (expectedRevision === 0 || !fields || typeof fields !== 'object' || Array.isArray(fields) ||
+          !Object.keys(fields).length || Object.keys(fields).some(key => !['name', 'material', 'brand', 'purchasePrice', 'netWeightGrams'].includes(key))) {
+        throw new TypeError('Campos de bobina compartida inválidos.');
+      }
+      const row = await write('calc3d_update_common_product', { product_id: id, payload: copy(fields), expected_revision: expectedRevision });
+      if (row.id !== id || row.revision !== expectedRevision + 1 || row.status !== 'confirmed' ||
+          !validateSpoolProfile(row.profile)) throw new Error('Respuesta remota inválida del catálogo compartido.');
+      return copy({ id: `base:${id}`, origin: row.origin, baseRevision: row.revision, ...row.profile });
+    },
+    async saveOverride() { throw new Error('Los cambios personales de bobinas ya no están disponibles.'); },
+    async hide() { throw new Error('Los cambios personales de bobinas ya no están disponibles.'); },
+  };
+  function validSharedTarget(id, expectedRevision) {
+    if (!validProfileId(id) || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0 ||
+        expectedRevision >= Number.MAX_SAFE_INTEGER) throw new TypeError('Identificador o revisión de bobina compartida inválidos.');
+  }
+  function commonInput(input) {
+    const payload = validateSpoolProfile(input);
+    if (Object.keys(payload).some(key => !['name', 'material', 'brand', 'purchasePrice', 'netWeightGrams'].includes(key))) {
+      throw new TypeError('Campos de bobina compartida inválidos.');
+    }
+    return payload;
+  }
   return {
+    sharedCatalog,
     spoolProfiles,
     supplierReferences,
     brands,
@@ -367,7 +492,7 @@ export function createRemoteRepositories(client, session, accessService = create
       async listPurchases() { return copy((await read('calc3d_purchases', 'id,created_at,purchase_date,supplier,notes,lines,total,spool_count', 'created_at')).map(purchase)); },
       async listSpools() { return copy((await read('calc3d_spools', 'id,purchase_id,purchase_date,supplier,material,brand,color,purchase_price,net_weight_grams,remaining_grams', 'id')).map(spool)); },
       async savePurchase(input) {
-        await guard();
+        await adminGuard();
         const normalized = validatePurchase(input);
         const row = await write('calc3d_save_purchase', { payload: normalized });
         if (!row.id || !row.created_at || !row.purchase_date) missing();

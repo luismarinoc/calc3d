@@ -15,7 +15,8 @@ export function createSpoolSettings() {
   const failure = document.querySelector('#spool-error');
   const edit = document.querySelector('#edit-spool');
   const archive = document.querySelector('#archive-spool');
-  const actions = [select, edit, document.querySelector('#new-spool'), archive, ...form.elements];
+  const add = document.querySelector('#new-spool');
+  const actions = [select, edit, add, archive, ...form.elements];
   const labels = { name: 'nombre', material: 'material', purchasePrice: 'precio de compra', netWeightGrams: 'peso neto' };
   const brandField = form.elements.namedItem('brandId');
   const filamentField = form.elements.namedItem('filamentColor');
@@ -30,9 +31,14 @@ export function createSpoolSettings() {
   let editing = null;
   let pending = false;
   let ownerKey = null;
+  let admin = false;
+  const commonTarget = item => item?.commonTarget ?? (item?.source === 'base' ?
+    { id: item.id.slice(5), baseRevision: item.baseRevision } : null);
   function controls(selectedId) {
     failure.hidden = profiles !== null || !failure.textContent;
-    for (const control of actions) control.disabled = profiles === null || pending;
+    for (const control of actions) control.disabled = profiles === null || pending || (control !== select && !admin);
+    form.hidden = !admin;
+    add.hidden = edit.hidden = !admin;
     select.replaceChildren();
     if (!profiles) { picker.render([], true); return; }
     const active = profiles.filter(item => !item.archivedAt);
@@ -41,8 +47,12 @@ export function createSpoolSettings() {
     for (const item of ordered) select.add(new Option(item.label, item.id));
     select.value = active.some(item => item.id === selectedId) ? selectedId : '';
     picker.render(ordered, pending);
-    edit.disabled = archive.disabled = pending || !select.value;
-    if (!active.length && !feedback.textContent) feedback.textContent = 'Agrega una bobina para guardar su precio y peso neto.';
+    edit.disabled = pending || !admin || !select.value;
+    const selected = active.find(item => item.id === select.value);
+    archive.hidden = !admin || !selected || !!commonTarget(selected);
+    archive.disabled = pending || !admin || !selected || !!commonTarget(selected);
+    if (!active.length && !feedback.textContent) feedback.textContent = admin ?
+      'Agrega una bobina al catálogo común para que todos puedan usarla.' : 'Todavía no hay bobinas disponibles en el catálogo común.';
   }
   function clearError() {
     feedback.textContent = '';
@@ -86,18 +96,19 @@ export function createSpoolSettings() {
     brandField.value = [...brandField.options].some(option => option.value === selectedBrand) ? selectedBrand : '';
     controls(select.value);
   }
-  document.querySelector('#new-spool').addEventListener('click', () => {
+  add.addEventListener('click', () => {
+    if (!admin || !source || pending) return;
     clearError(); editing = null; controls(''); populate(); form.elements.namedItem('name').focus();
   });
-  select.addEventListener('change', () => { edit.disabled = archive.disabled = !select.value; });
+  select.addEventListener('change', () => controls(select.value));
   edit.addEventListener('click', () => {
     const item = profiles?.find(profile => profile.id === select.value);
-    if (!item) return;
+    if (!admin || pending || !item) return;
     clearError(); editing = item; populate(item); form.elements.namedItem('name').focus();
   });
   archive.addEventListener('click', async () => {
     const item = profiles?.find(profile => profile.id === select.value && !profile.archivedAt);
-    if (!source || pending || !item) return;
+    if (!admin || !source || pending || !item || commonTarget(item)) return;
     if (!window.confirm(`¿Quitar la bobina «${item.name}» de las listas? Se conservarán compras, precios y cálculos guardados. No se puede restaurar desde esta página.`)) return;
     const current = source;
     pending = true; clearError(); controls(item.id);
@@ -111,9 +122,9 @@ export function createSpoolSettings() {
       feedback.textContent = 'Bobina quitada de las listas. Se conserva el historial.';
       controls(fallback);
       try {
-        const loaded = await current.spoolProfiles.list();
+        const loaded = await current.sharedCatalog.list();
         if (source !== current) return;
-        profiles = loaded;
+        profiles = loaded.profiles;
       } catch {
         if (source === current) feedback.textContent = 'Bobina quitada de las listas. No se pudo actualizar la lista; recarga para reintentar.';
       }
@@ -122,7 +133,7 @@ export function createSpoolSettings() {
   });
   form.addEventListener('submit', async event => {
     event.preventDefault();
-    if (!source || profiles === null || pending) return;
+    if (!admin || !source || profiles === null || pending) return;
     clearError();
     const input = {};
     for (const key of Object.keys(labels)) {
@@ -142,46 +153,56 @@ export function createSpoolSettings() {
       const key = Object.keys(labels).find(key => error.message.toLowerCase().includes(labels[key])) ?? 'name';
       report(error.message, form.elements.namedItem(key)); return;
     }
+    const target = commonTarget(editing);
+    const commonFields = Object.fromEntries(Object.keys(labels).map(key => [key, input[key]]));
+    commonFields.brand = input.brand;
+    if (target && Object.entries(commonFields).every(([key, value]) => editing[key] === value)) {
+      feedback.textContent = 'No hay cambios para guardar en el catálogo común.';
+      return;
+    }
     const current = source;
     const selectedId = select.value;
     pending = true; controls(selectedId);
     try {
-      const result = editing
-        ? await current.spoolProfiles.updateProfile(editing.id, input, editing.revision)
-        : await current.spoolProfiles.createProfile(input);
+      const result = target ? await current.sharedCatalog.update(target.id, commonFields, target.baseRevision) :
+        editing ? await current.spoolProfiles.updateProfile(editing.id, input, editing.revision) :
+          await current.sharedCatalog.create(commonFields);
       if (source !== current) return;
-      // The validated RPC response is the commit acknowledgment. A later read cannot undo it.
-      editing = result.profile;
+      // The RPC acknowledgment remains visible if the subsequent list refresh fails.
+      editing = target && editing.source !== 'base' ? { ...editing, ...result,
+        id: editing.id, commonTarget: { id: target.id, baseRevision: result.baseRevision } } :
+        target || !editing ? { ...editing, ...result, source: 'base', archivedAt: null } : result.profile;
       profiles = [...profiles.filter(item => item.id !== editing.id), editing];
-      feedback.textContent = 'Bobina guardada en tu cuenta.';
+      feedback.textContent = target || !result.profile ? 'Bobina guardada en el catálogo común.' : 'Bobina guardada en tu cuenta.';
       controls(editing.id);
       try { sessionStorage.setItem(ownerKey, editing.id); } catch { /* Selection memory is optional. */ }
       try {
-        const loaded = await current.spoolProfiles.list();
+        const loaded = await current.sharedCatalog.list();
         if (source !== current) return;
-        const confirmed = loaded.find(item => item.id === editing.id);
+        const confirmed = loaded.profiles.find(item => item.id === editing.id);
         if (!confirmed) throw new Error('La lista no incluye la bobina guardada.');
-        profiles = loaded;
+        profiles = loaded.profiles;
         editing = confirmed;
       } catch {
-        if (source === current) feedback.textContent = 'Bobina guardada en tu cuenta. No se pudo actualizar la lista; recarga para reintentar.';
+        if (source === current) feedback.textContent = 'Bobina guardada. No se pudo actualizar la lista; recarga para reintentar.';
       }
-    } catch (error) { if (source === current) report(error.message); }
+    } catch (error) { if (source === current) report(error.code === '40001'
+      ? 'La bobina común cambió; recarga antes de guardar.' : error.message); }
     finally { if (source === current) { pending = false; controls(editing?.id ?? selectedId); } }
   });
   function clear() {
-    source = null; profiles = null; editing = null; pending = false; ownerKey = null;
+    source = null; profiles = null; editing = null; admin = false; pending = false; ownerKey = null;
     form.reset();
     brands = []; populate(); feedback.textContent = ''; failure.textContent = 'Comprobando acceso remoto…'; controls();
   }
-  async function load(repository, session, isCurrent) {
+  async function load(repository, session, isCurrent, role) {
     const current = repository;
-    source = current;
+    source = current; admin = role === 'admin';
     ownerKey = `calc3d-spool-selection:${session.user.id}`;
     try {
-      const loaded = await current.spoolProfiles.list();
+      const loaded = await current.sharedCatalog.list();
       if (!isCurrent() || source !== current) return;
-      profiles = loaded; failure.textContent = '';
+      profiles = loaded.profiles; failure.textContent = '';
       let remembered = null;
       try { remembered = sessionStorage.getItem(ownerKey); } catch { /* Selection memory is optional. */ }
       controls(remembered);

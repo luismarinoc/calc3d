@@ -19,6 +19,7 @@ export function createSpoolConsultation() {
   const collator = new Intl.Collator('es-CL', { sensitivity: 'base', numeric: true });
   const key = text => String(text ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-CL');
   let source = null;
+  let admin = false;
   let isCurrent = () => false;
   let generation = 0;
   let items = [];
@@ -109,7 +110,11 @@ export function createSpoolConsultation() {
     } else {
       const missing = document.createElement('span'); missing.textContent = 'Sin enlace de origen'; origin.append(missing);
     }
-    if (!pending) {
+    if (item.source === 'base') {
+      const provenance = document.createElement('span'); provenance.textContent = 'Catálogo común · edición por administradores';
+      origin.append(provenance);
+    }
+    if (!pending && admin) {
       const edit = document.createElement('a'); edit.className = 'consultation-product-link';
       edit.href = `./settings.html?editSpool=${encodeURIComponent(item.id)}#spool-form`;
       edit.textContent = 'Editar'; edit.setAttribute('aria-label', `Editar bobina: ${item.name}`);
@@ -164,12 +169,12 @@ export function createSpoolConsultation() {
   }
   function clear() {
     cancelPaint(); clearCaches();
-    generation++; source = null; isCurrent = () => false; items = []; loading = false; error = false;
+    generation++; source = null; admin = false; isCurrent = () => false; items = []; loading = false; error = false;
     list.replaceChildren(); resetFilters(); controls.forEach(control => { control.disabled = true; });
     status.textContent = 'Comprobando acceso…';
   }
-  async function load(repository, current, preserveFilters = false) {
-    source = repository; isCurrent = current;
+  async function load(repository, current, role, preserveFilters = false) {
+    source = repository; isCurrent = current; admin = role === 'admin';
     const token = ++generation;
     const previous = preserveFilters ? [brand.value, material.value, color.value] : ['', '', ''];
     if (!preserveFilters) resetFilters();
@@ -177,10 +182,9 @@ export function createSpoolConsultation() {
     items = []; loading = true; error = false;
     controls.forEach(control => { control.disabled = true; }); render();
     try {
-      const [profiles, references, brands] = await Promise.all([
-        repository.spoolProfiles.list(), repository.supplierReferences.list(), repository.brands.list()]);
+      const [catalog, brands] = await Promise.all([repository.sharedCatalog.list(), repository.brands.list()]);
       if (token !== generation || source !== repository || !current()) return;
-      items = presentSpools([...profiles.filter(profile => !profile.archivedAt), ...references], brands)
+      items = presentSpools([...catalog.profiles.filter(profile => !profile.archivedAt), ...catalog.pendingReferences], brands)
         .map(item => ({ ...item, material: canonicalMaterial(item.material) }));
       for (const item of items) searchIndex.set(item, {
         text: key([item.brand, item.material, item.name, item.filamentColor, item.supplierSku].join(' ')),
@@ -202,7 +206,7 @@ export function createSpoolConsultation() {
   reset.addEventListener('click', () => {
     resetFilters(); setOptions(); render(); search.focus();
   });
-  refresh.addEventListener('click', () => { if (source && isCurrent()) void load(source, isCurrent, true); });
+  refresh.addEventListener('click', () => { if (source && isCurrent()) void load(source, isCurrent, admin ? 'admin' : 'member', true); });
   clear();
   return { clear, load };
 }
