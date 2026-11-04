@@ -54,9 +54,13 @@ test('consultation is in main navigation rather than the settings content', asyn
   await page.goto('/settings.html');
   await expect(page.locator('main').getByRole('link',{name:'Consultar bobinas',exact:true})).toHaveCount(0);
   await expect(page.locator('.topbar').getByRole('link',{name:'Consultar bobinas',exact:true})).toHaveAttribute('href','./spools.html');
+  await expect(page.locator('.account-nav')).toBeVisible();
+  await expect(page.locator('main')).toHaveJSProperty('inert',false);
   await page.goto('/index.html');
   const link = page.locator('.topbar').getByRole('link',{name:'Consultar bobinas',exact:true});
   await expect(link).toHaveAttribute('href','./spools.html');
+  await expect(page.locator('.account-nav')).toBeVisible();
+  await expect(page.locator('main')).toHaveJSProperty('inert',false);
   await link.click();
   await expect(page).toHaveURL(/\/spools.html$/);
   await expect(page.getByRole('heading',{name:'Consultar bobinas',exact:true})).toBeVisible();
