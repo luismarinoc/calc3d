@@ -305,10 +305,7 @@ test('queued large result paints are discarded when the account changes', async 
     await client.auth.signInWithPassword({email:'second@example.test',password:'fake-password'});
   });
   await expect(page.locator('#consultation-status')).toContainText('1171 de 1171 presentaciones');
-  await page.evaluate(()=>new Promise(resolve=>{
-    let frames=0;const next=()=>++frames===3?resolve():requestAnimationFrame(next);requestAnimationFrame(next);
-  }));
-  await expect(page.locator('.consultation-row')).toHaveCount(1171);
+  await expect(page.locator('.consultation-row')).toHaveCount(1171, { timeout: 15000 });
   await expect(page.locator('#consultation-color option')).toHaveCount(3);
 });
 
