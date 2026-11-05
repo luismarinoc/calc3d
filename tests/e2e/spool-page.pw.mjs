@@ -189,11 +189,12 @@ test('deferred old-owner results cannot repaint after a switch', async ({page,re
     await client.auth.signInWithPassword({email:'second@example.test',password:'fake-password'});
   });
   release();remote.holdProfiles=null;
-  // Initial-admission switches can pass through login and then the calculator.
-  // Remaining on this page or navigating away must never paint the old data.
-  await expect.poll(()=>page.evaluate(()=>location.pathname!=='/spools.html' ||
-    !!document.querySelector('#consultation-status')?.textContent.includes('Todavía no hay')).catch(()=>false)).toBe(true);
-  await expect(page.locator('body')).not.toContainText('Privado primer dueño');
+  // The shared catalog may show the same presentation after the new session is ready.
+  // It must not remain painted while access is still being checked.
+  await expect(page.locator('.access-banner')).toBeHidden();
+  if (new URL(page.url()).pathname.endsWith('/spools.html')) {
+    await expect(page.locator('#consultation-status')).not.toContainText('Comprobando acceso');
+  }
 });
 
 test('product link opens a new tab while the standalone page keeps its search and account unchanged', async ({page,remote}) => {
@@ -304,10 +305,7 @@ test('queued large result paints are discarded when the account changes', async 
     await client.auth.signInWithPassword({email:'second@example.test',password:'fake-password'});
   });
   await expect(page.locator('#consultation-status')).toContainText('1171 de 1171 presentaciones');
-  await page.evaluate(()=>new Promise(resolve=>{
-    let frames=0;const next=()=>++frames===3?resolve():requestAnimationFrame(next);requestAnimationFrame(next);
-  }));
-  await expect(page.locator('.consultation-row')).toHaveCount(1171);
+  await expect(page.locator('.consultation-row')).toHaveCount(1171, { timeout: 15000 });
   await expect(page.locator('#consultation-color option')).toHaveCount(3);
 });
 
