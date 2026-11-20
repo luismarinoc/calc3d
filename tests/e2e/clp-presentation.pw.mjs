@@ -18,7 +18,7 @@ async function assertRightAligned(page, label) {
 
 test('reference summary presents whole CLP and full-width right-aligned sale without changing stored precision', async ({ page }, info) => {
   await page.goto('/');
-  await setPrinterCosts(page, { electricityPricePerKwh: 230 });
+  await setPrinterCosts(page, { watts: 130, electricityPricePerKwh: 230 });
   await setQuoteProfilePrice(page, 22000);
   for (const [id, value] of Object.entries(example)) await page.locator(`#${id}`).fill(value);
   for (const [label, expected] of Object.entries({ Material: '$6.468', Electricidad: '$329', Desgaste: '$560', Imprevistos: '$368', 'Otros costos': '$0', 'Costo total': '$7.725', 'Precio base': '$15.450', Descuento: '$0', Recargo: '$0', 'Precio final estimado': '$15.450', 'Ganancia estimada': '$7.725' })) {

@@ -21,7 +21,7 @@ test('two installed instances of the same model remain separately selectable wit
   await page.goto('/');
   const printer = page.locator('#printerProfile');
   const unchanged = await bytes(page);
-  for (const [id, watts, name] of [[ids[0], '130', 'Taller norte'], [ids[1], '177', 'Taller sur']]) {
+  for (const [id, watts, name] of [[ids[0], '210', 'Taller norte'], [ids[1], '177', 'Taller sur']]) {
     await printer.selectOption(id);
     await expect(page.locator('#watts')).toHaveValue(watts);
     await expect(page.locator('#printer-name-current')).toHaveText(name);
@@ -39,8 +39,8 @@ test('new saved quote pins instance and params, legacy copy never invents a matc
   const saved = await bytes(page);
   const record = saved[0][0];
   expect(record.form.printerInstanceId).toBe('demo-printer-p2s');
-  expect(record.form.printerName).toBe('Bambu Lab P2S (de ejemplo)');
-  expect(record.form.watts).toBe('130');
+  expect(record.form.printerName).toBe('Bambu Lab H2S (de ejemplo)');
+  expect(record.form.watts).toBe('210');
   await page.reload();
   await page.getByRole('tab', { name: 'Historial' }).click();
   await page.getByRole('button', { name: 'Abrir copia' }).click();
@@ -64,7 +64,8 @@ test('new saved quote pins instance and params, legacy copy never invents a matc
 
 test('reference costs, semantic hierarchy, non-sale expenses and compact bounds', async ({ page }, info) => {
   await page.goto('/');
-  await setPrinterCosts(page, { electricityPricePerKwh: 230 });
+  // Pin power explicitly: this test asserts result hierarchy and bounds, not the installed default.
+  await setPrinterCosts(page, { watts: 130, electricityPricePerKwh: 230 });
   await setQuoteProfilePrice(page, 22000);
   for (const [id, value] of Object.entries({ grams: '294', hours: '11', minutes: '0' })) await page.locator(`#${id}`).fill(value);
   await expect(result(page, 'Costo total')).toContainText('7.725');

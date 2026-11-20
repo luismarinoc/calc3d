@@ -20,7 +20,7 @@ test('new and reloaded drafts expose reference example directly', async ({ page 
   await expect(page.locator('#calculationMode')).toBeHidden();
   for (const id of ['printerProfile', 'errorPercent', 'multiplierPreset']) await expect(page.locator(`#${id}`)).toBeVisible();
   await expect(page.locator('#multiplierPreset')).toHaveValue('2');
-  await setPrinterCosts(page, { electricityPricePerKwh: 230 });
+  await setPrinterCosts(page, { watts: 130, electricityPricePerKwh: 230 });
   await setQuoteProfilePrice(page, 22000);
   for (const [id, value] of Object.entries({ grams: '294', hours: '11', minutes: '0' })) await page.locator(`#${id}`).fill(value);
   await expect(amount(page, 'Costo total')).toContainText('7.725');

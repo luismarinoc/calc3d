@@ -58,7 +58,7 @@ function report(message, field) {
 }
 document.querySelector('#new-printer').addEventListener('click', () => {
   resetError(); editing = null;
-  populate({ ...demoPrinter, name: '', modelId: 'p2s' });
+  populate({ ...demoPrinter, name: '', modelId: 'h2s' });
   form.elements.namedItem('name').focus();
 });
 document.querySelector('#edit-printer').addEventListener('click', () => {

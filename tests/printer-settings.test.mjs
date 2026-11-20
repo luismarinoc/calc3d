@@ -17,7 +17,7 @@ function memory(initial = null) {
     external(value) { raw = value; } };
 }
 
-const demo = { id: 'demo-printer-p2s', name: 'Bambu Lab P2S (de ejemplo)', ...printer('Bambu Lab P2S (de ejemplo)') };
+const demo = { id: 'demo-printer-p2s', ...printer('Bambu Lab H2S (de ejemplo)', 'h2s'), watts: 210 };
 
 test('absent key exposes labelled demo without writing; create two physical printers of same model and switch active without losing either', () => {
   const mem = memory();
