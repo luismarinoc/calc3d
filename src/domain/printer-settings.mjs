@@ -1,7 +1,7 @@
 // Installed-printer identities belong to settings, not the model-template catalog.
 export const demoPrinter = Object.freeze({
-  id: 'demo-printer-p2s', name: 'Bambu Lab P2S (de ejemplo)', modelId: 'p2s',
-  watts: 130, electricityPricePerKwh: 215, replacementCost: 220000,
+  id: 'demo-printer-p2s', name: 'Bambu Lab H2S (de ejemplo)', modelId: 'h2s',
+  watts: 210, electricityPricePerKwh: 215, replacementCost: 220000,
   replacementLifetimeHours: 4320,
 });
 

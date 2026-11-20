@@ -48,7 +48,7 @@ test('desktop complete draft fits with reference results and no automatic persis
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize().width);
     if (info.project.name === 'webkit-phone') await page.screenshot({ path: info.outputPath('compact-phone.png'), fullPage: true });
   }
-  await setPrinterCosts(page, { electricityPricePerKwh: 230 });
+  await setPrinterCosts(page, { watts: 130, electricityPricePerKwh: 230 });
   await setQuoteProfilePrice(page, 22000);
   for (const [id, value] of Object.entries(reference)) await page.locator(`#${id}`).fill(value);
   await page.locator('#multiplierPreset').selectOption('2');

@@ -6,7 +6,7 @@ const amount = (page, label) => page.locator('#result-content .result-row').filt
 
 test('optional blanks calculate as zeros; gift save, reload and copy retain cost without revenue', async ({ page }) => {
   await page.goto('/');
-  await setPrinterCosts(page, { electricityPricePerKwh: 230 });
+  await setPrinterCosts(page, { watts: 130, electricityPricePerKwh: 230 });
   await setQuoteProfilePrice(page, 22000);
   for (const [id, value] of Object.entries({ grams: '294', hours: '11', minutes: '0' })) await page.locator(`#${id}`).fill(value);
   await expect(amount(page, 'Costo total')).toContainText('7.725');
